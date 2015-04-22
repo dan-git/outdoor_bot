@@ -1,0 +1,5 @@
+int32 radarNumber
+---
+float32 distanceToHome
+float32 deltaDistanceToHome
+float32 velocityFromHome

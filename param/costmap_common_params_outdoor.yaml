@@ -1,0 +1,12 @@
+obstacle_range: 2.5
+raytrace_range: 3.0
+footprint: [[0.64, 0.63], [0.64, -0.63], [-0.64, -0.63], [-0.64, 0.63]]
+#robot_radius: 0.75
+inflation_radius: 0.5
+max_obstacle_height: 0.6
+min_obstacle_height: 0.0
+
+observation_sources:  front_hokuyo_scan rear_hokuyo_scan
+
+front_hokuyo_scan: {sensor_frame: hokuyo_front_link, data_type: LaserScan, topic: /scan, marking: true, clearing: true}
+rear_hokuyo_scan: {sensor_frame: hokuyo_rear_link, data_type: LaserScan, topic: /rear_scan, marking: true, clearing: true}

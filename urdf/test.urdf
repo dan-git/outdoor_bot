@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<robot name="testBot">
+
+  <material name="black">
+    <color rgba="0.0 0.0 0.0 1.0"/>
+  </material>
+  <material name="red">
+    <color rgba="1 0 0 1.0"/>
+  </material>
+  <material name="green">
+    <color rgba="0 1 0 1.0"/>
+  </material>
+  <material name="blue">
+    <color rgba="0 0 1 1.0"/>
+  </material>
+  <material name="yellow">
+    <color rgba="1 1 0 1.0"/>
+  </material>
+  <material name="white">
+    <color rgba="1 1 1 1.0"/>
+  </material>
+
+  <!-- base_footprint is a fictitious link(frame) that is on the ground right below base_link origin, navigation stack depends on this frame -->
+
+  <link name="base_footprint">
+  </link>
+
+  <joint name="base_link_joint" type="fixed">
+    <!-- place the joint at the height of the frame -->
+    <origin xyz="0 0 0.18" rpy="0 0 0" />        
+    <parent link="base_footprint"/>
+    <child link="base_link" />
+  </joint>
+
+  <link name="base_link">
+    <visual>
+      <!-- this origin is with respect to the joint origin -->
+      <origin xyz=" 0. 0. 0." rpy="0 0 0" />
+      <geometry>
+        <box size="1.28 1.26 0.004"/>
+      </geometry>
+      <material name="blue"/>
+    </visual>
+  </link>
+     
+</robot>

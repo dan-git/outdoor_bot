@@ -1,0 +1,9 @@
+<launch>
+
+   <node pkg="outdoor_bot" type="webcams" name="webcams" output="screen"/>
+   <node pkg="outdoor_bot" type="digcams" name="digcams" output="screen"/>
+   <node pkg="outdoor_bot" type="image_cvproc" name="image_processor" output="screen" />
+   <node pkg="outdoor_bot" type="NavTargets" name="NavTargets" output="screen" />
+   <node pkg="outdoor_bot" type="autonomous_node" name="autonomous_node" output="screen"/>
+</launch>
+

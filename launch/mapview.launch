@@ -1,0 +1,11 @@
+<launch>
+  <include file="$(find outdoor_bot)/launch/includes/robot_state_publisher_outdoor.launch"/>
+
+  <node pkg="outdoor_bot" type="robotPose_node" name="robotPose_node" args=" 1 OUTDOOR" output="screen" >
+  </node>
+
+  <node name="map_server" pkg="map_server" type="map_server" args="$(find outdoor_bot)/maps/field_map.yaml">
+     <param name="frame_id" value="map"/>
+  </node>
+</launch>
+

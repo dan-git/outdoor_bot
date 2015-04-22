@@ -1,0 +1,6 @@
+<launch>
+	<node pkg="outdoor_bot" type="digcams" name="digcams" output= "screen">
+  </node>
+  <node pkg="outdoor_bot" type="webcams" name="webcams" output= "screen">
+  </node>
+</launch>

@@ -1,0 +1,41 @@
+<launch>
+  <node pkg="outdoor_bot" type="serialComm_node" name="serialComm0" args="0 /dev/ttyArduinoMega 115200" output="screen" >
+  <remap from="ucCommand" to="uc0Command" />
+  <remap from="ucResponse" to="uc0Response" />
+  </node>
+
+  <node pkg="outdoor_bot" type="serialComm_node" name="serialComm1" args="1 /dev/ttyUSB_FTDI_A703BXBL 115200" output="screen" >
+  <remap from="ucCommand" to="uc1Command" />
+  <remap from="ucResponse" to="uc1Response" />
+  </node>
+
+  <node pkg="outdoor_bot" type="serialComm_node" name="serialComm2" args="2 /dev/ttyRadar 115200" output="screen" >
+  <remap from="ucCommand" to="radarCommand" />
+  <remap from="ucResponse" to="radarResponse" />
+  </node>
+
+
+<!--  <node pkg="outdoor_bot" type="serialComm_node" name="serialComm2" args="1 /dev/ttyUSB_FTDI_A703BX39 2400" output="screen" >
+  <remap from="ucCommand" to="batteryCommand" />
+  <remap from="ucResponse" to="batteryResponse" />
+  </node>
+-->
+
+
+
+<!--
+  <node pkg="outdoor_bot" type="serialComm_node" name="serialServo" args="2 /dev/ttyACM_PololuServo 115200" output="screen" >
+  <remap from="ucCommand" to="uc2Command" />
+  <remap from="ucResponse" to="uc2Response" />
+  </node>
+
+
+
+
+  <node pkg="outdoor_bot" type="serialComm_node" name="serialMotor" args="3 /dev/ttyACM_PololuMotorDriver_53FF-7506-4987-4953-3711-1387 115200" output="screen" >
+  <remap from="ucCommand" to="uc3Command" />
+  <remap from="ucResponse" to="uc3Response" />
+  </node>
+-->
+
+</launch>

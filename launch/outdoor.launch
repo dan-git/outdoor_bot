@@ -1,0 +1,31 @@
+<launch>
+
+  <include file="$(find outdoor_bot)/launch/includes/serialComm/serialComm_outdoor.launch"/>
+  <include file="$(find outdoor_bot)/launch/includes/robotPose/robotPose_outdoor.launch"/>
+
+  <include file="$(find outdoor_bot)/launch/includes/robotPose/robot_pose_ekf.launch"/>
+
+  <include file="$(find outdoor_bot)/launch/includes/hokuyo_outdoor.launch"/>
+  <!-- <include file="$(find outdoor_bot)/launch/cameras.launch"/> -->
+  <node pkg="outdoor_bot" type="autonomous_node" name="autonomous_node" output= "screen">
+  </node>
+
+  <include file="$(find outdoor_bot)/launch/includes/robot_state_publisher_outdoor.launch"/>
+  
+  <!-- <node name="map_server" pkg="map_server" type="map_server" args="$(find outdoor_bot)/maps/field_map.yaml">
+     <param name="frame_id" value="map"/>
+  </node> 
+
+  <include file="$(find outdoor_bot)/launch/includes/amcl_hokuyo.launch"/>
+
+  <node pkg="outdoor_bot" type="movement_node" name="movement_node" output= "screen">
+  </node>
+
+  <node pkg="outdoor_bot" type="baseController_node" name="baseController_node" args = "outdoor" output= "screen">
+ </node>
+ 
+  <include file="$(find outdoor_bot)/launch/includes/move_base_outdoor.launch"/>
+
+  <node pkg="outdoor_bot" type="sensors_node" name="sensors_node" output="screen" />
+-->
+</launch>

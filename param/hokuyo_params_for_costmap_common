@@ -1,0 +1,4 @@
+observation_sources:  front_hokuyo_scan rear_hokuyo_scan
+
+front_hokuyo_scan: {sensor_frame: hokuyo_front_link, data_type: LaserScan, topic: /scan, marking: true, clearing: true}
+rear_hokuyo_scan: {sensor_frame: hokuyo_rear_link, data_type: LaserScan, topic: /rear_scan, marking: true, clearing: true}

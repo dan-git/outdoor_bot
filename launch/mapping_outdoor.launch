@@ -1,0 +1,33 @@
+<launch>
+
+  <include file="$(find outdoor_bot)/launch/includes/serialComm/serialComm_outdoor.launch"/>
+  <include file="$(find outdoor_bot)/launch/includes/robotPose/robotPose_outdoor.launch"/>
+
+  <include file="$(find outdoor_bot)/launch/includes/robotPose/robot_pose_ekf.launch"/>
+
+  <include file="$(find outdoor_bot)/launch/includes/hokuyo_outdoor.launch"/>
+
+  <include file="$(find outdoor_bot)/launch/includes/robot_state_publisher_outdoor.launch"/>
+
+
+  <!-- Don't run the map server or amcl, run gmapping instead -->
+
+  <include file="$(find outdoor_bot)/launch/includes/gmapping.launch"/>
+
+  <node pkg="outdoor_bot" type="commandsController_node" name="commandsController_node" output= "screen">
+  </node>
+
+  <node pkg="outdoor_bot" type="baseController_node" name="baseController_node" args = "outdoor" output= "screen">
+ </node>
+
+  <include file="$(find outdoor_bot)/launch/includes/move_base_outdoor.launch"/>
+
+</launch>
+
+<!-- REMEMBER to save the map with something like 
+
+rosrun map_server map_saver -f /home/outdoor/ros/outdoor_bot/maps/new_map
+
+BEFORE shutting down gmapping
+-->
+

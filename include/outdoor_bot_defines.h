@@ -1,0 +1,48 @@
+#ifndef __OUTDOOR_BOT_DEFINES__H__
+#define __OUTDOOR_BOT_DEFINES__H__
+
+#define SERVO_ANTENNA_PAN 0
+#define SERVO_ANTENNA_TILT 1
+#define FRONT_WEBCAM_PAN 2
+#define FRONT_WEBCAM_TILT 3
+#define FRONT_DIGCAM_PAN 4
+#define FRONT_DIGCAM_TILT 5
+#define REAR_DIGCAM_PAN 6
+#define REAR_DIGCAM_TILT 7
+#define SERVO_PWM_CHANNEL 8
+#define REAR_WEBCAM_PAN 9
+#define REAR_WEBCAM_TILT 10
+
+#define FRONT_DIGCAM 0
+#define FRONT_WEBCAM 1
+#define REAR_DIGCAM 2
+#define REAR_WEBCAM 3
+
+#define FRONT 1
+#define REAR 0
+#define WEBCAM 0
+#define DIGCAM 1
+#define HOMECAM 2
+#define LAPTOP_HAS_BUILTIN_WEBCAM 1	// 1 if it has a built in webcam, 0 if not
+
+#define NUM_RADARS 3
+#define LEFT_RADAR_NUMBER 101
+#define RIGHT_RADAR_NUMBER 102
+#define CENTER_RADAR_NUMBER 100
+#define LEFT_RADAR_INDEX 0
+#define RIGHT_RADAR_INDEX 1
+#define CENTER_RADAR_INDEX 2
+
+//#define MAP 0
+#define BOT 1
+#define FINAL_RANGE 2.0
+
+#define MOTOR_DROP_BAR 0
+#define MOTOR_BIN_SHADE 1
+#define MOTOR_PICKER_UPPER 2
+#define MOTOR_BRAKE_SOLENOID 3
+#define PD_SPEED_MAX_VALUE 127
+
+
+
+#endif // __OUTDOOR_BOT_DEFINES__H__

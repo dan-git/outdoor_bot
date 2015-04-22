@@ -1,0 +1,9 @@
+string command
+string filename
+int32 camera_number
+float32 zoom
+bool write_file
+---
+int32 captureResult
+bool zoomResult
+bool writeFileResult

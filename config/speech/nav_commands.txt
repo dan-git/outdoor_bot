@@ -1,0 +1,15 @@
+pause
+continue
+forward
+backward
+home
+kitchen
+hall
+entry
+dining
+living
+left
+right
+stop
+halt
+patrol

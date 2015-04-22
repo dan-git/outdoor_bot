@@ -1,0 +1,22 @@
+#ifndef __SERVO_NUMBERS__H__
+#define __SERVO_NUMBERS__H__
+
+#define SERVO_ANTENNA_PAN 0
+#define SERVO_ANTENNA_TILT 1
+#define FRONT_DIGCAM_PAN 2
+#define FRONT_DIGCAM_TILT 3
+#define FRONT_WEBCAM_PAN 4
+#define FRONT_WEBCAM_TILT 5
+#define REAR_DIGCAM_PAN 6
+#define REAR_DIGCAM_TILT 7
+#define SERVO_PWM_CHANNEL 8
+#define REAR_WEBCAM_PAN 9
+#define REAR_WEBCAM_TILT 10
+
+#define FRONT_DIGCAM 0
+#define FRONT_WEBCAM 1
+#define REAR_DIGCAM 2
+#define REAR_WEBCAM 3
+
+
+#endif // __SERVO_NUMBERS__H__

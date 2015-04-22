@@ -1,0 +1,7 @@
+
+---
+int32 encoderPickerUpper
+int32 encoderDropBar
+int32 encoderBinShade
+int32 encoderExtra
+

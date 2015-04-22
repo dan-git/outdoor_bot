@@ -1,0 +1,16 @@
+  <launch>
+  <param name="robot_description" textfile="$(find outdoor_bot)/urdf/outdoor_bot.urdf"/> 
+
+  <node pkg="joint_state_publisher" type="joint_state_publisher" name="joint_state_publisher" >
+  </node>
+
+  <node pkg="robot_state_publisher" type="robot_state_publisher" name="rob_st_pub" >
+    <param name="publish_frequency" value="20.0"/>
+  </node>
+  
+   <node name="map_server" pkg="map_server" type="map_server" args="$(find outdoor_bot)/maps/field_map.yaml">
+     <param name="frame_id" value="map"/>
+  </node>
+  
+
+  </launch>

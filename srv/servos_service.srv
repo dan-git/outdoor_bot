@@ -1,0 +1,9 @@
+---
+int32 FrontDigcamPan
+int32 FrontDigcamTilt
+int32 RearDigcamPan
+int32 RearDigcamTilt
+int32 FrontWebcamPan
+int32 FrontWebcamTilt
+int32 RearWebcamPan
+int32 RearWebcamTilt
