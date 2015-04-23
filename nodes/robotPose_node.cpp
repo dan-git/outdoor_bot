@@ -664,8 +664,8 @@ void moveCommandCallback(const geometry_msgs::Twist::ConstPtr& cmd_vel)
   double deltaX = vx * deltaSeconds;
   double deltaY = vy * deltaSeconds;
   yaw += vYaw * deltaSeconds;
-  x += cos(yaw) * deltaX - sin(yaw) * deltaY; // using the yaw from the previous cycle
-  y += sin(yaw) * deltaX + cos(yaw) * deltaY; // assumes 
+  x += cos(yaw) * deltaX - sin(yaw) * deltaY; 
+  y += sin(yaw) * deltaX + cos(yaw) * deltaY;  
   currentVelocity_ = sqrt((vx * vx) + (vy * vy));
   cout << "vx, vy, vYaw, dt = " << ", " << vx << ", " << vy << ", " << vYaw << ", " << deltaSeconds << endl;
   cout << "x, y, yaw = " << x << ", " << y << ", " << yaw << endl << endl;
@@ -691,7 +691,10 @@ int main(int argc, char** argv){
   radar_serv = n.advertiseService("radar_service", radar_service_send);
   dirAnt_serv = n.advertiseService("dirAnt_service", dirAnt_service_send);
   setPose_serv = n.advertiseService("setPose_service", setPose_service_send);
-  moveCmd = n.subscribe("cmd_vel", 50, moveCommandCallback);  // subscribe to move commands
+  
+  // subscribe to move commands for testing move_base.  comment out
+  // when running the real bot
+  moveCmd = n.subscribe("cmd_vel", 50, moveCommandCallback);  
 
   //Subscribe to nav_data messages with arduino sensor data
   ucResponseMsg = n.subscribe("uc1Response", 100, ucResponseCallback);
@@ -713,8 +716,9 @@ int main(int argc, char** argv){
 	destNode_[LEFT_RADAR_INDEX] = LEFT_RADAR_NUMBER;
 	destNode_[RIGHT_RADAR_INDEX] = RIGHT_RADAR_NUMBER;
 	destNode_[CENTER_RADAR_INDEX] = CENTER_RADAR_NUMBER;
+	
 
-
+// this section is just for testing move_base
 while(n.ok())
 {
 	ros::spinOnce();  // check for incoming messages
@@ -726,6 +730,8 @@ while(n.ok())
    //getRadarData(destNode_[LEFT_RADAR_INDEX]);
    publishPose(x, y, yaw, vYaw, currentVelocity_);
 }
+// comment out the above section when running the real bot
+
 
 ros::spin();
 delete odom_broadcaster;

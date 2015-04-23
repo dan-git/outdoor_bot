@@ -1,7 +1,7 @@
 <launch>
 
  
- <node pkg="tf" type="static_transform_publisher" name="static_broadcaster" args="1 0 0 0 0 0 1 map odom 10" />
+ <node pkg="tf" type="static_transform_publisher" name="static_broadcaster" args="0 0 0 0 0 0 map odom 10" />
   
   <include file="$(find outdoor_bot)/launch/includes/robot_state_publisher_outdoor.launch"/> 
   

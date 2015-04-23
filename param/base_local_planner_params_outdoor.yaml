@@ -1,22 +1,27 @@
 controller_frequency: 4.0
 recovery_behavior_enabled: true
 clearing_rotation_allowed: false
-base_local_planner: "dwa_local_planner/DWAPlannerROS"
+#base_global_planner: global_planner/GlobalPlanner
+base_global_planner: navfn/NavfnROS
+base_local_planner: dwa_local_planner/DWAPlannerROS
 
 
 DWAPlannerROS:
-   max_vel_x: 0.5
+   acc_lim_x: 2.3
+   acc_lim_y: 0.0
+   acc_lim_theta: 1.5
+   
+   min_trans_vel: 0.1
+   
+   max_vel_x: 0.3
    min_vel_x: -0.5
    max_vel_y: 0.0
    min_vel_y: 0.0
-   min_trans_vel: 0.1
+   
    max_rotational_vel: 0.5
    min_vel_theta: -0.5
    min_in_place_vel_theta: 0.2
    escape_vel: -0.1
-   acc_lim_x: 2.3
-   acc_lim_y: 2.3
-   acc_lim_theta: 1.5
 
    holonomic_robot: false
    yaw_goal_tolerance: 0.1 # about 6 degrees
