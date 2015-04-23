@@ -656,13 +656,18 @@ void moveCommandCallback(const geometry_msgs::Twist::ConstPtr& cmd_vel)
   current_time = ros::Time::now();
   double deltaSeconds = current_time.toSec() - last_time.toSec();
   last_time = ros::Time::now();
+  if (deltaSeconds > 0.5)
+  {
+  	cout << "deltaSeconds exceeded max, = " << deltaSeconds << endl;
+  	deltaSeconds = 0.5; // not a valid update time
+  }
   double deltaX = vx * deltaSeconds;
   double deltaY = vy * deltaSeconds;
   yaw += vYaw * deltaSeconds;
   x += cos(yaw) * deltaX - sin(yaw) * deltaY; // using the yaw from the previous cycle
   y += sin(yaw) * deltaX + cos(yaw) * deltaY; // assumes 
   currentVelocity_ = sqrt((vx * vx) + (vy * vy));
-  cout << "vx, vYaw = " << ", " << vx << ", " << vYaw << endl;
+  cout << "vx, vy, vYaw, dt = " << ", " << vx << ", " << vy << ", " << vYaw << ", " << deltaSeconds << endl;
   cout << "x, y, yaw = " << x << ", " << y << ", " << yaw << endl << endl;
 }
 
