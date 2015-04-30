@@ -60,7 +60,7 @@ outdoor_bot::webcams_custom webcam_command_;
 outdoor_bot::digcams_custom digcam_command_; 
 int centerX_, centerY_, totalX_, moving_;
 int home_image_height_, home_image_width_;
-bool homeCenterUpdated_, movementComplete_;
+bool homeCenterUpdated_, movementComplete_, triedWebcamAlready_;
 float range_, approxRangeToTarget_;
 bool zoomResult_, writeFileResult_, newMainTargetDigcamImageReceived_, newMainTargetWebcamImageReceived_, rangeUnknown_;
 bool targetCenterUpdated_, newNavTargetImageReceived_;
@@ -74,6 +74,8 @@ bool phase1_, pauseNewCommand_, pauseCommanded_, previousState_;
 int deltaPan_ = PAN_CAMERA_DELTA, deltaTilt_ = TILT_CAMERA_DELTA, searchCounter_ = 0, currentPan_ = 0; 
 int maxSearchPan_ = PAN_CAMERA_SEARCH_MAX, maxSearchTilt_ = TILT_CAMERA_SEARCH_MAX;
 std::string movementResult_;
+ros::Time overallTimer_;
+double startTime_, totalTime_, secondsRemaining_;
 
 
 FBFSM fsm_;
@@ -662,6 +664,7 @@ void on_enter_BootupState()
    moving_ = false;
    movementComplete_ = false;
    movementResult_ = "";
+   triedWebcamAlready_ = false;
    for (int i=0; i < NUM_RADARS; i++)
    {
       distanceToHome_[i] = 0.;
@@ -684,39 +687,21 @@ void on_enter_BootupState()
 
 }
 
-void on_exit_BootupState()
-{
-	newMainTargetDigcamImageReceived_ = false;
-   newMainTargetWebcamImageReceived_ = false;
-   newNavTargetImageReceived_ = false;
-   targetCenterUpdated_ = false;
-   homeCenterUpdated_ = false;
-   moving_ = false;
-   movementComplete_ = false;
-   movementResult_ = "";
-   centerX_ = -1; // indicator for when target centers are updated
-}
-
 int on_update_BootupState()
 {
    cout << "now in update bootupState" << endl;
    // give some time for everyone to setup and get started, then ask what platform we are assigned
    cout << "Do you want to move on to autonomous ops or go through bootstate stuff?" << endl;
    if (askUser()) return CheckHomeState_;
-   cout << "Enter platform number: " << endl;
-   getUserInput();
-   if (platformNumber_ >= 1 && platformNumber_ < 4)
+   if (getUserInput())
    {
-      platPoseX_ = platformXPose_[platformNumber_ - 1];
-      platPoseY_ = platformYPose_[platformNumber_ - 1];
-      platPoseYaw_ = platformYawPose_[platformNumber_ - 1];
-   }
-   else
-   {
-      cout << "invalid platform number selected, you selected " << platformNumber_ << endl;
-      cout << "start again" << endl;
-      return BootupState_;
-   }
+		   platPoseX_ = platformXPose_[platformNumber_ - 1];
+		   platPoseY_ = platformYPose_[platformNumber_ - 1];
+		   platPoseYaw_ = platformYawPose_[platformNumber_ - 1];
+			if (phase1_) totalTime_ = PHASE_ONE_TIME_LIMIT;
+			else totalTime_ = PHASE_TWO_TIME_LIMIT;				
+	}
+   else return BootupState_;
    
    if (!callSetPoseService(platPoseX_, platPoseY_, platPoseYaw_, true)) // set home pose in robotPose_node
    {
@@ -782,7 +767,22 @@ int on_update_BootupState()
    
    cout << "bootupState is finished.  Do you want to move on to autonomous ops or retry?" << endl;
    if (!askUser()) return BootupState_;
+   startTime_ = ros::Time::now().toSec();
+   secondsRemaining_ = totalTime_ - (ros::Time::now().toSec() - startTime_);
    return CheckHomeState_;
+}
+
+void on_exit_BootupState()
+{
+	newMainTargetDigcamImageReceived_ = false;
+   newMainTargetWebcamImageReceived_ = false;
+   newNavTargetImageReceived_ = false;
+   targetCenterUpdated_ = false;
+   homeCenterUpdated_ = false;
+   moving_ = false;
+   movementComplete_ = false;
+   movementResult_ = "";
+   centerX_ = -1; // indicator for when target centers are updated
 }
 
 void on_enter_CheckFirstTargetState()
@@ -995,10 +995,19 @@ void on_enter_CheckHomeState()
 {
    // start by capturing an image using fsm
    centerX_ = -1;
-   tAF_.set_camType(WEBCAM);
+   if (!triedWebcamAlready_)
+   {
+   	triedWebcamAlready_ = true;
+   	tAF_.set_camType(WEBCAM);
+   }
+   else
+   {
+   	tAF_.set_camType(DIGCAM);
+   }
    tAF_.set_camLocation(REAR);
    tAF_.set_camCommand("cap_home");
    tAF_.set_homeTarget(true);
+   tAF_.set_firstTarget(false);
    tAF_.set_state(tAF_.getCaptureImageState());
 }
 
@@ -1011,37 +1020,37 @@ int on_update_CheckHomeState()
    if (centerX_ > 0)
    {
       cout << "possible target found: x, y, range = " << centerX_ << ", " << centerY_ << ", " << range_ << endl;
+      triedWebcamAlready_ = false;
       return HeadForHomeState_;
    }
    else
    {
-      cout << "no target found yet" << endl;
-            return HeadForHomeState_; // webcam can't find the target, so move ahead a bit 
-      //return SearchForHomeState_;
+      cout << "no target found yet" << endl; 
+      return SearchForHomeState_;
    }  
 }
 
 // we did not see the target in the camera image, so we need to move the camera and look again
 void on_enter_SearchForHomeState()
 {
-   deltaPan_ = -deltaPan_; // switch directions each time
-   searchCounter_++;
-   currentPan_ += deltaPan_ * searchCounter_;
-   if (abs(currentPan_) > PAN_CAMERA_SEARCH_MAX)
-   {
-      searchCounter_ = 0;
-      tAF_.set_pan(0);
-      tAF_.set_tilt(0);
-      tAF_.set_state(tAF_.getMoveCameraState());
-      return; // can't find the target, so center the camera and then move ahead a bit
-   }
-   tAF_.set_pan(currentPan_);
-   tAF_.set_tilt(0);
-   
-   tAF_.set_servoNumber(REAR_DIGCAM_PAN);
-   tAF_.set_camType(DIGCAM);
-   tAF_.set_camLocation(REAR);
-   tAF_.set_state(tAF_.getMoveCameraState());
+   	deltaPan_ = -deltaPan_; // switch directions each time
+		currentPan_ += deltaPan_ * searchCounter_;
+		if (abs(currentPan_) > PAN_CAMERA_SEARCH_MAX)
+		{
+		   searchCounter_ = 0;
+		   tAF_.set_pan(0);
+		   tAF_.set_tilt(0);
+		   tAF_.set_state(tAF_.getMoveCameraState());
+		   return; // can't find the target, so center the camera and then move ahead a bit
+		}
+		searchCounter_++;
+		tAF_.set_pan(currentPan_);
+		tAF_.set_tilt(0);
+		
+		tAF_.set_servoNumber(REAR_DIGCAM_PAN);
+		tAF_.set_camType(DIGCAM);
+		tAF_.set_camLocation(REAR);
+		tAF_.set_state(tAF_.getMoveCameraState());
 }
 
 int on_update_SearchForHomeState()
@@ -1049,6 +1058,7 @@ int on_update_SearchForHomeState()
    if (abs(currentPan_) > PAN_CAMERA_SEARCH_MAX)
    {
       currentPan_ = 0;
+      triedWebcamAlready_ = false;
       return HeadForHomeState_; // can't find the target, so move ahead a bit 
    }
    tAF_.update();
@@ -1074,7 +1084,7 @@ int on_update_HeadForHomeState()
    //char moveCmd[32];
    // now move forward
    outdoor_bot::movement_msg msg;
-   msg.command = "move";
+
 
 	if (centerX_ > 0)
 	{
@@ -1090,7 +1100,8 @@ int on_update_HeadForHomeState()
    		 ROS_INFO("centering target");
    	}
 	}
-     
+	
+	msg.command = "move";     
    if (callRadarService(LEFT_RADAR_NUMBER)  && range_ > 0.01) range_ = distanceToHome_[0]; 
    cout << "Heading for Home, range = " << range_ << endl;
    
@@ -1117,13 +1128,13 @@ int on_update_HeadForHomeState()
    }
    else
    */
-    if (range_ < 5.)
+    if (range_ > 5.)
    {
       //move forward 3 m
       
       cout << "moving forward 1m, range_ = " << range_ << endl;
       msg.command = "move";
-      msg.distance = -1.0;
+      msg.distance = 1.0;
       msg.angle = 0.;
       
       /*
