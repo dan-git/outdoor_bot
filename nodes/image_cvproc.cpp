@@ -21,6 +21,7 @@ private:
 	image_transport::Publisher image_pub_;
    image_transport::Subscriber subWebcam_;
    image_transport::Subscriber subDigcam_;
+   image_transport::Subscriber subHomecam_;
    ros::Subscriber digcam_file_sub_;
    ros::Subscriber webcam_file_sub_;
    Mat fileImage_;
@@ -34,6 +35,7 @@ public:
       image_pub_ = it_.advertise("home_target_image", 5); 
       subDigcam_ = it_.subscribe("digcam_image", 5, &image_cvproc::digcamImageCallback, this);
       subWebcam_ = it_.subscribe("webcam_image", 5, &image_cvproc::webcamImageCallback, this);
+      subHomecam_ = it_.subscribe("home_target_image", 5, &image_cvproc::homecamImageCallback, this);
       webcam_file_sub_ = nh.subscribe("webcam_file", 50, &image_cvproc::cameraFileCallback, this); 
       digcam_file_sub_ = nh.subscribe("digcam_file", 50, &image_cvproc::cameraFileCallback, this);
    }
@@ -45,15 +47,15 @@ public:
      Mat resizedImg;
      Size dsize(0,0); //round(fx*src.cols), round(fy*src.rows))}
      resize(img, resizedImg, dsize, 0.25, 0.25, CV_INTER_AREA);
-     string windowName = "digcam_front";
+     string windowName = "zoom_digcam";
      if (digcamImageNumber_ == 1)
      {
-		   cv::destroyWindow("digcam_front");
-   		windowName = "digcam_rear";
+		   cv::destroyWindow("zoom_digcam");
+   		windowName = "digcam_right";
      }
      if (digcamImageNumber_ > 1)
      {
-     	  if (digcamImageNumber_ == 2) cv::destroyWindow("digcam_rear");
+     	  if (digcamImageNumber_ == 2) cv::destroyWindow("digcam_right");
      	  windowName = "digcam";
      }
      try
@@ -93,6 +95,26 @@ public:
      }
      webcamImageNumber_++;
    }
+   
+   void homecamImageCallback(const sensor_msgs::ImageConstPtr& msg)
+   {
+     ROS_INFO("homecam image received by image_cvproc");
+     Mat img = cv_bridge::toCvShare(msg, "bgr8")->image;
+     //Mat resizedImg;
+     //Size dsize(0,0); //round(fx*src.cols), round(fy*src.rows))}
+     //resize(img, resizedImg, dsize, 0.25, 0.25, CV_INTER_AREA);
+     string windowName = "homecam";
+     try
+     {
+        cv::imshow(windowName, img);
+        //cv::waitKey(0);
+     }
+     catch (cv_bridge::Exception& e)
+     {
+       ROS_ERROR("In homecamImageCallback, could not convert from '%s' to 'bgr8'.", msg->encoding.c_str());
+     }
+   }
+ 
 
    void cameraFileCallback(const std_msgs::String::ConstPtr& msg)
    {
@@ -174,12 +196,13 @@ int main(int argc, char* argv[])
    //ic.publishImage(ic.getImage());
 
 
-   cv::namedWindow("digcam_front"); 
-   cv::namedWindow("digcam_rear");
+   cv::namedWindow("zoom_digcam"); 
+   cv::namedWindow("digcam_right");
    cv::namedWindow("webcam_front");
    cv::namedWindow("webcam_rear");
    cv::namedWindow("digcam");
    cv::namedWindow("webcam");
+   cv::namedWindow("homecam");
    cv::startWindowThread();
 
 /*
@@ -206,5 +229,6 @@ int main(int argc, char* argv[])
  
 	cv::destroyWindow("webcam");
 	cv::destroyWindow("digcam");
+	cv::destroyWindow("homecam");
    return EXIT_SUCCESS;
 }

@@ -15,10 +15,25 @@ using namespace cv;
 using namespace std;
 
 #define MAX_NUM_TARGETS 50
-#define TARGET_HEIGHT_IN_PIX_AT_3M 600. //150.
-#define PIX_PER_CM_AT_3M 8.
-#define TARGET_HEIGHT_CM 76. //19.
+//#define TARGET_HEIGHT_IN_PIX_AT_3M 150. // small target
+#define TARGET_HEIGHT_IN_PIX_AT_10M 700. //large target, digcam, zoom = 7
+//#define TARGET_HEIGHT_IN_PIX_AT_10M 64. //large target, webcam
+//#define TARGET_HEIGHT_IN_PIX_AT_10M 1211. //large target, zoom_digcam, zoom = 7
+//#define PIX_PER_CM_AT_3M 8.
+//#define TARGET_HEIGHT_CM 76. //19.
 
+#define NUM_VERTICES 6
+#define MAX_MATCH_VALUE 0.05
+#define BIGGEST_SMALL_ANGLE_COS 0.42
+#define SMALLEST_SMALL_ANGLE_COS 0.28
+#define BIGGEST_BIG_ANGLE_COS 0.63
+#define SMALLEST_BIG_ANGLE_COS 0.50
+#define MIN_AREA 5000.
+#define MAX_AREA 3000000.
+#define MIN_RATIO_AREA_ARCLENGTH 10.
+#define MAX_RATIO_AREA_ARCLENGTH 120.
+#define MIN_ASPECT_RATIO 0.55
+#define MAX_ASPECT_RATIO 0.75
 
 class NavTargets
 {
@@ -108,7 +123,13 @@ void commandCallback(const std_msgs::String::ConstPtr& msg)
 {
         cout << "analysing image for home target in NavTargets" << endl;
         newHomeImageReceived_ = false;
-        if (GetNavTargets(newHomeImage_, 6, 0.05, 0.42, 0.28, 0.63, 0.50, 5000., 3000000.,10., 120., 0.55, 0.75, false, false))
+        
+        //if (GetNavTargets(newHomeImage_, 6, 0.05, 0.42, 0.28, 0.63, 0.50, 5000., 3000000.,10., 120., 0.55, 0.75, false, false))
+        
+        if (GetNavTargets(newHomeImage_, NUM_VERTICES, MAX_MATCH_VALUE, BIGGEST_SMALL_ANGLE_COS,
+	SMALLEST_SMALL_ANGLE_COS, BIGGEST_BIG_ANGLE_COS, SMALLEST_BIG_ANGLE_COS,
+	MIN_AREA, MAX_AREA, MIN_RATIO_AREA_ARCLENGTH, MAX_RATIO_AREA_ARCLENGTH,
+	MIN_ASPECT_RATIO, MAX_ASPECT_RATIO, false, false))
         {
            ROS_INFO("Found home target: (x,y), range = (%d, %d), %f", centerX_, centerY_, range_);
         }
@@ -253,7 +274,7 @@ bool GetNavTargets(Mat NavImage, int numVertices, double MaxMatchValue,
    Rect target_Rect[MAX_NUM_TARGETS];
    double target_match_value[MAX_NUM_TARGETS];
    //double target_aspectRatio[MAX_NUM_TARGETS];
-   //double target_area[MAX_NUM_TARGETS];
+   double target_area[MAX_NUM_TARGETS];
    //int target_threshold[MAX_NUM_TARGETS], target_color[MAX_NUM_TARGETS];
    //double target_bigAngleCos[MAX_NUM_TARGETS], target_smallAngleCos[MAX_NUM_TARGETS];
 
@@ -460,7 +481,7 @@ bool GetNavTargets(Mat NavImage, int numVertices, double MaxMatchValue,
                target_Rect[numTargetsFound] = boundRect;
                target_match_value[numTargetsFound] = match_value;
                //target_aspectRatio[numTargetsFound] = aspectRatio;
-               //target_area[numTargetsFound] = areaContour;
+               target_area[numTargetsFound] = areaContour;
                //target_threshold[numTargetsFound] = l;
                //target_color[numTargetsFound] = c;
                //target_bigAngleCos[numTargetsFound] = bigAngles / 4.;
@@ -551,7 +572,7 @@ bool GetNavTargets(Mat NavImage, int numVertices, double MaxMatchValue,
       if (target_contour[bestContour][j].y > maxY) maxY = target_contour[bestContour][j].y;
       else if (target_contour[bestContour][j].y < minY) minY = target_contour[bestContour][j].y;
    }
-   range_ = 3. * (TARGET_HEIGHT_IN_PIX_AT_3M) / ((float)(maxY - minY));
+   range_ = 10. * (TARGET_HEIGHT_IN_PIX_AT_10M) / ((float)(maxY - minY));
    outdoor_bot::NavTargets_msg home_center_message;
    home_center_message.centerX = centerX_;
    home_center_message.centerY = centerY_;
@@ -560,7 +581,8 @@ bool GetNavTargets(Mat NavImage, int numVertices, double MaxMatchValue,
    home_center_pub_.publish(home_center_message);
    cout << "home center published = (" << centerX_ << ", " << centerY_ << ")" << endl;
    cout << "home range published = " << range_ << " m"  << endl;
-   
+   cout << "target area = " << target_area[bestContour] << endl;
+   cout << "target match value = " << target_match_value[bestContour] << endl;  
 
    // draw it on top of the input image, along with the bounding rectangle and circle
    drawContours(img, target_contour, bestContour, Scalar(0,0,255), 1, 8, vector<Vec4i>(), 0, Point() );

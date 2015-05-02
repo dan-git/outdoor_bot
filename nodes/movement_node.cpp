@@ -217,7 +217,7 @@ void sendMotionCommand(std::string motionCmd)
    }
    // move 10 meters forward 
    else if(motionCmd[0]=='n'){
-     	//we'll send a goal to the robot to move 1 meter forward
+     	//we'll send a goal to the robot to move 10 meters forward
      	goal.target_pose.header.frame_id = "base_link";
      	goal.target_pose.header.stamp = ros::Time::now();
 
@@ -234,11 +234,11 @@ void sendMotionCommand(std::string motionCmd)
       {
           if(ac_->getState() == actionlib::SimpleClientGoalState::SUCCEEDED)
           {
-            ROS_INFO("Hooray, the base moved 1 meter forward");
+            ROS_INFO("Hooray, the base moved 10 meters forward");
           }
           else
           {
-            ROS_INFO("The base failed to move forward 1 meter for some reason"); 
+            ROS_INFO("The base failed to move forward 10 meters for some reason"); 
           }
       }
       else
@@ -340,7 +340,7 @@ bool movementAngular(double angle)  // for now we just turn 90 degrees to the ri
    move_base_msgs::MoveBaseGoal goal;
    bool finishedInTime;
    geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(angle);
-   goal.target_pose.header.frame_id = "base_footprint";
+   goal.target_pose.header.frame_id = "base_link";
   	goal.target_pose.header.stamp = ros::Time::now();
 
   	goal.target_pose.pose.position.x = 0.0;

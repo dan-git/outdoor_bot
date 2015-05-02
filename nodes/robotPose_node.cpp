@@ -390,20 +390,24 @@ void sendOutNavData()
     // radar data takes around a hundred milliseconds to return, so we have to only occasionally get the data
     
 	  //cout << "radar counter,  mod 50 = " << radarCounter_ << ", " << radarCounter_ % 50 << endl;
+	  
+	  
+	  /*
 	  if (radarCounter_ % 200 == 0)
      {
 		 int radarIndex = LEFT_RADAR_INDEX;
-		 radarCounter_ = 0;	// ************* remove this line when uncommentingto include right radar	 
-		 /*if (radarCounter_ % 400 == 0)
+// ****************************************************************************************************************************
+		 //radarCounter_ = 0;	// ************* remove this line when uncommentingto include right radar	 
+		 if (radarCounter_ % 400 == 0)
 		 {
 		 	radarIndex = RIGHT_RADAR_INDEX;
 		 	radarCounter_ = 0;
 		 }
-		 */
+		 
 		 if (getRadarData(destNode_[radarIndex]))
 		 {
 		 	cout << "in robotPose, radar distance to home = " <<  distanceToHome_[radarIndex] << endl;
-		 	/*if (distanceToHome_[radarIndex] > 0.001)
+		 	if (distanceToHome_[radarIndex] > 0.001)
 			{
 				double odomDistanceToHome = sqrt((double) (((x - homeX_) * (x - homeX_)) + ((y - homeY_) * (y - homeY_))));
 				cout << "in robotPose, odom distance to home = " <<  odomDistanceToHome << endl;
@@ -413,7 +417,7 @@ void sendOutNavData()
 					ratioHomeDistances = ((double) distanceToHome_[radarIndex]) / odomDistanceToHome;
 					x = ((x - homeX_) * ratioHomeDistances) + homeX_;
 					y = ((y - homeY_) * ratioHomeDistances) + homeY_;
-					if (ratioHomeDistances > 1.5 || ratioHomeDistances < 0.5) // let the user know we corrected by more than a bit
+				//	if (ratioHomeDistances > 1.5 || ratioHomeDistances < 0.5) // let the user know we corrected by more than a bit
 					{
 						cout << "ratio of home distances = " <<  ratioHomeDistances << endl;
 						cout << "distanceToHome = " <<  distanceToHome_[radarIndex] << endl;
@@ -422,13 +426,13 @@ void sendOutNavData()
 				  }
 			   }
 			else cout << "radar data not available for odom updating" << endl;
-			*/
+			
 		 }
 		 else cout << "radar call failed in robotPose, radar distance to Home = " << distanceToHome_[radarIndex] << endl;
 	  }
 	  radarCounter_++;
 
-	  
+	  */
     yaw += delta_Yaw;
     
     publishPose(x, y, yaw, vYaw, currentVelocity_);
@@ -640,6 +644,7 @@ bool radar_service_send(outdoor_bot::radar_service::Request  &req, outdoor_bot::
    return true;
 }
 
+
 void moveCommandCallback(const geometry_msgs::Twist::ConstPtr& cmd_vel)
 {
   // generate fake pose, for testing move commands
@@ -694,7 +699,7 @@ int main(int argc, char** argv){
   
   // subscribe to move commands for testing move_base.  comment out
   // when running the real bot
-  moveCmd = n.subscribe("cmd_vel", 50, moveCommandCallback);  
+  // moveCmd = n.subscribe("cmd_vel", 50, moveCommandCallback);  
 
   //Subscribe to nav_data messages with arduino sensor data
   ucResponseMsg = n.subscribe("uc1Response", 100, ucResponseCallback);
@@ -719,6 +724,9 @@ int main(int argc, char** argv){
 	
 
 // this section is just for testing move_base
+// comment out when running the real bot
+// also comment in/out moveCmd and moveCommandCallback
+/*
 while(n.ok())
 {
 	ros::spinOnce();  // check for incoming messages
@@ -727,11 +735,12 @@ while(n.ok())
    ts.tv_nsec = 10000000;
    nanosleep(&ts, NULL); // update every 10 ms
    current_time = ros::Time::now();
-   //getRadarData(destNode_[LEFT_RADAR_INDEX]);
+   //getRadarData(destNode_[RIGHT_RADAR_INDEX]);
+   //cout << "distance = " << distanceToHome_ << endl;
    publishPose(x, y, yaw, vYaw, currentVelocity_);
 }
 // comment out the above section when running the real bot
-
+*/
 
 ros::spin();
 delete odom_broadcaster;

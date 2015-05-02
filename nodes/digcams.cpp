@@ -180,7 +180,7 @@ public:
          FILE 	*f;
          int retval;
          char filename[256];
-         snprintf(filename, 256, "/home/dbarry/Dropbox/outdoor_bot/media/image_processing/digcam%d.jpg", camNum);
+         snprintf(filename, 256, "/home/dbarry/Dropbox/outdoor_bot/media/image_processing/digcam/digcam%d.jpg", camNum);
          f = fopen(filename, "wb");
          if (f) {
 		      retval = fwrite (data, size, 1, f);

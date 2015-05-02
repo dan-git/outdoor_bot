@@ -191,14 +191,32 @@
     </visual>
   </link>
 
-  <joint name="digcam_front_joint" type="fixed">
-    <origin xyz="0. 0. 0.03" 
+  <joint name="zoom_digcam_joint" type="fixed">
+    <origin xyz="0. 0.2 0.03" 
             rpy="0 0 0" />
     <parent link="front_sensor_bar_link" />
-    <child link="digcam_front_link" />
+    <child link="zoom_digcam_link" />
   </joint>
 
-  <link name="digcam_front_link">
+  <link name="zoom_digcam_link">
+    <visual>
+      <origin xyz="0. 0 0." rpy="0 0 0"/>
+      <geometry>
+       <box size="0.02 .07 .06"/>
+      </geometry> 
+
+      <material name="yellow"/>
+    </visual>
+  </link>
+  
+ <joint name="digcam_joint" type="fixed">
+    <origin xyz="0. -0.2 0.03" 
+            rpy="0 0 0" />
+    <parent link="front_sensor_bar_link" />
+    <child link="digcam_link" />
+  </joint>
+
+  <link name="digcam_link">
     <visual>
       <origin xyz="0. 0 0." rpy="0 0 0"/>
       <geometry>
@@ -210,7 +228,7 @@
   </link>
   
   <joint name="webcam_front_joint" type="fixed">
-    <origin xyz="0. -0.13 0.03" 
+    <origin xyz="0. 0.0 0.03" 
             rpy="0 0 0" />
     <parent link="front_sensor_bar_link" />
     <child link="webcam_front_link" />
@@ -228,9 +246,9 @@
   </link>
 
  <joint name="hokuyo_front_joint" type="fixed">
-    <origin xyz="0.6 0.49 0.05" 
+    <origin xyz="-0.05 0.49 0.05" 
             rpy="0 0 0" />
-    <parent link="base_link" />
+    <parent link="front_sensor_bar_link" />
     <child link="hokuyo_front_link" />
   </joint>
 
@@ -243,21 +261,20 @@
       <material name="yellow"/>
     </visual>
   </link>
-  
- <joint name="digcam_rear_joint" type="fixed">
-    <origin xyz="0. 0.14 0.08" 
-            rpy="0 0 3.14" />
-    <parent link="rear_sensor_bar_link" />
-    <child link="digcam_rear_link" />
+
+ <joint name="hokuyo_right_joint" type="fixed">
+    <origin xyz="-0.05 -0.55 0.05" 
+            rpy="0 0 -0.78" />
+    <parent link="front_sensor_bar_link" />
+    <child link="hokuyo_right_link" />
   </joint>
 
-  <link name="digcam_rear_link">
+  <link name="hokuyo_right_link">
     <visual>
-      <origin xyz="0. 0 0." rpy="0 0 0"/>
+      <origin xyz="0. 0. 0." rpy="0 0 0" />
       <geometry>
-       <box size="0.02 .07 .06"/>
-      </geometry> 
-
+        <cylinder radius="0.035" length = "0.08"/>
+      </geometry>
       <material name="yellow"/>
     </visual>
   </link>
@@ -277,22 +294,6 @@
       </geometry> 
 
       <material name="red"/>
-    </visual>
-  </link>
- <joint name="hokuyo_rear_joint" type="fixed">
-    <origin xyz="-0.6 -0.32 0.05" 
-            rpy="0 0 3.14" />
-    <parent link="base_link" />
-    <child link="hokuyo_rear_link" />
-  </joint>
-
-  <link name="hokuyo_rear_link">
-    <visual>
-      <origin xyz="0. 0. 0." rpy="0 0 0" />
-      <geometry>
-        <cylinder radius="0.035" length = "0.08"/>
-      </geometry>
-      <material name="yellow"/>
     </visual>
   </link>
 

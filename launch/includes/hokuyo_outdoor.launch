@@ -45,9 +45,9 @@ hokuyo ls names:
   
     <param name="intensity" type="bool" value="false"/>
 
-    <param name="frame_id" type="string" value="hokuyo_rear_link" />
-    <param name="frameid" type="string" value="hokuyo_rear_link" />
-    <remap from="scan" to="rear_scan"/>
+    <param name="frame_id" type="string" value="hokuyo_right_link" />
+    <param name="frameid" type="string" value="hokuyo_right_link" />
+    <remap from="scan" to="right_scan"/>
   </node>
   
  
