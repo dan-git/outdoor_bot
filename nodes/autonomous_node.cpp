@@ -52,13 +52,14 @@ using namespace std;
 #define TILT_CAMERA_DELTA 5
 #define TILT_CAMERA_SEARCH_MAX 20
 
+
 ros::ServiceClient NavTargets_client_, radar_client_; //, mainTargets_client_, mainTargetsCheckImage_client_;
 ros::ServiceClient setPose_client_; //digcams_client_, 
 ros::Publisher digcam_pub_, movement_pub_, webcam_pub_, mainTargetsCommand_pub_, NavTargetsCommand_pub_, servo_pub_; //, pmotor_pub_;
 ros::Subscriber home_center_sub_, targetImageReceived_sub_, target_center_sub_, move_complete_sub_, pause_sub_;
 outdoor_bot::webcams_custom webcam_command_;
 outdoor_bot::digcams_custom digcam_command_; 
-int centerX_, centerY_, totalX_, moving_;
+int centerX_, centerY_, totalX_, moving_, turning_;
 int home_image_height_, home_image_width_;
 bool homeCenterUpdated_, movementComplete_, triedWebcamAlready_;
 float range_, approxRangeToTarget_;
@@ -74,6 +75,7 @@ int targetXPose_, targetYPose_;
 bool phase1_, pauseNewCommand_, pauseCommanded_, previousState_;
 int deltaPan_ = PAN_CAMERA_DELTA, deltaTilt_ = TILT_CAMERA_DELTA, searchCounter_ = 0, currentPan_ = 0; 
 int maxSearchPan_ = PAN_CAMERA_SEARCH_MAX, maxSearchTilt_ = TILT_CAMERA_SEARCH_MAX;
+int lastCamType_ = WEBCAM;
 std::string movementResult_;
 ros::Time overallTimer_;
 double startTime_, totalTime_, secondsRemaining_;
@@ -663,6 +665,7 @@ void on_enter_BootupState()
    targetCenterUpdated_ = false;
    homeCenterUpdated_ = false;
    moving_ = false;
+   turning_ = false;
    movementComplete_ = false;
    movementResult_ = "";
    triedWebcamAlready_ = false;
@@ -775,6 +778,7 @@ void on_exit_BootupState()
    targetCenterUpdated_ = false;
    homeCenterUpdated_ = false;
    moving_ = false;
+   turning_ = false;
    movementComplete_ = false;
    movementResult_ = "";
    centerX_ = -1; // indicator for when target centers are updated
@@ -990,16 +994,18 @@ void on_enter_CheckHomeState()
 {
    // start by capturing an image using fsm
    centerX_ = -1;
- // if (!triedWebcamAlready_)
+   if (!triedWebcamAlready_)
    {
+   	tAF_.set_camType(WEBCAM);
+   	tAF_.set_cam(FRONT_WEBCAM + LAPTOP_HAS_BUILTIN_WEBCAM);
    	triedWebcamAlready_ = true;
-//   	tAF_.set_camType(WEBCAM);
-//   	tAF_.set_cam(FRONT_WEBCAM + LAPTOP_HAS_BUILTIN_WEBCAM);
+   	lastCamType_ = WEBCAM;
    }
-//   else
+   else
    {
    	tAF_.set_camType(DIGCAM);
    	tAF_.set_cam(DIGCAM);
+   	lastCamType_ = DIGCAM;
    }
    tAF_.set_camCommand("cap_home");
    tAF_.set_homeTarget(true);
@@ -1016,6 +1022,13 @@ int on_update_CheckHomeState()
    if (centerX_ > 0)
    {
       cout << "possible target found: x, y, range = " << centerX_ << ", " << centerY_ << ", " << range_ << endl;
+      if (lastCamType_ == DIGCAM && abs(currentPan_) > 0.1) // need to put digcam servo back to the center
+      {
+		   searchCounter_ = 0;
+		   tAF_.set_pan(0);
+		   tAF_.set_tilt(0);
+		   tAF_.set_state(tAF_.getMoveCameraState());		   
+		}      	
       triedWebcamAlready_ = false;
       return HeadForHomeState_;
    }
@@ -1065,39 +1078,63 @@ int on_update_SearchForHomeState()
 void on_enter_HeadForHomeState()
 {
 	moving_ = false;
+	turning_ = false;
 	movementComplete_ = false;
+	// reset the camera searching
+	searchCounter_ = 0;
+	tAF_.set_pan(0);
+	tAF_.set_tilt(0);
+	tAF_.set_state(tAF_.getMoveCameraState());
 }
 
 int on_update_HeadForHomeState()
 {
    if (movementComplete_)
    {
-   	moving_ = false;
    	movementComplete_ = false;
-    	return CheckHomeState_;
+   	if (moving_)
+   	{
+   		moving_ = false;
+    		return CheckHomeState_;
+    	}
+    	turning_ = false;
    }
-   if (moving_) return HeadForHomeState_;
+   if (moving_ || turning_) return HeadForHomeState_;
    
    //char moveCmd[32];
    // now move forward
    outdoor_bot::movement_msg msg;
 
 
-/*	if (centerX_ > 0)
+	if (centerX_ > 0)	
 	{
    	// center the target and move forward
-   	double offsetX = ((double) ((totalX_ / 2) - centerX_)) / ((double) totalX_);	// ********** add currentPan_ to this and then put it back to 0 ***********
+   	double offsetX = ((double) ((totalX_ / 2) - centerX_)) / ((double) totalX_);  // fraction that the image is off-center
+    	centerX_ = -1;   	// only want to turn once for each pass through HeadForHomeState
+   	cout << "center offset ratio = " << offsetX << endl;
+   	if (lastCamType_ == WEBCAM) offsetX *= WEBCAM_FOV;
+   	else offsetX *= DIGCAM_FOV;
+   	cout << "center offset degrees = " << offsetX << endl;
+   	double servoOffset = currentPan_ * SERVO_UNITS_TO_DEGREES_RATIO;
+   	currentPan_ = 0.;	// the servos were centered earlier, but we waited to reset currentPan_ so we could use it here
+   	cout << "servo offset degrees = " << servoOffset << endl;
    	//double offsetY = ((double) (totalY_ - centerY_)) / ((double) totalY_);
-   	cout << "offset as a percentage of entire view = " << offsetX;
-   	if (fabs(offsetX) > 0.1)
+   	offsetX += servoOffset;
+   	cout << "total offset degrees = " << offsetX;
+   	if (fabs(offsetX) > 10.)
    	{
    		// send turn command to center the target
-      	//msg.command = "turn";
-   		// turn degrees = CAMERA_FOV * offsetX;	// positive offset means turn to the left, negative to the right.
-   		 ROS_INFO("centering target");
+      	msg.command = "turn";
+      	msg.angle = offsetX;
+      	msg.distance = 0.;
+   			// positive offset means turn to the left, negative to the right.
+   		movement_pub_.publish(msg);
+         turning_ = true;
+         movementComplete_ = false;
+   		ROS_INFO("centering target");
    	}
 	}
-	*/
+
 	msg.command = "move";     
    //if (callRadarService(LEFT_RADAR_NUMBER)  && range_ > 0.01) range_ = distanceToHome_[0];  
    //else
@@ -1139,7 +1176,7 @@ int on_update_HeadForHomeState()
       
       cout << "moving forward 1m, range_ = " << range_ << endl;
       msg.command = "move";
-      msg.distance = 10.0;
+      msg.distance = 1.0;
       msg.angle = 0.;
       
       /*

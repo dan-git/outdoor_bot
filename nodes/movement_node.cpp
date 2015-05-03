@@ -340,7 +340,7 @@ bool movementAngular(double angle)  // for now we just turn 90 degrees to the ri
    move_base_msgs::MoveBaseGoal goal;
    bool finishedInTime;
    geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(angle);
-   goal.target_pose.header.frame_id = "base_link";
+   goal.target_pose.header.frame_id = "base_footprint";
   	goal.target_pose.header.stamp = ros::Time::now();
 
   	goal.target_pose.pose.position.x = 0.0;

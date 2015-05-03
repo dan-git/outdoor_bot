@@ -30,6 +30,17 @@
 #define HOMECAM 2
 #define LAPTOP_HAS_BUILTIN_WEBCAM 1	// 1 if it has a built in webcam, 0 if not
 
+#define DIGCAM_PIXELS_WIDTH 2272
+#define DIGCAM_PIXELS_HEIGHT 1704
+#define WEBCAM_PIXELS_WIDTH 640
+#define WEBCAM_PIXELS_HEIGHT 480
+#define LARGE_TARGET_HEIGHT 0.78
+#define LARGE_TARGET_WIDTH 0.445
+#define WEBCAM_FOV 41.  // logitech 310 sees 7.5m at 10m -> has 40 degrees field of view
+#define ORBITCAM_FOV	54.	// orbitcam sees 14m at 10m -> has 54 degree FOV
+#define DIGCAM_FOV 14.  // powershot digcam with zoom = 7, sees 2.5m wide at 10m -> 14 degree FOV
+#define ZOOM_DIGCAM_FOV 3.8 // zoom = 7, sees 0.66 m wide at 10m -> 4 degree FOV
+
 //#define FRONT 1
 //#define REAR 0
 //#define DIGCAM 0

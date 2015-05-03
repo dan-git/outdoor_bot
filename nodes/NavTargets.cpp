@@ -20,7 +20,7 @@ using namespace std;
 //#define TARGET_HEIGHT_IN_PIX_AT_10M 64. //large target, webcam
 //#define TARGET_HEIGHT_IN_PIX_AT_10M 1211. //large target, zoom_digcam, zoom = 7
 //#define PIX_PER_CM_AT_3M 8.
-//#define TARGET_HEIGHT_CM 76. //19.
+//#define TARGET_HEIGHT_CM 78. //19.
 
 #define NUM_VERTICES 6
 #define MAX_MATCH_VALUE 0.05
