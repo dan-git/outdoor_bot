@@ -6,7 +6,7 @@ inflation_radius: 0.5
 max_obstacle_height: 0.6
 min_obstacle_height: 0.0
 
-observation_sources:  front_hokuyo_scan riht_hokuyo_scan
+observation_sources:  front_hokuyo_scan right_hokuyo_scan
 
 front_hokuyo_scan: {sensor_frame: hokuyo_front_link, data_type: LaserScan, topic: /scan, marking: true, clearing: true}
 right_hokuyo_scan: {sensor_frame: hokuyo_right_link, data_type: LaserScan, topic: /right_scan, marking: true, clearing: true}
