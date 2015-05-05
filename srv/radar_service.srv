@@ -1,5 +1,7 @@
-int32 radarNumber
+bool enableRadarData
 ---
-float32 distanceToHome
+float32 distanceToHomeLeft
+float32 distanceToHomeCenter
+float32 distanceToHomeRight
 float32 deltaDistanceToHome
 float32 velocityFromHome

@@ -11,6 +11,7 @@
 #include "outdoor_bot/mainTargets_imageReceived_msg.h"
 #include "outdoor_bot/radar_service.h"
 #include "outdoor_bot/setPose_service.h"
+//#include "outdoor_bot/encoders_service.h"
 #include "outdoor_bot/servo_msg.h"
 //#include "outdoor_bot/pmotor_msg.h"
 #include "outdoor_bot/movement_msg.h"
@@ -53,21 +54,20 @@ using namespace std;
 #define TILT_CAMERA_SEARCH_MAX 20
 
 
-ros::ServiceClient NavTargets_client_, radar_client_; //, mainTargets_client_, mainTargetsCheckImage_client_;
+ros::ServiceClient NavTargets_client_, radar_client_; //, encoders_client_; //, mainTargets_client_, mainTargetsCheckImage_client_;
 ros::ServiceClient setPose_client_; //digcams_client_, 
 ros::Publisher digcam_pub_, movement_pub_, webcam_pub_, mainTargetsCommand_pub_, NavTargetsCommand_pub_, servo_pub_; //, pmotor_pub_;
 ros::Subscriber home_center_sub_, targetImageReceived_sub_, target_center_sub_, move_complete_sub_, pause_sub_;
 outdoor_bot::webcams_custom webcam_command_;
 outdoor_bot::digcams_custom digcam_command_; 
-int centerX_, centerY_, totalX_, moving_, turning_;
+int centerX_, centerY_, totalX_, moving_, turning_, cameraType_ = WEBCAM;
 int home_image_height_, home_image_width_;
 bool homeCenterUpdated_, movementComplete_, triedWebcamAlready_;
-float range_, approxRangeToTarget_;
+double range_, approxRangeToTarget_, targetRange_, homeCameraRange_;
 bool zoomResult_, writeFileResult_, newMainTargetDigcamImageReceived_, newMainTargetWebcamImageReceived_, rangeUnknown_;
 bool targetCenterUpdated_, newNavTargetImageReceived_;
 int retCapToMemory_;
 double distanceToHome_[NUM_RADARS], deltaDistanceToHome_[NUM_RADARS], velocityFromHome_[NUM_RADARS];
-double homeCameraRange_ = 0.0;
 int platformXPose_[3], platPoseX_;
 int platformYPose_[3], platPoseY_;
 int platformYawPose_[3], platPoseYaw_;
@@ -77,6 +77,8 @@ int deltaPan_ = PAN_CAMERA_DELTA, deltaTilt_ = TILT_CAMERA_DELTA, searchCounter_
 int maxSearchPan_ = PAN_CAMERA_SEARCH_MAX, maxSearchTilt_ = TILT_CAMERA_SEARCH_MAX;
 int lastCamType_ = WEBCAM;
 std::string movementResult_;
+//int encoderPickerUpper_, encoderDropBar_, encoderBinShade_;
+bool prepping_, placing_, driving_, pushing_, scooping_, dropping_, retrieving_;
 ros::Time overallTimer_;
 double startTime_, totalTime_, secondsRemaining_;
 
@@ -486,10 +488,14 @@ void homeCenterCallback(const outdoor_bot::NavTargets_msg::ConstPtr &msg)
    centerY_ = msg->centerY;
    totalX_ = msg->totalX;
    homeCameraRange_ = msg->range;
-   //cameraName_ = msg->cameraName;
+   cameraType_ = msg->cameraType;
    homeCenterUpdated_ = true;
-   ROS_INFO("home updated in control: center, range = (%d, %d), %f", centerX_, centerY_, range_);
-   cout << "home center received data" << endl;
+   if (homeCameraRange_ > 0)
+   {
+   	cout << "NavTargets data: camType, center, homeCamerarange: " << cameraType_ << ", ("
+   		<< centerX_ << ", " << centerY_ << "), " << homeCameraRange_ << endl;
+   }
+   else cout << "NavTargets returned no home target" << endl;
 }
 
 void targetCenterCallback(const outdoor_bot::mainTargets_msg::ConstPtr &msg)
@@ -497,10 +503,10 @@ void targetCenterCallback(const outdoor_bot::mainTargets_msg::ConstPtr &msg)
    centerX_ = msg->centerX;
    centerY_ = msg->centerY;
    totalX_ = msg->totalX;
-   range_ = msg->range;
-   //cameraName_ = msg->cameraName;
+   targetRange_ = msg->range;
+   cameraType_ = msg->cameraType;
    targetCenterUpdated_ = true;
-   ROS_INFO("target center updated in control: center, range = (%d, %d), %f", centerX_, centerY_, range_);
+   ROS_INFO("target center updated in control: center, range = (%d, %d), %f", centerX_, centerY_, targetRange_);
    cout << "target center callback received data" << endl;  
 }
 
@@ -615,24 +621,18 @@ bool CallDigcamsService(int camNum, string command, string filename, float zoom,
    return false; // false if service call failed
 }
 */
-bool callRadarService(int radarNumber = LEFT_RADAR_NUMBER)
+bool callRadarService()
 {
    outdoor_bot::radar_service::Request req;
    outdoor_bot::radar_service::Response resp;
-   req.radarNumber = radarNumber;
    cout << "Calling radar service" << endl;
+   req.enableRadarData = true;
    bool success = radar_client_.call(req,resp);
    if (success)
    { 
-      if (resp.distanceToHome > 0.01)
-      {
-         int radarIndex;
-         if (radarNumber == LEFT_RADAR_NUMBER) radarIndex = 0;
-         if (radarNumber == RIGHT_RADAR_NUMBER) radarIndex = 1;
-         distanceToHome_[radarIndex] = resp.distanceToHome;
-         deltaDistanceToHome_[radarIndex] = resp.deltaDistanceToHome;
-         velocityFromHome_[radarIndex] = resp.velocityFromHome;
-      }
+      distanceToHome_[LEFT_RADAR_INDEX] = resp.distanceToHomeLeft;
+      distanceToHome_[RIGHT_RADAR_INDEX] = resp.distanceToHomeRight;
+      distanceToHome_[CENTER_RADAR_INDEX] = resp.distanceToHomeCenter;
       return true;
    }
    return false;
@@ -650,10 +650,29 @@ bool callSetPoseService(double x, double y, double yaw, bool setHome)
    return false;
 }
 
+/*
+bool callEncodersService()
+{
+	outdoor_bot::encoders_service::Request req;
+   outdoor_bot::encoders_service::Response resp;
+   cout << "Calling encoders service" << endl;
+   bool success = radar_client_.call(req,resp);
+   if (success)
+   {
+   	encoderPickerUpper_ = resp.encoderPickerUpper;
+   	encoderDropBar_ = resp.encoderDropBar;
+   	encoderBinShade_ = resp.encoderBinShade;
+   	return true;
+   }
+   return false;
+}
+*/
 void on_enter_BootupState()
 {
    approxRangeToTarget_ = 70.; // we start at about 70m from the first target
-   range_ = 70;
+   targetRange_ = 70.;
+   homeCameraRange_ = 10.;
+   range_ = 70.;
    rangeUnknown_ = false;
    retCapToMemory_ = -1;
    centerX_ = -1; // indicator for when target centers are updated
@@ -687,6 +706,11 @@ void on_enter_BootupState()
    platformYawPose_[2] = plat3_Yaw;
    targetXPose_ = target1_X;
    targetYPose_ = target1_Y;
+   
+   //encoderPickerUpper_ = 0;
+   //encoderDropBar_ = 0;
+   //encoderBinShade_= 0;
+   
    cout << "finished enter bootupState" << endl;
 
 }
@@ -696,7 +720,7 @@ int on_update_BootupState()
    cout << "now in update bootupState" << endl;
    // give some time for everyone to setup and get started, then ask what platform we are assigned
    cout << "Do you want to move on to autonomous ops or go through bootstate stuff?" << endl;
-   if (askUser()) return CheckHomeState_;
+   if (askUser()) return PickupTargetState_; //CheckHomeState_;
    if (getUserInput())
    {
 		   platPoseX_ = platformXPose_[platformNumber_ - 1];
@@ -719,34 +743,16 @@ int on_update_BootupState()
    }
 	
    // get radar ranges
-  
-   for (int i=0; i < NUM_RADARS; i++)
+   if (callRadarService())
+   { 
+		cout << "left radar distance to home = " << distanceToHome_[LEFT_RADAR_INDEX] << endl;
+		cout << "center radar distance to home = " << distanceToHome_[CENTER_RADAR_INDEX] << endl;
+		cout << "right radar distance to home = " << distanceToHome_[RIGHT_RADAR_INDEX] << endl;
+	}
+   else
    {
-      
-      int radarNumber;
-      if (i == 0)
-      {
-      	radarNumber = LEFT_RADAR_NUMBER;
-      	cout << "for left radar: ";
-      }
-      else if (i == 1)
-      {
-      	radarNumber =  RIGHT_RADAR_NUMBER;
-      	cout << "for right radar: ";
-      }	
-   	if (callRadarService(radarNumber))
-   	{
-		   if (distanceToHome_[i] > 0.01)
-		   {
-		      cout << "radar data: " << distanceToHome_[i] << ", " << deltaDistanceToHome_[i] << ", " << velocityFromHome_[i] << endl; 
-		   }
-		   else cout << "radar data not obtained" << endl;
-      }  
-      else
-      {
-         cout << "radar service failed, do you want to retry bootstate?" << endl;
-         if (!askUser()) return BootupState_;
-      }
+      cout << "radar service failed, do you want to retry bootstate?" << endl;
+      if (!askUser()) return BootupState_;
    }
    
    // start by setting zooms and taking a photo from each camera
@@ -767,7 +773,7 @@ int on_update_BootupState()
    if (!askUser()) return BootupState_;
    startTime_ = ros::Time::now().toSec();
    secondsRemaining_ = totalTime_ - (ros::Time::now().toSec() - startTime_);
-   return CheckHomeState_;
+   return PickupTargetState_;
 }
 
 void on_exit_BootupState()
@@ -804,7 +810,7 @@ int on_update_CheckFirstTargetState()
           
    if (centerX_ > 0)
    {
-      cout << "possible target found: x, y, range = " << centerX_ << ", " << centerY_ << ", " << range_ << endl;
+      cout << "possible target found: x, y, range = " << centerX_ << ", " << centerY_ << ", " << targetRange_ << endl;
       return MoveToFirstTargetState_;
    }
    else
@@ -982,11 +988,113 @@ int on_update_MoveToTargetState()
    return PickupTargetState_;
 }
 
+void on_enter_PickupTargetState()
+{
+	//callEncodersService();  // get initial locations
+	outdoor_bot::movement_msg msg;   
+   msg.command = "PDmotor";
+   msg.PDmotorNumber = MOTOR_PICKER_UPPER;
+   msg.speed = PICKER_UPPER_DOWN_PREP;
+  // movement_pub_.publish(msg);  
+  
+  
+  
+  
+   movementComplete_ = true;
+   
+   
+   
+   prepping_ = true;
+   placing_ = false;
+   driving_ = false;
+   dropping_ = false;
+   pushing_ = false;
+   scooping_ = false;
+   retrieving_ = false;	
+}
+
 int on_update_PickupTargetState()
 {
    // here we do final staging, which means line up with the target and drive straight to it and 
    // proceed with picking it up
-   return FindTargetState_;
+	outdoor_bot::movement_msg msg;   
+   msg.command = "PDmotor";
+     
+   if (movementComplete_)
+   {   	
+   	if (prepping_) // finished putting scooper in place, now move forward
+   	{
+   		prepping_ = false;
+   		driving_ = true;
+   		movementComplete_ = false;
+	      cout << "driving forward 1m to scoop target" << endl;
+		   msg.command = "move";
+		   msg.distance = 1.0;
+		   msg.angle = 0.;   	  
+   		movement_pub_.publish(msg);
+   		return PickupTargetState_;
+   	}
+   	
+   	if (driving_) // finished driving to target, now drop bar
+   	{
+   		driving_ = false;
+   		dropping_ = true;
+   		movementComplete_ = false;
+   	   msg.PDmotorNumber = MOTOR_DROP_BAR;
+   		msg.speed = DROP_BAR_DOWN;
+   		movement_pub_.publish(msg); 
+   		return PickupTargetState_;
+   	}
+   	
+   	if (dropping_) // finished dropping bar, now push target onto scooper
+   	{
+   		dropping_ = false;
+   		pushing_ = true;
+   		movementComplete_ = false;
+	      cout << "driving forward 1m to push target into scoop" << endl;
+		   msg.command = "move";
+		   msg.distance = 1.0;
+		   msg.angle = 0.;   	  
+   		movement_pub_.publish(msg);
+   		return PickupTargetState_;
+   	}
+   	
+   	if (pushing_) // finished pushing target onto scooper, now place scooper for scooping
+   	{
+   		pushing_ = false;
+   		placing_ = true;
+   	//	movementComplete_ = false;
+   	   msg.PDmotorNumber = MOTOR_PICKER_UPPER;
+   		msg.speed = PICKER_UPPER_DOWN;
+   	//	movement_pub_.publish(msg); 
+   		return PickupTargetState_;
+   	}
+   	
+   	if (placing_) // finished placing scoop, now pick up target
+   	{
+   		placing_ = false;
+   		scooping_ = true;
+   		movementComplete_ = false;
+   	   msg.PDmotorNumber = MOTOR_PICKER_UPPER;
+   		msg.speed = PICKER_UPPER_UP;
+   		movement_pub_.publish(msg); 
+   		return PickupTargetState_;
+   	}
+   	
+   	if (scooping_)	// finished scooping, now retrieve the drop bar
+   	{
+   		scooping_ = false;
+   		retrieving_ = true;
+   		movementComplete_ = false;
+   	   msg.PDmotorNumber = MOTOR_DROP_BAR;
+   		msg.speed = DROP_BAR_UP;
+   		movement_pub_.publish(msg); 
+   		return PickupTargetState_;  
+   	} 
+   	retrieving_ = false;
+   	return PauseState_;
+   }			   
+   return PickupTargetState_;
 }
 
 
@@ -1021,21 +1129,14 @@ int on_update_CheckHomeState()
           
    if (centerX_ > 0)
    {
-      cout << "possible target found: x, y, range = " << centerX_ << ", " << centerY_ << ", " << range_ << endl;
-      if (lastCamType_ == DIGCAM && abs(currentPan_) > 0.1) // need to put digcam servo back to the center
-      {
-		   searchCounter_ = 0;
-		   tAF_.set_pan(0);
-		   tAF_.set_tilt(0);
-		   tAF_.set_state(tAF_.getMoveCameraState());		   
-		}      	
+      cout << "possible target found: x, y, range = " << centerX_ << ", " << centerY_ << ", " << homeCameraRange_ << endl;     	
       triedWebcamAlready_ = false;
       return HeadForHomeState_;
    }
    else
    {
-      cout << "no target found yet" << endl; 
-      return SearchForHomeState_;
+      cout << "no home target found yet" << endl; 
+      return HeadForHomeState_;
    }  
 }
 
@@ -1044,14 +1145,7 @@ void on_enter_SearchForHomeState()
 {
    	deltaPan_ = -deltaPan_; // switch directions each time
 		currentPan_ += deltaPan_ * searchCounter_;
-		if (abs(currentPan_) > PAN_CAMERA_SEARCH_MAX)
-		{
-		   searchCounter_ = 0;
-		   tAF_.set_pan(0);
-		   tAF_.set_tilt(0);
-		   tAF_.set_state(tAF_.getMoveCameraState());
-		   return; // can't find the target, so center the camera and then move ahead a bit
-		}
+		if (abs(currentPan_) > PAN_CAMERA_SEARCH_MAX) return; // can't find the target, so center the camera and then move ahead a bit
 		searchCounter_++;
 		tAF_.set_pan(currentPan_);
 		tAF_.set_tilt(0);
@@ -1066,8 +1160,6 @@ int on_update_SearchForHomeState()
 {
    if (abs(currentPan_) > PAN_CAMERA_SEARCH_MAX)
    {
-      currentPan_ = 0;
-      triedWebcamAlready_ = false;
       return HeadForHomeState_; // can't find the target, so move ahead a bit 
    }
    tAF_.update();
@@ -1077,14 +1169,18 @@ int on_update_SearchForHomeState()
 
 void on_enter_HeadForHomeState()
 {
+   if (lastCamType_ == DIGCAM && abs(currentPan_) > 0.1) // need to put digcam servo back to the center
+   {
+	   searchCounter_ = 0;
+	   tAF_.set_pan(0);
+	   tAF_.set_tilt(0);
+	   tAF_.set_state(tAF_.getMoveCameraState());	
+	   if (abs(currentPan_) > PAN_CAMERA_SEARCH_MAX) currentPan_ = 0;	// we don't want to center on this servo pan setting   
+	} 
+	triedWebcamAlready_ = false;
 	moving_ = false;
 	turning_ = false;
 	movementComplete_ = false;
-	// reset the camera searching
-	searchCounter_ = 0;
-	tAF_.set_pan(0);
-	tAF_.set_tilt(0);
-	tAF_.set_state(tAF_.getMoveCameraState());
 }
 
 int on_update_HeadForHomeState()
@@ -1095,9 +1191,18 @@ int on_update_HeadForHomeState()
    	if (moving_)
    	{
    		moving_ = false;
-    		return CheckHomeState_;
-    	}
+   		cout << "move finished, ranges: " << endl;
+			if (callRadarService())
+			{ 
+				cout << "left radar distance to home = " << distanceToHome_[LEFT_RADAR_INDEX] << endl;
+				cout << "center radar distance to home = " << distanceToHome_[CENTER_RADAR_INDEX] << endl;
+				cout << "right radar distance to home = " << distanceToHome_[RIGHT_RADAR_INDEX] << endl; 
+			}
+			else cout << "call to radar service failed" << endl;
+			return CheckHomeState_;
+		}
     	turning_ = false;
+    	cout << "turn finished" << endl;
    }
    if (moving_ || turning_) return HeadForHomeState_;
    
@@ -1105,7 +1210,7 @@ int on_update_HeadForHomeState()
    // now move forward
    outdoor_bot::movement_msg msg;
 
-
+/*
 	if (centerX_ > 0)	
 	{
    	// center the target and move forward
@@ -1132,21 +1237,33 @@ int on_update_HeadForHomeState()
          turning_ = true;
          movementComplete_ = false;
    		ROS_INFO("centering target");
+   		return HeadForHomeState_;
    	}
 	}
+*/
+	msg.command = "move"; 
+	if (callRadarService())
+	{ 
+		cout << "left radar distance to home = " << distanceToHome_[LEFT_RADAR_INDEX] << endl;
+		cout << "center radar distance to home = " << distanceToHome_[CENTER_RADAR_INDEX] << endl;
+		cout << "right radar distance to home = " << distanceToHome_[RIGHT_RADAR_INDEX] << endl;
 
-	msg.command = "move";     
-   //if (callRadarService(LEFT_RADAR_NUMBER)  && range_ > 0.01) range_ = distanceToHome_[0];  
-   //else
+		if (distanceToHome_[CENTER_RADAR_INDEX] > 0.1) range_ = distanceToHome_[CENTER_RADAR_INDEX];
+		else if (distanceToHome_[LEFT_RADAR_INDEX] > 0.1) range_ = distanceToHome_[LEFT_RADAR_INDEX];
+		else if (distanceToHome_[RIGHT_RADAR_INDEX] > 0.1) range_ = distanceToHome_[RIGHT_RADAR_INDEX];
+	}
+	else 
+	{
+		cout << "call to radar service failed" << endl;    
+		if (homeCameraRange_ > 1.0)  range_ = homeCameraRange_; // use optical range if radar fails
+   	else 
+   	{
+   		cout << "unable to determine range in HeadForHome.  going back to CheckHomeState" << endl;
+   		return CheckHomeState_;	// without any idea what the range is, we need to go back and check where we are
+   	}
+   }
    
-   if (homeCameraRange_ > 1.0)  range_ = homeCameraRange_; // use optical range if radar fails
-   
-   
-   else range_ = 6.0;
-   
-   cout << "Heading for Home, range = " << range_ << endl;
-   
-   
+   cout << "Heading for Home, range = " << range_ << endl;  
    
 /*   if (range_ > 30.)
    {
@@ -1170,7 +1287,7 @@ int on_update_HeadForHomeState()
    }
    else
    */
-    if (range_ > 5.)
+    if (range_ > 12.)
    {
       //move forward 3 m
       
@@ -1189,6 +1306,7 @@ int on_update_HeadForHomeState()
       movement_pub_.publish(msg);
       moving_ = true;
       movementComplete_ = false;
+
       
    }
    else if (range_ > 0.01)
@@ -1198,9 +1316,7 @@ int on_update_HeadForHomeState()
       return MoveOntoPlatformState_;
    }
    
-   return CheckHomeState_;
-   
-   
+   return HeadForHomeState_;   
 }
 
 void on_enter_MoveOntoPlatformState()
@@ -1379,7 +1495,7 @@ void setupStates()
    fsm_.set_update_function(FindTargetState_, boost::bind(&on_update_FindTargetState));
    //fsm_.set_exit_function(FindTargetState_, boost::bind(&on_exit_FindTargetState));
 
-   //fsm_.set_entry_function(PickupTargetState_, boost::bind(&on_enter_PickupTargetState));
+   fsm_.set_entry_function(PickupTargetState_, boost::bind(&on_enter_PickupTargetState));
    fsm_.set_update_function(PickupTargetState_, boost::bind(&on_update_PickupTargetState));
    //fsm_.set_exit_function(PickupTargetState_, boost::bind(&on_exit_PickupTargetState));
 
@@ -1390,12 +1506,8 @@ void setupStates()
    fsm_.set_entry_function(SearchForHomeState_, boost::bind(&on_enter_SearchForHomeState));
    fsm_.set_update_function(SearchForHomeState_, boost::bind(&on_update_SearchForHomeState));
    //fsm_.set_exit_function(SearchForHomeState_, boost::bind(&on_exit_SearchForHomeState));
-   
-   //fsm_.set_entry_function(FindHomeState_, boost::bind(&on_enter_FindHomeState));
-   //fsm_.set_update_function(FindHomeState_, boost::bind(&on_update_FindHomeState));
-   //fsm_.set_exit_function(FindHomeState_, boost::bind(&on_exit_FindHomeState));
 
-   //fsm_.set_entry_function(HeadForHomeState_, boost::bind(&on_enter_HeadForHomeState));
+   fsm_.set_entry_function(HeadForHomeState_, boost::bind(&on_enter_HeadForHomeState));
    fsm_.set_update_function(HeadForHomeState_, boost::bind(&on_update_HeadForHomeState));
    //fsm_.set_exit_function(HeadForHomeState_, boost::bind(&on_exit_HeadForHomeState));
 
@@ -1437,6 +1549,7 @@ int main(int argc, char* argv[])
 
    //digcams_client_ = nh.serviceClient<outdoor_bot::digcams_service>("digcams_service");
    radar_client_ = nh.serviceClient<outdoor_bot::radar_service>("radar_service");
+   //encoders_client_ = nh.serviceClient<outdoor_bot::encoders_service>("encoders_service");
    setPose_client_ = nh.serviceClient<outdoor_bot::setPose_service>("setPose_service");
    NavTargets_client_ = nh.serviceClient<outdoor_bot::NavTargets_service>("NavTargetsService");
    //mainTargets_client_ = nh.serviceClient<outdoor_bot::mainTargets_service>("mainTargetsService");

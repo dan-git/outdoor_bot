@@ -338,7 +338,15 @@ bool GetNavTargets(Mat NavImage, int numVertices, double MaxMatchValue,
       //Mat BGR = planes_BGR[c];
 
       // try several threshold levels
-      for( int l = 0; l < NumberOfThresholdLevelsToCheck - 2; l++ ) 
+      
+      
+      
+      //***********************************************************************************
+      // skipping canny because too many contours from digcam makes the routine take too long***************
+      //***************************************************************
+      
+      
+      for( int l = 1; l < NumberOfThresholdLevelsToCheck - 2; l++ ) 
       // also skip first and last few thresholds.  By doing this instead of changing
       // NumberOfThresholdLevelsToCheck we keep the distance between checked thresholds smaller
       {
@@ -373,7 +381,7 @@ bool GetNavTargets(Mat NavImage, int numVertices, double MaxMatchValue,
          findContours( YUVcontours, contours, hierarchy, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE, cvPoint(0,0) );
 
          // Draw contours
-         //namedWindow( "Contours", CV_WINDOW_AUTOSIZE );
+         namedWindow( "Contours", CV_WINDOW_AUTOSIZE );
          RNG rng(12345);
          
          for(unsigned int i = 0; i < contours.size(); i++ )
@@ -608,7 +616,7 @@ bool GetNavTargets(Mat NavImage, int numVertices, double MaxMatchValue,
       return true; // we didn't write the file, but we did find a nav target
    }
    cout << "Saved image file, " << filename_contour << " with contours." << endl;
-   //waitKey(0);
+   //cvWaitKey(0);
    return true;
 }
 

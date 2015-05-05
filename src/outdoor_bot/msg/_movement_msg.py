@@ -6,10 +6,12 @@ import struct
 
 
 class movement_msg(genpy.Message):
-  _md5sum = "31f390ca0209742987f5432a40cd23db"
+  _md5sum = "23513392f8803949d235d71ec2be6410"
   _type = "outdoor_bot/movement_msg"
   _has_header = False #flag to mark the presence of a Header object
   _full_text = """string command
+int32 speed
+int32 PDmotorNumber
 int32 distance
 int32 angle
 float32 poseX
@@ -18,8 +20,8 @@ float32 poseThetaDegrees
 
 
 """
-  __slots__ = ['command','distance','angle','poseX','poseY','poseThetaDegrees']
-  _slot_types = ['string','int32','int32','float32','float32','float32']
+  __slots__ = ['command','speed','PDmotorNumber','distance','angle','poseX','poseY','poseThetaDegrees']
+  _slot_types = ['string','int32','int32','int32','int32','float32','float32','float32']
 
   def __init__(self, *args, **kwds):
     """
@@ -29,7 +31,7 @@ float32 poseThetaDegrees
     changes.  You cannot mix in-order arguments and keyword arguments.
 
     The available fields are:
-       command,distance,angle,poseX,poseY,poseThetaDegrees
+       command,speed,PDmotorNumber,distance,angle,poseX,poseY,poseThetaDegrees
 
     :param args: complete set of field values, in .msg order
     :param kwds: use keyword arguments corresponding to message field names
@@ -40,6 +42,10 @@ float32 poseThetaDegrees
       #message fields cannot be None, assign default values for those that are
       if self.command is None:
         self.command = ''
+      if self.speed is None:
+        self.speed = 0
+      if self.PDmotorNumber is None:
+        self.PDmotorNumber = 0
       if self.distance is None:
         self.distance = 0
       if self.angle is None:
@@ -52,6 +58,8 @@ float32 poseThetaDegrees
         self.poseThetaDegrees = 0.
     else:
       self.command = ''
+      self.speed = 0
+      self.PDmotorNumber = 0
       self.distance = 0
       self.angle = 0
       self.poseX = 0.
@@ -80,7 +88,7 @@ float32 poseThetaDegrees
       else:
         buff.write(struct.pack('<I%ss'%length, length, _x))
       _x = self
-      buff.write(_struct_2i3f.pack(_x.distance, _x.angle, _x.poseX, _x.poseY, _x.poseThetaDegrees))
+      buff.write(_struct_4i3f.pack(_x.speed, _x.PDmotorNumber, _x.distance, _x.angle, _x.poseX, _x.poseY, _x.poseThetaDegrees))
     except struct.error as se: self._check_types(struct.error("%s: '%s' when writing '%s'" % (type(se), str(se), str(_x))))
     except TypeError as te: self._check_types(ValueError("%s: '%s' when writing '%s'" % (type(te), str(te), str(_x))))
 
@@ -102,8 +110,8 @@ float32 poseThetaDegrees
         self.command = str[start:end]
       _x = self
       start = end
-      end += 20
-      (_x.distance, _x.angle, _x.poseX, _x.poseY, _x.poseThetaDegrees,) = _struct_2i3f.unpack(str[start:end])
+      end += 28
+      (_x.speed, _x.PDmotorNumber, _x.distance, _x.angle, _x.poseX, _x.poseY, _x.poseThetaDegrees,) = _struct_4i3f.unpack(str[start:end])
       return self
     except struct.error as e:
       raise genpy.DeserializationError(e) #most likely buffer underfill
@@ -126,7 +134,7 @@ float32 poseThetaDegrees
       else:
         buff.write(struct.pack('<I%ss'%length, length, _x))
       _x = self
-      buff.write(_struct_2i3f.pack(_x.distance, _x.angle, _x.poseX, _x.poseY, _x.poseThetaDegrees))
+      buff.write(_struct_4i3f.pack(_x.speed, _x.PDmotorNumber, _x.distance, _x.angle, _x.poseX, _x.poseY, _x.poseThetaDegrees))
     except struct.error as se: self._check_types(struct.error("%s: '%s' when writing '%s'" % (type(se), str(se), str(_x))))
     except TypeError as te: self._check_types(ValueError("%s: '%s' when writing '%s'" % (type(te), str(te), str(_x))))
 
@@ -149,11 +157,11 @@ float32 poseThetaDegrees
         self.command = str[start:end]
       _x = self
       start = end
-      end += 20
-      (_x.distance, _x.angle, _x.poseX, _x.poseY, _x.poseThetaDegrees,) = _struct_2i3f.unpack(str[start:end])
+      end += 28
+      (_x.speed, _x.PDmotorNumber, _x.distance, _x.angle, _x.poseX, _x.poseY, _x.poseThetaDegrees,) = _struct_4i3f.unpack(str[start:end])
       return self
     except struct.error as e:
       raise genpy.DeserializationError(e) #most likely buffer underfill
 
 _struct_I = genpy.struct_I
-_struct_2i3f = struct.Struct("<2i3f")
+_struct_4i3f = struct.Struct("<4i3f")

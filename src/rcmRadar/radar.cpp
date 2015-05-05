@@ -152,18 +152,18 @@ void usage(void)
           &rangeInfo_, &dataInfo_, &scanInfo_, &fullscanInfo_) == 0)
       {
          // we always get a range info packet
-         printf("RANGE_INFO: responder %d, msg ID %u, range status %d, "
-                 "stopwatch %d ms, channelRiseTime %d, vPeak %d, measurement type %d\n",
-                 rangeInfo_.responderId, rangeInfo_.msgId, rangeInfo_.rangeStatus,
-                 rangeInfo_.stopwatchTime, rangeInfo_.noise, rangeInfo_.vPeak,
-                 rangeInfo_.rangeMeasurementType);
+         //printf("RANGE_INFO: responder %d, msg ID %u, range status %d, "
+         //        "stopwatch %d ms, channelRiseTime %d, vPeak %d, measurement type %d\n",
+         //        rangeInfo_.responderId, rangeInfo_.msgId, rangeInfo_.rangeStatus,
+         //        rangeInfo_.stopwatchTime, rangeInfo_.noise, rangeInfo_.vPeak,
+         //        rangeInfo_.rangeMeasurementType);
 
          // The RANGE_INFO can provide multiple types of ranges
-         if (rangeInfo_.rangeMeasurementType & RCM_RANGE_TYPE_PRECISION)
-         {
-             printf("Precision range: %d mm, error estimate %d mm\n",
-                     rangeInfo_.precisionRangeMm, rangeInfo_.precisionRangeErrEst);
-         }
+         //if (rangeInfo_.rangeMeasurementType & RCM_RANGE_TYPE_PRECISION)
+         //{
+         //    printf("Precision range: %d mm, error estimate %d mm\n",
+         //            rangeInfo_.precisionRangeMm, rangeInfo_.precisionRangeErrEst);
+         //}
 			/*
          if (rangeInfo_.rangeMeasurementType & RCM_RANGE_TYPE_COARSE)
          {

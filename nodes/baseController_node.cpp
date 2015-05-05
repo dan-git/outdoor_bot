@@ -5,6 +5,7 @@
 #include "std_msgs/String.h"
 #include "outdoor_bot/servo_msg.h"
 #include "outdoor_bot/pmotor_msg.h"
+#include "outdoor_bot/autoMove_msg.h"
 #include "outdoor_bot_defines.h"
 #include <string>
 
@@ -12,7 +13,7 @@
 //#define WHEEL_SEPARATION 0.36 // meters
 
 ros::Publisher ucCommand;
-ros::Subscriber moveCmd, ucResponse, servoCmd, pmotorCmd;
+ros::Subscriber moveCmd, ucResponse, servoCmd, pmotorCmd, autoMoveCmd;
 
 //bool roger_ = false; // use a launch file parameter to determine if this stays false or gets set to true
 		// if it is true, it implies that we are connecting to a telepresence bot with a server, false for standard bot
@@ -130,6 +131,26 @@ void pmotorCommandCallback(const outdoor_bot::pmotor_msg msg)
    ucCommand.publish(command);
 }
 
+void autoMoveCommandCallback(const outdoor_bot::autoMove_msg msg)
+{
+	char intStr[33];
+	std::string commandString;
+	commandString = "autoMove(";
+	sprintf(intStr,"%d", msg.distance);
+   commandString.append(intStr);
+   commandString.append(",");
+   sprintf(intStr,"%d", msg.angle);
+   commandString.append(intStr);
+   commandString.append(",");
+   sprintf(intStr,"%d", msg.speed);
+   commandString.append(intStr);
+   commandString.append(");"); 
+   std_msgs::String command;           
+   command.data = commandString;
+   ucCommand.publish(command); 
+}  
+   
+   
 int main(int argc, char** argv){
   //Initialize ROS
   ros::init(argc, argv, "baseController_node");
@@ -140,6 +161,7 @@ int main(int argc, char** argv){
   moveCmd = n.subscribe("cmd_vel", 50, moveCommandCallback);  // subscribe to move commands
   servoCmd = n.subscribe("servo_cmd", 5, servoCommandCallback);
   pmotorCmd = n.subscribe("pmotor_cmd", 5, pmotorCommandCallback);
+  autoMoveCmd = n.subscribe("autoMove_cmd", 5, autoMoveCommandCallback);
   ucCommand = n.advertise<std_msgs::String>("uc1Command", 50); // advertise commands to be sent to the arduino's serial port
   ros::spin();  // check for incoming messages
 }

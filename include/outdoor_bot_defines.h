@@ -57,13 +57,20 @@
 #define CENTER_RADAR_HOME_DISTANCE 0.5
 //#define MAP 0
 #define BOT 1
-#define FINAL_RANGE 2.0
+//#define FINAL_RANGE 2.0  // now defined in just movement node
 
 #define MOTOR_DROP_BAR 0
 #define MOTOR_BIN_SHADE 1
 #define MOTOR_PICKER_UPPER 2
 #define MOTOR_BRAKE_SOLENOID 3
 #define PD_SPEED_MAX_VALUE 127
+#define PICKER_UPPER_UP -1
+#define PICKER_UPPER_DOWN 1
+#define PICKER_UPPER_DOWN_PREP 2
+#define DROP_BAR_UP 1
+#define DROP_BAR_DOWN -1
+#define BIN_SHADE_UP 1
+#define BIN_SHADE_DOWN -1
 
 
 

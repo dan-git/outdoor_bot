@@ -28,8 +28,21 @@ sqrt(0.5)	0	0	-sqrt(0.5)	-90° rotation around Z axis
 #include "geometry_msgs/PoseWithCovarianceStamped.h"
 #include "outdoor_bot/movement_msg.h"
 #include "outdoor_bot/pmotor_msg.h"
+#include "outdoor_bot/autoMove_msg.h"
 #include "outdoor_bot/radar_service.h"
+#include "outdoor_bot/encoders_service.h"
+#include "rcmRadar/radar.h"
 #include "outdoor_bot_defines.h"
+
+#define FINAL_RANGE 1.2
+#define DROP_BAR_LOCATION -3000 
+#define PICKER_UPPER_PREP_LOCATION 100 
+#define PICKER_UPPER_LOCATION 108
+#define BIN_SHADE_FIRST_LOCATION 106
+#define BIN_SHADE_SECOND_LOCATION 1044
+#define BIN_SHADE_THIRD_LOCATION 1804
+
+
 
 using namespace std;
 
@@ -40,8 +53,8 @@ class movementControl
 private:
 
    ros::NodeHandle nh_;
-   ros::ServiceClient radar_client_;
-   ros::Publisher cmd_vel_pub_, complete_pub_, pmotor_pub_;
+   ros::ServiceClient radar_client_, encoders_client_;
+   ros::Publisher cmd_vel_pub_, complete_pub_, pmotor_pub_, autoMove_pub_;
    // we subscribe motion and keyboard commands publishers
    ros::Subscriber keyboardCommandsSub_, motionCommandsSub_, movementCommandsSub_;
 
@@ -49,17 +62,47 @@ private:
    // true causes the client to spin its own thread
    MoveBaseClient *ac_;
 
-   int distance_, angle_, map_or_bot_;
+   int distance_, angle_, map_or_bot_, numObjectsGathered_;
+   int encoderPickerUpper_, encoderDropBar_, encoderBinShade_;
    int quatX_, quatY_, quatZ_, quatW_;
    std::string command_;
    
    double distanceToHome_[NUM_RADARS], deltaDistanceToHome_[NUM_RADARS], velocityFromHome_[NUM_RADARS];
    float range_;
+   bool radarDataEnabled_;
+   
+   radarRanger rRanger_;   // remember to set the serial port for this to work!
+      
+   bool getRadarData(int destNodeNumber)
+	{
+		double currentDistanceToHome  = ((double) rRanger_.getRange(destNodeNumber));	// returns value in mm  
+		
+		if (currentDistanceToHome > 0.01)
+		{
+		   if (destNodeNumber == LEFT_RADAR_NUMBER) 
+		   {
+				distanceToHome_[LEFT_RADAR_INDEX] = currentDistanceToHome / 1000.;	// convert to meters
+			}		   
+		   else if (destNodeNumber == RIGHT_RADAR_NUMBER) 
+		   {
+				distanceToHome_[RIGHT_RADAR_INDEX] = currentDistanceToHome / 1000.;	// convert to meters
+			}		
+		   else if (destNodeNumber == CENTER_RADAR_NUMBER) 
+		   {
+				distanceToHome_[CENTER_RADAR_INDEX] = currentDistanceToHome / 1000.;	// convert to meters
+			}				
+		   return true;
+		}
+		//if (currentDistanceToHome == -2) radarStatus_ = false;
+		cout << "radar not reporting" << endl;
+		return false;
+	} 
 
 public:
   movementControl(ros::NodeHandle &nh)
    :  nh_(nh)
 {
+   radarDataEnabled_ = true;
    range_ = 0.;
    distance_ = 0;
    angle_ = 0;
@@ -69,14 +112,20 @@ public:
    quatZ_ = 0;
    quatW_ = 0;
    command_ = "";
+   encoderPickerUpper_ = 0;
+   encoderDropBar_ = 0;
+   encoderBinShade_= 0;
+   numObjectsGathered_ = 0;
    cmd_vel_pub_ = nh.advertise<geometry_msgs::Twist>("cmd_vel", 1);
 
    // subscribe to keyboard and motion
    keyboardCommandsSub_ = nh.subscribe("keyboard", 1, &movementControl::keyboardCommandCallback, this);
    movementCommandsSub_ = nh.subscribe("movement_command", 2, &movementControl::movementCommandCallback, this);
+   encoders_client_ = nh.serviceClient<outdoor_bot::encoders_service>("encoders_service");
    radar_client_ = nh.serviceClient<outdoor_bot::radar_service>("radar_service");
    complete_pub_ = nh.advertise<std_msgs::String>("movement_complete", 4);
    pmotor_pub_ = nh.advertise<outdoor_bot::pmotor_msg>("pmotor_cmd", 5);
+   autoMove_pub_ = nh.advertise<outdoor_bot::autoMove_msg>("autoMove_cmd", 2);
    ac_ = new MoveBaseClient("move_base",true);
    //wait for the action server to come up
    while(!ac_->waitForServer(ros::Duration(5.0))){
@@ -88,30 +137,40 @@ public:
    {
       delete ac_;
    }
-   
-bool callRadarService(int radarNumber = LEFT_RADAR_NUMBER)
+
+bool callRadarService()	// this gets the latest radar data that robotPose has gathered
 {
    outdoor_bot::radar_service::Request req;
    outdoor_bot::radar_service::Response resp;
-   req.radarNumber = radarNumber;
+   req.enableRadarData = radarDataEnabled_;
    cout << "Calling radar service" << endl;
    bool success = radar_client_.call(req,resp);
    if (success)
    { 
-      if (resp.distanceToHome > 0.)
-      {
-         int radarIndex;
-         if (radarNumber == LEFT_RADAR_NUMBER) radarIndex = 0;
-         if (radarNumber == RIGHT_RADAR_NUMBER) radarIndex = 1;
-         distanceToHome_[radarIndex] = resp.distanceToHome;
-         deltaDistanceToHome_[radarIndex] = resp.deltaDistanceToHome;
-         velocityFromHome_[radarIndex] = resp.velocityFromHome;
-      }
+      distanceToHome_[LEFT_RADAR_INDEX] = resp.distanceToHomeLeft;
+      distanceToHome_[RIGHT_RADAR_INDEX] = resp.distanceToHomeRight;
+      distanceToHome_[CENTER_RADAR_INDEX] = resp.distanceToHomeCenter;
       return true;
    }
    return false;
 }
 
+bool callEncodersService()
+{
+	outdoor_bot::encoders_service::Request req;
+   outdoor_bot::encoders_service::Response resp;
+  // cout << "Calling encoders service" << endl;
+   bool success = encoders_client_.call(req,resp);
+   if (success)
+   {
+   	encoderPickerUpper_ = resp.encoderPickerUpper;
+   	encoderDropBar_ = resp.encoderDropBar;
+   	encoderBinShade_ = resp.encoderBinShade;
+   	//cout << " encoders: pickerupper, dropbar, binshade = " << encoderPickerUpper_ << ", " << encoderDropBar_ << ", " << encoderBinShade_ << endl;
+   	return true;
+   }
+   return false;
+}   
 
 void sendMotionCommand(std::string motionCmd)
 {  
@@ -389,10 +448,26 @@ void keyboardCommandCallback(const std_msgs::String::ConstPtr& msg)
 
 void movementCommandCallback(const outdoor_bot::movement_msg msg)
 {
-   
+   ros::Time last_time;
+   ros::Time current_time = ros::Time::now();  
    string command = msg.command;
    std_msgs::String msgResult;
-		cout << "movement callback in movement node " << endl;    
+		cout << "movement callback in movement node " << endl; 
+		
+	if (!command.compare("autoMove"))   // use arduino to directly implement a move
+	{
+		outdoor_bot::autoMove_msg autoMoveMsg;
+		autoMoveMsg.distance = msg.distance;
+		autoMoveMsg.angle = msg.angle;
+		autoMoveMsg.speed = msg.speed;
+		autoMove_pub_.publish(autoMoveMsg);  // send to the arduino
+		last_time = ros::Time::now(); 
+	   while ( current_time.toSec() - last_time.toSec() < 5.0) current_time = ros::Time::now();	// give the arduino 5 secs to complete the task
+	   msgResult.data = "autoMove_done";
+	   complete_pub_.publish(msgResult);
+	 }
+		
+		
    if (!command.compare("move"))	// command bot to enter pause mode
 	{
 		cout << "moving in movement node " << endl;
@@ -451,12 +526,33 @@ void movementCommandCallback(const outdoor_bot::movement_msg msg)
     {
       cout << "final approach phase in movement node" << endl;
       range_ = -1.;
-      if (callRadarService(LEFT_RADAR_NUMBER) && distanceToHome_[0] > 0.01) range_ = distanceToHome_[0]; 
-      cout << "Heading for Home, range = " << range_ << endl;
+      
+      // we will control the radar calls, no longer using move_base or robotPose, just moving up onto the platform
+      
+      radarDataEnabled_ = false;	// turn off robotPose calls to the radar, so we do not have colliding calls
+      // make a last call to get radar data from robotPose
+		if (callRadarService())
+		{ 
+			cout << "left radar distance to home = " << distanceToHome_[LEFT_RADAR_INDEX] << endl;
+			cout << "center radar distance to home = " << distanceToHome_[CENTER_RADAR_INDEX] << endl;
+			cout << "right radar distance to home = " << distanceToHome_[RIGHT_RADAR_INDEX] << endl;
+
+			if (distanceToHome_[CENTER_RADAR_INDEX] > 0.1) range_ = distanceToHome_[CENTER_RADAR_INDEX];
+			else if (distanceToHome_[LEFT_RADAR_INDEX] > 0.1) range_ = distanceToHome_[LEFT_RADAR_INDEX];
+			else if (distanceToHome_[RIGHT_RADAR_INDEX] > 0.1) range_ = distanceToHome_[RIGHT_RADAR_INDEX];
+		}
+		else 
+		{
+			cout << "call to radar service failed" << endl;    
+		}		
+		cout << "starting move onto platform = " << range_ << endl;
+
       if (range_ < 0.01)
       {
       	ROS_INFO("failed to get range data in movement_node, so the base failed to move");
          msgResult.data = "failed";
+         radarDataEnabled_ = true;	// turn back on robotPose calls to the radar
+         callRadarService();
          complete_pub_.publish(msgResult);
          return;
       }
@@ -471,42 +567,77 @@ void movementCommandCallback(const outdoor_bot::movement_msg msg)
 		movement_cmd.linear.x = 0.0;
 		movement_cmd.linear.z = 0.0;   // this is our enable command.  start enabled.
 		movement_cmd.angular.z = 0.0; 
-      movement_cmd.linear.x = -0.15;
+      movement_cmd.linear.x = 0.25;
       movement_cmd.angular.z = 0.0;
       //publish the assembled command and start moving forward
       cmd_vel_pub_.publish(movement_cmd);
       int stopCount = 0;
       int notProgressingCounter = 0;
-      while ((range_ > FINAL_RANGE) && stopCount < 10 && notProgressingCounter < 100)
-      {
-      	if (callRadarService(LEFT_RADAR_NUMBER)) 
-      	{
-      		if (distanceToHome_[0] > 0.01) range_ = distanceToHome_[0]; 
-      		cout << "current range in movement node = " << range_ << endl;
-      		notProgressingCounter++;
-      		struct timespec ts;
-				ts.tv_sec = 0;
-				ts.tv_nsec = 100000000;
-				nanosleep(&ts, NULL); // update every 100 ms, we are limited by the rate that robotPose updates this value
-      	}
-      	else
-      	{
-      		cout << "failed to get range data in movement node" << endl;
-      		stopCount++;
-      	}
+            
+      while ((range_ > FINAL_RANGE) && stopCount < 10 && notProgressingCounter < 100)      
+      {      
+			if (getRadarData(CENTER_RADAR_NUMBER)) range_ = distanceToHome_[CENTER_RADAR_INDEX] - CENTER_RADAR_HOME_DISTANCE;
+			else
+			{
+				// can't make radar calls too close together
+				last_time = ros::Time::now(); 
+				while ( current_time.toSec() - last_time.toSec() < 0.15) current_time = ros::Time::now();
+				if (getRadarData(LEFT_RADAR_NUMBER)) range_ = distanceToHome_[LEFT_RADAR_INDEX] - LEFT_RADAR_HOME_DISTANCE;
+				else
+				{
+					// can't make radar calls too close together
+					last_time = ros::Time::now(); 
+					while ( current_time.toSec() - last_time.toSec() < 0.15) current_time = ros::Time::now(); 
+					if (getRadarData(RIGHT_RADAR_NUMBER)) range_ = distanceToHome_[RIGHT_RADAR_INDEX] - RIGHT_RADAR_HOME_DISTANCE;
+					else
+					{
+						cout << "failed to get range data in movement node" << endl;
+						stopCount++;
+					}
+				}
+			}    	
+
+			cout << "Moving onto platform in movement node, range = " << range_ << endl;
+			notProgressingCounter++;
+
+			//update every 150 ms, we are limited by the rate that the radar can process ranges
+
+			last_time = ros::Time::now();
+			while ( current_time.toSec() - last_time.toSec() < 0.15) current_time = ros::Time::now();
       }
+      
+      if (stopCount >= 10 || notProgressingCounter >= 100)
+      {
+      	ROS_INFO("failed to move onto platform in movement_node");
+         msgResult.data = "failed";
+         radarDataEnabled_ = true;	// turn back on robotPose calls to the radar
+         callRadarService();
+         complete_pub_.publish(msgResult);
+         return;
+      }
+      
+      // we are on the platform, time to stop
       movement_cmd.angular.z = 0.0;
       movement_cmd.linear.x = 0.0;
       movement_cmd.linear.z = 1.0; // we cannot move vertically, this is our re-enable command
       //publish the assembled command
       cmd_vel_pub_.publish(movement_cmd); // stopping on the platform
-      
-      
-      if (callRadarService(LEFT_RADAR_NUMBER) && distanceToHome_[0] > 0.01) range_ = distanceToHome_[0];
-      cout << "final range in movement node = " << range_ << endl;
-      cout << "base moved " << startingRange - range_ << " meters" << endl;
       msgResult.data = "platform_done";
       complete_pub_.publish(msgResult);
+      
+   	getRadarData(CENTER_RADAR_NUMBER);
+   	last_time = ros::Time::now(); 
+		while ( current_time.toSec() - last_time.toSec() < 0.15) current_time = ros::Time::now();
+		getRadarData(LEFT_RADAR_NUMBER);
+   	last_time = ros::Time::now(); 
+		while ( current_time.toSec() - last_time.toSec() < 0.15) current_time = ros::Time::now();
+		getRadarData(RIGHT_RADAR_NUMBER);		
+   	
+		cout << "left radar distance to home = " << distanceToHome_[LEFT_RADAR_INDEX] << endl;
+		cout << "center radar distance to home = " << distanceToHome_[CENTER_RADAR_INDEX] << endl;
+		cout << "right radar distance to home = " << distanceToHome_[RIGHT_RADAR_INDEX] << endl;
+
+		cout << "total distance moved to get onto platform = " << startingRange - distanceToHome_[CENTER_RADAR_INDEX] << endl;
       return;
     }
 
@@ -521,7 +652,105 @@ void movementCommandCallback(const outdoor_bot::movement_msg msg)
       complete_pub_.publish(msgResult);
    	return;
    } 
-       
+ 
+	//encoder calibration.
+	//drop bar full movement = 3313 with -1 direction being deploy and 1 direction retrieve
+	//bin shade first window is at 106, second window is 1044, last window is 1804
+	//pickerupper 1 direction is scoop up, -1 is scoop down  
+   if (!command.compare("PDmotor"))
+   {
+   	/*
+   	if (!callEncodersService())
+   	{    	
+      	cout << "unable to get PD motor encoder values, returning failed from movement node" << endl;
+      	msgResult.data = "PDmotor_failed";  	
+   		complete_pub_.publish(msgResult);
+   		return;
+   	} 
+   	// get initial locations
+   	cout << "PD motor command received in movement_node" << endl;
+ 		int initialEncoderPickerUpper = encoderPickerUpper_; 
+   	int initialEncoderDropBar = encoderDropBar_;
+   	//int initial EncoderDropShade = encoderBinShade_; 
+   	*/ 
+   	int motorNumber = msg.PDmotorNumber;
+   	int motorSpeed = msg.speed;
+   		
+   	outdoor_bot::pmotor_msg pmotorMsg;
+   	pmotorMsg.pmotorNumber = motorNumber;
+   	pmotorMsg.pmotorSpeed = motorSpeed;	// this actually only sets the direction, speeds are preset in the arduino
+   	pmotor_pub_.publish(pmotorMsg);
+
+   	ros::Time last_time = ros::Time::now();
+   	ros::Time current_time = ros::Time::now();
+   	int timeoutCounter = 0;
+   	bool moveFinished = false;
+   	   	
+   	while ( (!moveFinished) && timeoutCounter < 6000)	// timeout after 1 min
+   	{
+			if (!callEncodersService())
+			{    	
+		   	cout << "unable to get PD motor encoder values, returning failed from movement node" << endl;
+		   	msgResult.data = "PDmotor_failed";  	
+				complete_pub_.publish(msgResult);
+				return;
+			} 		
+   	
+			if (motorNumber == MOTOR_DROP_BAR)
+			{
+				if (motorSpeed == DROP_BAR_DOWN)
+				{
+					if (encoderDropBar_ <= DROP_BAR_LOCATION) moveFinished = true;
+				}
+				else if (encoderDropBar_ >= 0) moveFinished = true;
+			}
+			
+		 	if (motorNumber == MOTOR_PICKER_UPPER)
+			{
+				if (motorSpeed == PICKER_UPPER_DOWN)
+				{
+					if (encoderPickerUpper_ >= PICKER_UPPER_LOCATION) moveFinished = true;
+				}
+				else if (motorSpeed == PICKER_UPPER_UP)
+				{
+					if (encoderPickerUpper_ <= 0) moveFinished = true;
+				}
+				
+				else if (motorSpeed == PICKER_UPPER_DOWN_PREP)
+				{
+					if (encoderPickerUpper_ >= PICKER_UPPER_PREP_LOCATION) moveFinished = true;
+				}
+				
+			}
+			
+			if (motorNumber == MOTOR_BIN_SHADE)
+			{
+				if ((numObjectsGathered_ == 1) && (encoderBinShade_ >= BIN_SHADE_FIRST_LOCATION)) moveFinished = true;
+				if ((numObjectsGathered_ == 2) && (encoderBinShade_ >= BIN_SHADE_SECOND_LOCATION)) moveFinished = true;
+				if ((numObjectsGathered_ == 3) && (encoderBinShade_ >= BIN_SHADE_THIRD_LOCATION)) moveFinished = true;
+			} 
+			
+			timeoutCounter++;
+			
+			last_time = ros::Time::now(); 
+		   while ( current_time.toSec() - last_time.toSec() < 0.1) current_time = ros::Time::now(); 	// no reason to update more than about every 100 ms
+ 		}
+ 		pmotorMsg.pmotorSpeed = 0;	// stop the motor
+   	pmotor_pub_.publish(pmotorMsg);  	
+   	
+   	if (timeoutCounter < 6000)
+   	{
+   		msgResult.data = "PDmotor_done"; 
+   		if (motorNumber == MOTOR_BIN_SHADE) numObjectsGathered_++;
+   		cout << "PD motor move finished for motor " << motorNumber << ", speed = " << motorSpeed << endl;
+   	}	 
+   	else
+   	{
+   		msgResult.data = "PDmotor_failed";
+   		cout << "PD motor move timed out for motor " << motorNumber << ", speed = " << motorSpeed << endl;	
+   	}
+   	complete_pub_.publish(msgResult);
+   }       
 }
 };
 

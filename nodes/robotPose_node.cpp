@@ -87,7 +87,7 @@ long EncoderTicksRight = 0, EncoderTicksLeft = 0, previousEncoderTicksRight = 0,
 long EncoderPickerUpper = 0, EncoderBinShade = 0, EncoderDropBar = 0, EncoderExtra = 0;
 int battery, pauseState = 0, dirAntMaxDir = 0, dirAntMaxTilt = 0,  dirAntLevel = 0;
 unsigned long arduinoCycleTime, arduinoDataCounter;
-bool firstTime = true;
+bool firstTime = true, radarDataEnabled_ = true;
 ros::Time current_time, last_time;
 radarRanger rRanger_;   // remember to set the serial port for this to work!
 double homeX_ = 0., homeY_ = 0., homeYaw_ = 0.;
@@ -392,12 +392,10 @@ void sendOutNavData()
 	  //cout << "radar counter,  mod 50 = " << radarCounter_ << ", " << radarCounter_ % 50 << endl;
 	  
 	  
-	  /*
-	  if (radarCounter_ % 200 == 0)
+	  
+	  if (radarCounter_ % 200 == 0  && radarDataEnabled_)
      {
-		 int radarIndex = LEFT_RADAR_INDEX;
-// ****************************************************************************************************************************
-		 //radarCounter_ = 0;	// ************* remove this line when uncommentingto include right radar	 
+		 int radarIndex = LEFT_RADAR_INDEX; 
 		 if (radarCounter_ % 400 == 0)
 		 {
 		 	radarIndex = RIGHT_RADAR_INDEX;
@@ -417,7 +415,7 @@ void sendOutNavData()
 					ratioHomeDistances = ((double) distanceToHome_[radarIndex]) / odomDistanceToHome;
 					x = ((x - homeX_) * ratioHomeDistances) + homeX_;
 					y = ((y - homeY_) * ratioHomeDistances) + homeY_;
-				//	if (ratioHomeDistances > 1.5 || ratioHomeDistances < 0.5) // let the user know we corrected by more than a bit
+				   //if (ratioHomeDistances > 1.5 || ratioHomeDistances < 0.5) // let the user know we corrected by more than a bit
 					{
 						cout << "ratio of home distances = " <<  ratioHomeDistances << endl;
 						cout << "distanceToHome = " <<  distanceToHome_[radarIndex] << endl;
@@ -432,7 +430,7 @@ void sendOutNavData()
 	  }
 	  radarCounter_++;
 
-	  */
+	 
     yaw += delta_Yaw;
     
     publishPose(x, y, yaw, vYaw, currentVelocity_);
@@ -616,22 +614,46 @@ bool dirAnt_service_send(outdoor_bot::dirAnt_service::Request  &req, outdoor_bot
 
 bool radar_service_send(outdoor_bot::radar_service::Request  &req, outdoor_bot::radar_service::Response &res)
 {
+	radarDataEnabled_ = req.enableRadarData;
+	cout << " robotPose received radar service request " << endl;
+	res.distanceToHomeLeft = distanceToHome_[LEFT_RADAR_INDEX];
+	//res.deltaDistanceToHome = deltaDistanceToHome_[LEFT_RADAR_INDEX];
+	//res.velocityFromHome = velocityFromHome_[LEFT_RADAR_INDEX]; 
+	cout << "robotPose responded to radar service request with left distanceToHome_ = " << distanceToHome_[LEFT_RADAR_INDEX] << endl;
+	
+	res.distanceToHomeRight = distanceToHome_[RIGHT_RADAR_INDEX];
+	//res.deltaDistanceToHome = deltaDistanceToHome_[RIGHT_RADAR_INDEX];
+	//res.velocityFromHome = velocityFromHome_[RIGHT_RADAR_INDEX];
+	cout << "robotPose responded to radar service request with right distanceToHome_ = " << distanceToHome_[RIGHT_RADAR_INDEX] << endl; 
+
+	res.distanceToHomeCenter = distanceToHome_[CENTER_RADAR_INDEX];
+	//res.deltaDistanceToHome = deltaDistanceToHome_[CENTER_RADAR_INDEX];
+	//res.velocityFromHome = velocityFromHome_[CENTER_RADAR_INDEX]; 
+	cout << "robotPose responded to radar service request with center distanceToHome_ = " << distanceToHome_[CENTER_RADAR_INDEX] << endl;
+
+   return true;
+}
+
+/*
+bool radar_service_send(outdoor_bot::radar_service::Request  &req, outdoor_bot::radar_service::Response &res)
+{
    int radarNumber = req.radarNumber;
-   cout << " robotPose received radar service request for radar number = " << radarNumber << endl;
+   cout << " robotPose received radar service request for radar number " << radarNumber << endl;
    
    if (radarNumber == LEFT_RADAR_NUMBER)
    {
    	res.distanceToHome = distanceToHome_[LEFT_RADAR_INDEX];
    	res.deltaDistanceToHome = deltaDistanceToHome_[LEFT_RADAR_INDEX];
 		res.velocityFromHome = velocityFromHome_[LEFT_RADAR_INDEX]; 
-		cout << "robotPose responded to radar service request with distanceToHome_ = " << distanceToHome_[LEFT_RADAR_INDEX] << endl;
+		cout << "robotPose responded to radar service request with left distanceToHome_ = " << distanceToHome_[LEFT_RADAR_INDEX] << endl;
 	} 
 	
 	if (radarNumber == RIGHT_RADAR_NUMBER)
    {
    	res.distanceToHome = distanceToHome_[RIGHT_RADAR_INDEX];
    	res.deltaDistanceToHome = deltaDistanceToHome_[RIGHT_RADAR_INDEX];
-		res.velocityFromHome = velocityFromHome_[RIGHT_RADAR_INDEX]; 
+		res.velocityFromHome = velocityFromHome_[RIGHT_RADAR_INDEX];
+		cout << "robotPose responded to radar service request with right distanceToHome_ = " << distanceToHome_[RIGHT_RADAR_INDEX] << endl; 
 	} 
 	
 	if (radarNumber == CENTER_RADAR_NUMBER)
@@ -639,10 +661,12 @@ bool radar_service_send(outdoor_bot::radar_service::Request  &req, outdoor_bot::
    	res.distanceToHome = distanceToHome_[CENTER_RADAR_INDEX];
    	res.deltaDistanceToHome = deltaDistanceToHome_[CENTER_RADAR_INDEX];
 		res.velocityFromHome = velocityFromHome_[CENTER_RADAR_INDEX]; 
+		cout << "robotPose responded to radar service request with center distanceToHome_ = " << distanceToHome_[CENTER_RADAR_INDEX] << endl;
 	} 
 
    return true;
 }
+*/
 
 
 void moveCommandCallback(const geometry_msgs::Twist::ConstPtr& cmd_vel)
@@ -726,18 +750,23 @@ int main(int argc, char** argv){
 // this section is just for testing move_base
 // comment out when running the real bot
 // also comment in/out moveCmd and moveCommandCallback
+
 /*
+last_time = ros::Time::now();
 while(n.ok())
 {
 	ros::spinOnce();  // check for incoming messages
-	struct timespec ts;
-   ts.tv_sec = 0;
-   ts.tv_nsec = 10000000;
-   nanosleep(&ts, NULL); // update every 10 ms
-   current_time = ros::Time::now();
-   //getRadarData(destNode_[RIGHT_RADAR_INDEX]);
-   //cout << "distance = " << distanceToHome_ << endl;
-   publishPose(x, y, yaw, vYaw, currentVelocity_);
+	//struct timespec ts;
+   //ts.tv_sec = 0;
+   //ts.tv_nsec = 1000000000;
+   //nanosleep(&ts, NULL); // update every 1000 ms
+	current_time = ros::Time::now();
+	while ( current_time.toSec() - last_time.toSec() < 0.1) current_time = ros::Time::now(); // delay a bit
+	last_time = ros::Time::now();
+   sendOutNavData();
+   //getRadarData(destNode_[LEFT_RADAR_INDEX]);
+   cout << "distance = " << distanceToHome_[LEFT_RADAR_INDEX] << endl;
+   //publishPose(x, y, yaw, vYaw, currentVelocity_);
 }
 // comment out the above section when running the real bot
 */
