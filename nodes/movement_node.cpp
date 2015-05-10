@@ -36,7 +36,7 @@ sqrt(0.5)	0	0	-sqrt(0.5)	-90° rotation around Z axis
 
 #define FINAL_RANGE 1.2
 #define DROP_BAR_LOCATION -3000 
-#define PICKER_UPPER_PREP_LOCATION 100 
+#define PICKER_UPPER_PREP_LOCATION 104 
 #define PICKER_UPPER_LOCATION 108
 #define BIN_SHADE_FIRST_LOCATION 106
 #define BIN_SHADE_SECOND_LOCATION 1044
@@ -71,11 +71,11 @@ private:
    float range_;
    bool radarDataEnabled_;
    
-   radarRanger rRanger_;   // remember to set the serial port for this to work!
+   radarRanger *rRanger_;   // remember to set the serial port for this to work!
       
    bool getRadarData(int destNodeNumber)
 	{
-		double currentDistanceToHome  = ((double) rRanger_.getRange(destNodeNumber));	// returns value in mm  
+		double currentDistanceToHome  = ((double) rRanger_->getRange(destNodeNumber));	// returns value in mm  
 		
 		if (currentDistanceToHome > 0.01)
 		{
@@ -117,6 +117,7 @@ public:
    encoderBinShade_= 0;
    numObjectsGathered_ = 0;
    cmd_vel_pub_ = nh.advertise<geometry_msgs::Twist>("cmd_vel", 1);
+   rRanger_  = new radarRanger("/dev/radar");
 
    // subscribe to keyboard and motion
    keyboardCommandsSub_ = nh.subscribe("keyboard", 1, &movementControl::keyboardCommandCallback, this);
@@ -136,6 +137,7 @@ public:
    ~movementControl()
    {
       delete ac_;
+      delete rRanger_;
    }
 
 bool callRadarService()	// this gets the latest radar data that robotPose has gathered
@@ -456,15 +458,23 @@ void movementCommandCallback(const outdoor_bot::movement_msg msg)
 		
 	if (!command.compare("autoMove"))   // use arduino to directly implement a move
 	{
+		cout << "auto moving in movement node " << endl;
 		outdoor_bot::autoMove_msg autoMoveMsg;
-		autoMoveMsg.distance = msg.distance;
-		autoMoveMsg.angle = msg.angle;
-		autoMoveMsg.speed = msg.speed;
+		autoMoveMsg.distance = msg.distance;	//  mm
+		autoMoveMsg.angle = msg.angle;	// degrees
+		autoMoveMsg.speed = msg.speed;	// mm/sec or deg/sec
 		autoMove_pub_.publish(autoMoveMsg);  // send to the arduino
 		last_time = ros::Time::now(); 
 	   while ( current_time.toSec() - last_time.toSec() < 5.0) current_time = ros::Time::now();	// give the arduino 5 secs to complete the task
-	   msgResult.data = "autoMove_done";
+		// apply solenoid brakes
+		autoMoveMsg.distance = 0;
+		autoMoveMsg.angle = 0;
+		autoMoveMsg.speed = 0;
+		//autoMove_pub_.publish(autoMoveMsg);
+		
+		msgResult.data = "autoMove_done";
 	   complete_pub_.publish(msgResult);
+	   return;
 	 }
 		
 		
@@ -750,6 +760,7 @@ void movementCommandCallback(const outdoor_bot::movement_msg msg)
    		cout << "PD motor move timed out for motor " << motorNumber << ", speed = " << motorSpeed << endl;	
    	}
    	complete_pub_.publish(msgResult);
+   	return;
    }       
 }
 };

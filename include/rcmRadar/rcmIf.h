@@ -58,7 +58,7 @@ typedef enum {rcmIfIp, rcmIfSerial, rcmIfUsb} rcmIfType;
 //  Returns ERR on failure.
 //
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-int rcmIfInit(rcmIfType ifType, char *destAddr);
+int rcmIfInit(rcmIfType ifType, const char *destAddr);
 
 
 //

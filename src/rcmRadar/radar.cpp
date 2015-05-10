@@ -49,13 +49,16 @@ void usage(void)
 }
 */
 
-   radarRanger::radarRanger()
+   radarRanger::radarRanger(const char* radarPortString)
    {
       destNodeId_= DEFAULT_DEST_NODE_ID;
       rcmIf_ = rcmIfUsb;
       initStatus_ = false;
       // initialize the interface to the RCM
-      if (rcmIfInit(rcmIf_, "/dev/ttyRadar") == OK)
+      //if (rcmIfInit(rcmIf_, "/dev/ttyRadar") == OK)
+      //char* radarPortString;
+      //if (radarPort == 0) radarPortString = "/dev/radar";
+      if (rcmIfInit(rcmIf_, radarPortString) == OK)
       {
 
          // Make sure RCM is awake

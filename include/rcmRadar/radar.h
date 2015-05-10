@@ -23,7 +23,7 @@ class radarRanger
       rcmMsg_FullScanInfo fullscanInfo_;
 
    public:
-      radarRanger();
+      radarRanger(const char* radarPortString);
       ~radarRanger();
       int getRange(int destNode);
       bool getInitStatus();

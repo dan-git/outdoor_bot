@@ -133,6 +133,7 @@ void pmotorCommandCallback(const outdoor_bot::pmotor_msg msg)
 
 void autoMoveCommandCallback(const outdoor_bot::autoMove_msg msg)
 {
+	std::cout << "autoMove call in baseController, speed = " << msg.speed << std::endl;
 	char intStr[33];
 	std::string commandString;
 	commandString = "autoMove(";

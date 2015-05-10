@@ -89,7 +89,7 @@ int battery, pauseState = 0, dirAntMaxDir = 0, dirAntMaxTilt = 0,  dirAntLevel =
 unsigned long arduinoCycleTime, arduinoDataCounter;
 bool firstTime = true, radarDataEnabled_ = true;
 ros::Time current_time, last_time;
-radarRanger rRanger_;   // remember to set the serial port for this to work!
+radarRanger rRanger_("/dev/ttyRadar");   // remember to set the serial port for this to work!
 double homeX_ = 0., homeY_ = 0., homeYaw_ = 0.;
 double distanceToHome_[NUM_RADARS], previousDistanceToHome_[NUM_RADARS], deltaDistanceToHome_[NUM_RADARS];
 int destNode_[NUM_RADARS], radarCounter_ = 0;

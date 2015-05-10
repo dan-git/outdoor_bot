@@ -995,15 +995,8 @@ void on_enter_PickupTargetState()
    msg.command = "PDmotor";
    msg.PDmotorNumber = MOTOR_PICKER_UPPER;
    msg.speed = PICKER_UPPER_DOWN_PREP;
-  // movement_pub_.publish(msg);  
-  
-  
-  
-  
-   movementComplete_ = true;
-   
-   
-   
+	movement_pub_.publish(msg); 
+   movementComplete_ = false; 
    prepping_ = true;
    placing_ = false;
    driving_ = false;
@@ -1028,9 +1021,10 @@ int on_update_PickupTargetState()
    		driving_ = true;
    		movementComplete_ = false;
 	      cout << "driving forward 1m to scoop target" << endl;
-		   msg.command = "move";
-		   msg.distance = 1.0;
-		   msg.angle = 0.;   	  
+		   msg.command = "autoMove";
+		   msg.distance = 1000;	// mm
+		   msg.angle = 0;			// degrees
+		   msg.speed = 200;   	// mm/sec or deg/sec  
    		movement_pub_.publish(msg);
    		return PickupTargetState_;
    	}
@@ -1046,33 +1040,35 @@ int on_update_PickupTargetState()
    		return PickupTargetState_;
    	}
    	
-   	if (dropping_) // finished dropping bar, now push target onto scooper
+   	if (dropping_) // finished dropping bar, now place scooper for scooping
    	{
    		dropping_ = false;
+   		placing_ = true;
+			//movementComplete_ = false;
+   	   msg.PDmotorNumber = MOTOR_PICKER_UPPER;
+   		msg.speed = PICKER_UPPER_DOWN;
+   		//movement_pub_.publish(msg); 
+   		return PickupTargetState_;
+   	}
+   	
+   	
+   	if (placing_) // finished placing scooper, now push target onto scooper
+   	{
+   		placing_ = false;
    		pushing_ = true;
    		movementComplete_ = false;
 	      cout << "driving forward 1m to push target into scoop" << endl;
-		   msg.command = "move";
-		   msg.distance = 1.0;
-		   msg.angle = 0.;   	  
+		   msg.command = "autoMove";
+		   msg.distance = 500;
+		   msg.angle = 0; 
+		   msg.speed = 200;  	  
    		movement_pub_.publish(msg);
    		return PickupTargetState_;
    	}
-   	
-   	if (pushing_) // finished pushing target onto scooper, now place scooper for scooping
+   	  	
+   	if (pushing_) // finished placing scoop, now pick up target
    	{
    		pushing_ = false;
-   		placing_ = true;
-   	//	movementComplete_ = false;
-   	   msg.PDmotorNumber = MOTOR_PICKER_UPPER;
-   		msg.speed = PICKER_UPPER_DOWN;
-   	//	movement_pub_.publish(msg); 
-   		return PickupTargetState_;
-   	}
-   	
-   	if (placing_) // finished placing scoop, now pick up target
-   	{
-   		placing_ = false;
    		scooping_ = true;
    		movementComplete_ = false;
    	   msg.PDmotorNumber = MOTOR_PICKER_UPPER;

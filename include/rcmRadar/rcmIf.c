@@ -86,7 +86,7 @@ static unsigned short crc16(void *buf, int len);
 // rcmIfInit - perform initialization
 //_____________________________________________________________________________
 
-int rcmIfInit(rcmIfType ifType, char *destAddr)
+int rcmIfInit(rcmIfType ifType, const char *destAddr)
 {
     unsigned radioIpAddr;
 
