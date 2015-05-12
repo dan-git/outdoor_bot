@@ -95,6 +95,21 @@ void getLocation()
 	if  (distanceFromCenterToCenterSquared >= 0) distanceToHome_ = sqrt(distanceFromCenterToCenterSquared) / 1000. ;
 	else cout << "distanceFromCenterToCenterSquared was negative, = " << distanceFromCenterToCenterSquared << endl;
 	
+	cout << "cosLeftHomeToLeftBot = " << cosLeftHomeToLeftBot << ", an angle of " << acos(cosLeftHomeToLeftBot) * 57.3 << " degrees" << endl;
+	cout << "cosLeftBotToRightHome = " << cosLeftBotToRightHome << ", an angle of " << acos(cosLeftBotToRightHome) * 57.3 << " degrees" << endl;
+	cout << "botOrientation = " << botOrientation * 57.3 << " degrees " << endl;
+	cout << "distanceFromLeftToCenterSquared = " << distanceFromLeftToCenterSquared << endl;
+	cout << "distanceFromLeftToCenter = " << distanceFromLeftToCenter << endl;
+	cout << "cosAngleE = " << cosAngleE << ", an angle of " << acos(cosAngleE) * 57.3 << " degrees" << endl;
+	cout << "anglef = " << anglef * 57.3 << endl;
+	cout << "angleh = " << angleh * 57.3 << endl;
+	cout << "distanceFromCenterToCenterSquared = " << distanceFromCenterToCenterSquared << endl;	
+	if (distanceFromCenterToCenterSquared >= 0)
+		cout << "distanceFromCenterToCenter = " << sqrt(distanceFromCenterToCenterSquared) << endl;
+	else cout << "distanceFromCenterToCenterSquared is a negative number " << endl;
+	cout << "anglei = " << anglei * 57.3 << endl;
+	cout << "angleToHome_ = " << angleToHome_ << endl;
+	
 	cout << "Home is " << distanceToHome_ << " meters away at an angle = "
 			<< angleToHome_ << endl;	
 }
