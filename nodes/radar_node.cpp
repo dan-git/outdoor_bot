@@ -9,10 +9,24 @@
 
 using namespace std;
 
-radarRanger leftRanger_("/dev/ttyRadar_103");
-radarRanger rightRanger_("/dev/ttyRadar_100");
-double distanceFromLeftToLeft_ =0., distanceFromLeftToRight_ = 0., distanceFromRightToLeft_ = 0., distanceFromRightToRight_ = 0.;
-double distanceToHome_ = 0., angleToHome_ = 0.;
+class radar
+{
+
+private:
+
+	radarRanger leftRanger_, rightRanger_;
+	double distanceFromLeftToLeft_, distanceFromLeftToRight_, distanceFromRightToLeft_, distanceFromRightToRight_;
+	double distanceToHome_, angleToHome_;
+
+public:
+	radar()
+		: leftRanger_("/dev/ttyRadar_103"),
+		  rightRanger_("/dev/ttyRadar_100"),
+		  distanceFromLeftToLeft_(0), distanceFromLeftToRight_(0.), distanceFromRightToLeft_(0.), distanceFromRightToRight_(0),
+		  distanceToHome_(0.),
+		  angleToHome_(0)
+	{
+	}
 
 void getLocation()
 {
@@ -76,6 +90,38 @@ void getLocation()
 			<< angleToHome_ << endl;	
 }
 
+double getDistanceFromLeftToLeft() { return distanceFromLeftToLeft_; }
+double getDistanceFromLeftToRight() { return distanceFromLeftToRight_; }
+double getDistanceFromRightToLeft() { return distanceFromRightToLeft_; }
+double getDistanceFromRightToRight() { return distanceFromRightToRight_; }
+double getDistanceToHome() { return distanceToHome_; }
+double getAngleToHome() { return angleToHome_; }
+
+
+void getRadarRanges()
+{
+	ros::Time last_time;
+   ros::Time current_time = ros::Time::now();
+   
+   distanceFromLeftToLeft_ = leftRanger_.getRange(LEFT_RADAR_NUMBER);
+	last_time = ros::Time::now();
+	while ( current_time.toSec() - last_time.toSec() < RADAR_WAIT_TIME) current_time = ros::Time::now(); // delay needed for radars to get data
+
+	distanceFromLeftToRight_ = leftRanger_.getRange(RIGHT_RADAR_NUMBER);
+	last_time = ros::Time::now();
+	while ( current_time.toSec() - last_time.toSec() < RADAR_WAIT_TIME) current_time = ros::Time::now(); 
+	
+	distanceFromRightToLeft_ = rightRanger_.getRange(LEFT_RADAR_NUMBER);
+	last_time = ros::Time::now();
+	while ( current_time.toSec() - last_time.toSec() < RADAR_WAIT_TIME) current_time = ros::Time::now(); 
+	
+	distanceFromRightToRight_ = rightRanger_.getRange(RIGHT_RADAR_NUMBER);
+	last_time = ros::Time::now();
+	while ( current_time.toSec() - last_time.toSec() < RADAR_WAIT_TIME) current_time = ros::Time::now();
+}
+	
+};
+
 int main(int argc, char** argv)
 {
    //init the ROS node
@@ -85,48 +131,36 @@ int main(int argc, char** argv)
 	ros::Publisher radar_pub_ = nh.advertise<outdoor_bot::radar_msg>("radar", 5);
 	
 	outdoor_bot::radar_msg radarData;
-	ros::Time last_time;
-   ros::Time current_time = ros::Time::now();
+
+   
+   radar myRadar;
    
 	while(nh.ok())
 	{
-		distanceFromLeftToLeft_ = ((double) leftRanger_.getRange(LEFT_RADAR_NUMBER));  
-		radarData.distanceFromBotLeftToHomeLeft = distanceFromLeftToLeft_ / 1000.;	// convert from mm to meters
-		last_time = ros::Time::now();
-		while ( current_time.toSec() - last_time.toSec() < RADAR_WAIT_TIME) current_time = ros::Time::now(); // delay needed for radars to get data
-		
-		distanceFromRightToRight_ = ((double) rightRanger_.getRange(RIGHT_RADAR_NUMBER));  
-		radarData.distanceFromBotRightToHomeRight = distanceFromRightToRight_ / 1000.;	// convert from mm to meters
-		last_time = ros::Time::now();
-		while ( current_time.toSec() - last_time.toSec() < RADAR_WAIT_TIME) current_time = ros::Time::now(); // delay needed for radars to get data
+		myRadar.getRadarRanges();  
+		radarData.distanceFromBotLeftToHomeLeft = myRadar.getDistanceFromLeftToLeft() / 1000.;	// convert from mm to meters
+ 
+		radarData.distanceFromBotRightToHomeRight = myRadar.getDistanceFromRightToRight() / 1000.;
 
-		distanceFromLeftToRight_ = ((double) leftRanger_.getRange(RIGHT_RADAR_NUMBER));
-		radarData.distanceFromBotLeftToHomeRight = distanceFromLeftToRight_ / 1000.;
-		last_time = ros::Time::now();
-		while ( current_time.toSec() - last_time.toSec() < RADAR_WAIT_TIME) current_time = ros::Time::now(); 
+		radarData.distanceFromBotLeftToHomeRight = myRadar.getDistanceFromLeftToRight() / 1000.;
+
+		radarData.distanceFromBotRightToHomeLeft = myRadar.getDistanceFromRightToLeft() / 1000.;
 		
-		distanceFromRightToLeft_ = ((double) rightRanger_.getRange(LEFT_RADAR_NUMBER));
-		radarData.distanceFromBotRightToHomeLeft = distanceFromRightToLeft_ / 1000.;
-		last_time = ros::Time::now();
+		double maxDistance1 = fmax(myRadar.getDistanceFromLeftToLeft(), myRadar.getDistanceFromLeftToRight());
+		double maxDistance2 = fmax(myRadar.getDistanceFromRightToLeft(), myRadar.getDistanceFromRightToRight());
+		double minDistance1 = fmin(myRadar.getDistanceFromLeftToLeft(), myRadar.getDistanceFromLeftToRight());
+		double minDistance2 = fmin(myRadar.getDistanceFromRightToLeft(), myRadar.getDistanceFromRightToRight());
+		radarData.maxDistanceToHome = fmax(maxDistance1, maxDistance2) / 1000.;
+		radarData.minDistanceToHome = fmin(minDistance1, minDistance2) / 1000.;
 		
-		double maxDistance1 = fmax(distanceFromLeftToLeft_, distanceFromLeftToRight_);
-		double maxDistance2 = fmax(distanceFromRightToLeft_, distanceFromRightToRight_);
-		double minDistance1 = fmin(distanceFromLeftToLeft_, distanceFromLeftToRight_);
-		double minDistance2 = fmin(distanceFromRightToLeft_, distanceFromRightToRight_);
-		radarData.maxDistanceToHome = fmax(maxDistance1, maxDistance2);
-		radarData.minDistanceToHome = fmin(minDistance1, minDistance2);
-		
-		getLocation();
-		radarData.distanceToHome = distanceToHome_;
-		radarData.angleToHome = angleToHome_;		
+		myRadar.getLocation();
+		radarData.distanceToHome = myRadar.getDistanceToHome() / 1000.;
+		radarData.angleToHome = myRadar.getAngleToHome() / 1000.;		
 
 		radar_pub_.publish(radarData);
-		std::cout << "ranges from Bot Left to home left, right = " << distanceFromLeftToLeft_ << ", " << distanceFromLeftToRight_ << std::endl;
-		std::cout << "ranges from Bot Right to home left, right = " << distanceFromRightToLeft_ << ", " << distanceFromRightToRight_ << std::endl;
-		while ( current_time.toSec() - last_time.toSec() < RADAR_WAIT_TIME) current_time = ros::Time::now(); 	
-		
-		leftRanger_.getInitStatus();	
-		rightRanger_.getInitStatus();	
+		std::cout << "ranges from Bot Left to home left, right = " << myRadar.getDistanceFromLeftToLeft() << ", " << myRadar.getDistanceFromRightToRight() << std::endl;
+		std::cout << "ranges from Bot Right to home left, right = " << myRadar.getDistanceFromLeftToRight() << ", " << myRadar.getDistanceFromRightToLeft() << std::endl;
+
 	}
 	return EXIT_SUCCESS;
 }
