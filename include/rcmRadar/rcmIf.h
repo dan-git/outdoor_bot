@@ -13,15 +13,14 @@
 #define __rcmIf_h
 
 #ifdef __cplusplus
-    extern "C" {
+extern "C" {
 #endif
 
 //_____________________________________________________________________________
 //
 // #includes
 //_____________________________________________________________________________
-
-
+#include <arpa/inet.h>
 
 //_____________________________________________________________________________
 //
@@ -43,6 +42,19 @@ typedef enum {rcmIfIp, rcmIfSerial, rcmIfUsb} rcmIfType;
 
 //_____________________________________________________________________________
 //
+// structs
+//_____________________________________________________________________________
+
+  typedef struct
+  {
+    int                  radioFd;
+    struct sockaddr_in   radioAddr;
+    rcmIfType            rcmIf;
+    int timeoutMs;
+  } RCMInfo;
+
+//_____________________________________________________________________________
+//
 //  Function prototypes
 //_____________________________________________________________________________
 
@@ -58,7 +70,7 @@ typedef enum {rcmIfIp, rcmIfSerial, rcmIfUsb} rcmIfType;
 //  Returns ERR on failure.
 //
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-int rcmIfInit(rcmIfType ifType, const char *destAddr);
+  int rcmIfInit(rcmIfType ifType, const char *destAddr, RCMInfo *info);
 
 
 //
@@ -70,7 +82,7 @@ int rcmIfInit(rcmIfType ifType, const char *destAddr);
 //  Closes socket or port to radio.
 //
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-void rcmIfClose(void);
+void rcmIfClose(const RCMInfo *info);
 
 
 //
@@ -84,7 +96,7 @@ void rcmIfClose(void);
 //  Returns ERR on read error, otherwise OK.
 //
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-int rcmIfGetPacket(void *pkt, unsigned maxSize);
+  int rcmIfGetPacket(void *pkt, unsigned maxSize, const RCMInfo *info);
 
 
 //
@@ -98,7 +110,7 @@ int rcmIfGetPacket(void *pkt, unsigned maxSize);
 //  Returns ERR on write error, otherwise OK.
 //
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-int rcmIfSendPacket(void *pkt, unsigned size);
+  int rcmIfSendPacket(void *pkt, unsigned size, const RCMInfo *info);
 
 
 //
@@ -111,7 +123,7 @@ int rcmIfSendPacket(void *pkt, unsigned size);
 //  Flushes any unread packets.
 //
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-void rcmIfFlush(void);
+void rcmIfFlush(RCMInfo *info);
 
 #ifdef __cplusplus
     }

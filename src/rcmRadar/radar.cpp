@@ -51,6 +51,7 @@ void usage(void)
 
    radarRanger::radarRanger(const char* radarPortString)
    {
+      rcmInfo_.timeoutMS = DEFAULT_TIMEOUT_MS;
       destNodeId_= DEFAULT_DEST_NODE_ID;
       rcmIf_ = rcmIfUsb;
       initStatus_ = false;
@@ -58,25 +59,25 @@ void usage(void)
       //if (rcmIfInit(rcmIf_, "/dev/ttyRadar") == OK)
       //char* radarPortString;
       //if (radarPort == 0) radarPortString = "/dev/radar";
-      if (rcmIfInit(rcmIf_, radarPortString) == OK)
+      if (rcmIfInit(rcmIf_, radarPortString, &rcmInfo_) == OK)
       {
 
          // Make sure RCM is awake
-         if (rcmSleepModeSet(RCM_SLEEP_MODE_ACTIVE) != 0)
+        if (rcmSleepModeSet(RCM_SLEEP_MODE_ACTIVE, &rcmInfo_) != 0)
          {
            printf("Time out waiting for radar sleep mode set.\n");
            exit(0);
          }
 
          // Make sure opmode is RCM
-         if (rcmOpModeSet(RCM_OPMODE_RCM) != 0)
+        if (rcmOpModeSet(RCM_OPMODE_RCM, &rcmInfo_) != 0)
          {
            printf("Time out waiting for radar opmode set.\n");
            exit(0);
          }
 
          // execute Built-In Test - verify that radio is healthy
-         if (rcmBit(&status_) != 0)
+        if (rcmBit(&status_, &rcmInfo_) != 0)
          {
            printf("Time out waiting for BIT.\n");
            exit(0);
@@ -93,7 +94,7 @@ void usage(void)
          }
 
          // retrieve config from RCM
-         if (rcmConfigGet(&rcmConfig_) != 0)
+         if (rcmConfigGet(&rcmConfig_, &rcmInfo_) != 0)
          {
            printf("Time out waiting for config confirm.\n");
            exit(0);
@@ -111,7 +112,7 @@ void usage(void)
          printf("\ttxGain: %d\n", rcmConfig_.txGain);
 
          // retrieve status/info from RCM
-         if (rcmStatusInfoGet(&statusInfo_) != 0)
+         if (rcmStatusInfoGet(&statusInfo_, &rcmInfo_) != 0)
          {
            printf("Time out waiting for status info confirm.\n");
            exit(0);
@@ -141,7 +142,7 @@ void usage(void)
 
    radarRanger::~radarRanger()
    {
-      rcmIfClose();
+      rcmIfClose(&rcmInfo_);
    }
   
    bool radarRanger::getInitStatus() { return initStatus_; }
@@ -151,7 +152,7 @@ void usage(void)
    {
       if (!initStatus_) return -2;
       destNodeId_ = destNode;
-      if (rcmRangeTo(destNodeId_, RCM_ANTENNAMODE_TXA_RXA, 0, NULL,
+      if (rcmRangeTo(destNodeId_, RCM_ANTENNAMODE_TXA_RXA, 0, NULL, &rcmInfo_,
           &rangeInfo_, &dataInfo_, &scanInfo_, &fullscanInfo_) == 0)
       {
          // we always get a range info packet

@@ -20,9 +20,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef WIN32
-#include "winsock2.h"
-#else // linux
 #include <arpa/inet.h>
 #include <sys/select.h>
 #include <sys/types.h>
@@ -33,7 +30,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <termios.h>
-#endif
 
 #include "../include/rcmRadar/hostInterfaceCommon.h"
 #include "../include/rcmRadar/rcmIf.h"
@@ -59,25 +55,16 @@
 // static data
 //_____________________________________________________________________________
 
-#ifdef WIN32
-static HANDLE hComm;
-#endif
-static int                  radioFd;
-static struct sockaddr_in   radioAddr;
-static rcmIfType            rcmIf;
-static int timeoutMs = DEFAULT_TIMEOUT_MS;
-
-
 //_____________________________________________________________________________
 //
 // Private function prototypes 
 //_____________________________________________________________________________
 
 
-static int rcmIfGetPacketIp(void *pkt, unsigned maxSize);
-static int rcmIfGetPacketSerial(void *pkt, unsigned maxSize);
-static int rcmIfSendPacketIp(void *pkt, unsigned size);
-static int rcmIfSendPacketSerial(void *pkt, unsigned size);
+static int rcmIfGetPacketIp(void *pkt, unsigned maxSize, const RCMInfo *info);
+static int rcmIfGetPacketSerial(void *pkt, unsigned maxSize, const RCMInfo *info);
+static int rcmIfSendPacketIp(void *pkt, unsigned size, const RCMInfo *info);
+static int rcmIfSendPacketSerial(void *pkt, unsigned size, const RCMInfo *info);
 static unsigned short crc16(void *buf, int len);
 
 
@@ -86,22 +73,13 @@ static unsigned short crc16(void *buf, int len);
 // rcmIfInit - perform initialization
 //_____________________________________________________________________________
 
-int rcmIfInit(rcmIfType ifType, const char *destAddr)
+int rcmIfInit(rcmIfType ifType, const char *destAddr, RCMInfo *info)
 {
     unsigned radioIpAddr;
 
     switch (ifType)
     {
         case rcmIfIp:
-#ifdef WIN32
-            {
-                // Initialize Windows sockets
-                WSADATA wsad;
-                memset(&wsad, 0, sizeof(wsad));
-                WSAStartup(MAKEWORD(2, 2), &wsad);
-            }
-#endif
-
             // convert from string to binary
             radioIpAddr = inet_addr(destAddr);
 
@@ -113,75 +91,42 @@ int rcmIfInit(rcmIfType ifType, const char *destAddr)
             }
 
             // create UDP socket
-            radioFd = (int)socket(AF_INET, SOCK_DGRAM, 0);
-            if (radioFd == -1)
+            info->radioFd = (int)socket(AF_INET, SOCK_DGRAM, 0);
+            if (info->radioFd == -1)
             {
                 printf("Unable to open socket");
                 return ERR;
             }
 
             // initialize radio address structure
-            memset(&radioAddr, 0, sizeof(radioAddr));
-            radioAddr.sin_family = AF_INET;
-            radioAddr.sin_port = htons(RCM_SOCKET_PORT_NUM);
-            radioAddr.sin_addr.s_addr = radioIpAddr;
+            memset(&(info->radioAddr), 0, sizeof(info->radioAddr));
+            info->radioAddr.sin_family = AF_INET;
+            info->radioAddr.sin_port = htons(RCM_SOCKET_PORT_NUM);
+            info->radioAddr.sin_addr.s_addr = radioIpAddr;
             break;
 
         case rcmIfSerial:
         case rcmIfUsb:
-#ifdef WIN32
-            {
-                DCB dcbSerialParams = {0};
-                wchar_t wcs[100];
-                char comPortStr[100];
-
-                // Windows requirement for COM ports above 9
-                // but works for all
-                sprintf(comPortStr, "\\\\.\\%s", destAddr);
-                mbstowcs(wcs, comPortStr, sizeof(wcs));
-                hComm = CreateFile(wcs,
-                        GENERIC_READ | GENERIC_WRITE,
-                        0,
-                        0,
-                        OPEN_EXISTING,
-                        FILE_ATTRIBUTE_NORMAL,
-                        0);
-                if (hComm == INVALID_HANDLE_VALUE)
-                {
-                    printf("Can't open serial port\n");
-                    return ERR;
-                }
-
-                dcbSerialParams.DCBlength=sizeof(dcbSerialParams);
-                GetCommState(hComm, &dcbSerialParams);
-                dcbSerialParams.BaudRate=CBR_115200;
-                dcbSerialParams.ByteSize=8;
-                dcbSerialParams.StopBits=ONESTOPBIT;
-                dcbSerialParams.Parity=NOPARITY;
-                SetCommState(hComm, &dcbSerialParams);
-            }
-#else
             {
                 struct termios term;
 
-                radioFd = open(destAddr, O_RDWR|O_NOCTTY|O_NONBLOCK);
-                if (radioFd < 0)
+                info->radioFd = open(destAddr, O_RDWR|O_NOCTTY|O_NONBLOCK);
+                if (info->radioFd < 0)
                 {
                     printf("Can't open serial port\n");
                     return ERR;
                 }
-                tcgetattr(radioFd, &term);
+                tcgetattr(info->radioFd, &term);
 
                 memset(&term, 0, sizeof(term));
                 cfmakeraw(&term);
                 term.c_cflag = B115200 | CS8 | CLOCAL | CREAD;
                 term.c_iflag = IGNPAR;
                                                 
-                tcflush(radioFd, TCIFLUSH);
+                tcflush(info->radioFd, TCIFLUSH);
 
-                tcsetattr(radioFd, TCSANOW, &term);
+                tcsetattr(info->radioFd, TCSANOW, &term);
             }
-#endif
             break;
 
         default:
@@ -189,7 +134,7 @@ int rcmIfInit(rcmIfType ifType, const char *destAddr)
             exit(-1);
             break;
     }
-    rcmIf = ifType;
+    info->rcmIf = ifType;
 
     return OK;
 }
@@ -200,28 +145,18 @@ int rcmIfInit(rcmIfType ifType, const char *destAddr)
 // rcmIfClose - perform cleanup
 //_____________________________________________________________________________
 
-void rcmIfClose(void)
+void rcmIfClose(const RCMInfo *info)
 {
-    switch (rcmIf)
+    switch (info->rcmIf)
     {
         case rcmIfIp:
-#ifdef WIN32
-            // windows cleanup code
-            closesocket(radioFd);
-	        WSACleanup();
-#else
             // Linux cleanup code
-            close(radioFd);
-#endif
+            close(info->radioFd);
             break;
 
         case rcmIfSerial:
         case rcmIfUsb:
-#ifdef WIN32
-            CloseHandle(hComm);
-#else
-            close(radioFd);
-#endif
+            close(info->radioFd);
             break;
 
         default:
@@ -239,12 +174,12 @@ void rcmIfClose(void)
 // Returns number of bytes received, ERR if timeout
 //_____________________________________________________________________________
 
-int rcmIfGetPacket(void *pkt, unsigned maxSize)
+int rcmIfGetPacket(void *pkt, unsigned maxSize, const RCMInfo *info)
 {
-    if (rcmIf == rcmIfIp)
-        return rcmIfGetPacketIp(pkt, maxSize);
+    if (info->rcmIf == rcmIfIp)
+      return rcmIfGetPacketIp(pkt, maxSize, info);
     else
-        return rcmIfGetPacketSerial(pkt, maxSize);
+      return rcmIfGetPacketSerial(pkt, maxSize, info);
 }
 
 
@@ -255,12 +190,12 @@ int rcmIfGetPacket(void *pkt, unsigned maxSize)
 // Number of bytes sent, ERR on error.
 //_____________________________________________________________________________
 
-int rcmIfSendPacket(void *pkt, unsigned size)
+int rcmIfSendPacket(void *pkt, unsigned size, const RCMInfo *info)
 {
-    if (rcmIf == rcmIfIp)
-        return rcmIfSendPacketIp(pkt, size);
+    if (info->rcmIf == rcmIfIp)
+      return rcmIfSendPacketIp(pkt, size, info);
     else
-        return rcmIfSendPacketSerial(pkt, size);
+      return rcmIfSendPacketSerial(pkt, size, info);
 }
 
 
@@ -270,14 +205,14 @@ int rcmIfSendPacket(void *pkt, unsigned size)
 //
 //_____________________________________________________________________________
 
-void rcmIfFlush(void)
+void rcmIfFlush(RCMInfo *info)
 {
-    int tmp, i = timeoutMs;
+    int tmp, i = info->timeoutMs;
 
-    timeoutMs = 0;
-    while (rcmIfGetPacket(&tmp, sizeof(tmp)) > 0)
+    info->timeoutMs = 0;
+    while (rcmIfGetPacket(&tmp, sizeof(tmp), info) > 0)
         ;
-    timeoutMs = i;
+    info->timeoutMs = i;
 }
 
 
@@ -293,23 +228,23 @@ void rcmIfFlush(void)
 //
 //_____________________________________________________________________________
 
-int rcmIfGetPacketIp(void *pkt, unsigned maxSize)
+int rcmIfGetPacketIp(void *pkt, unsigned maxSize, const RCMInfo *info)
 {
 	fd_set fds;
 	struct timeval tv;
 
     // basic select call setup
 	FD_ZERO(&fds);
-	FD_SET(radioFd, &fds);
+	FD_SET(info->radioFd, &fds);
 
 	// Set up timeout
-	tv.tv_sec = timeoutMs / 1000;
-	tv.tv_usec = (timeoutMs * 1000) % 1000000;
+	tv.tv_sec = info->timeoutMs / 1000;
+	tv.tv_usec = (info->timeoutMs * 1000) % 1000000;
 
-	if (select(radioFd + 1, &fds, NULL, NULL, &tv) > 0)
+	if (select(info->radioFd + 1, &fds, NULL, NULL, &tv) > 0)
 	{
 		// copy packet into buffer
-		return recvfrom(radioFd, (char *)pkt, maxSize, 0, NULL, NULL);
+		return recvfrom(info->radioFd, (char *)pkt, maxSize, 0, NULL, NULL);
 	}
 
 	// Timeout
@@ -323,10 +258,10 @@ int rcmIfGetPacketIp(void *pkt, unsigned maxSize)
 //
 //_____________________________________________________________________________
 
-int rcmIfSendPacketIp(void *pkt, unsigned size)
+int rcmIfSendPacketIp(void *pkt, unsigned size, const RCMInfo *info)
 {
-	return sendto(radioFd, (const char *)pkt, size, 0,
-            (struct sockaddr *)&radioAddr, sizeof(radioAddr));
+	return sendto(info->radioFd, (const char *)pkt, size, 0,
+                      (struct sockaddr *)&(info->radioAddr), sizeof(info->radioAddr));
 }
 
 
@@ -336,35 +271,8 @@ int rcmIfSendPacketIp(void *pkt, unsigned size)
 //
 //_____________________________________________________________________________
 
-int serTimedRead(void *buf, int cnt)
+int serTimedRead(void *buf, int cnt, const RCMInfo *info)
 {
-#ifdef WIN32
-    DWORD dwBytes = 0;
-    COMMTIMEOUTS timeouts={0};
-
-    if (timeoutMs == 0)
-    {
-        // windows way to specify zero timeout
-        timeouts.ReadIntervalTimeout = MAXDWORD;
-        timeouts.ReadTotalTimeoutConstant = 0;
-        timeouts.ReadTotalTimeoutMultiplier = 0;
-    }
-    else
-    {
-        timeouts.ReadIntervalTimeout = timeoutMs;
-        timeouts.ReadTotalTimeoutConstant = timeoutMs;
-        timeouts.ReadTotalTimeoutMultiplier = 0;
-    }
-    timeouts.WriteTotalTimeoutConstant = timeoutMs;
-    timeouts.WriteTotalTimeoutMultiplier = 0;
-
-    SetCommTimeouts(hComm, &timeouts);
-
-    if (!ReadFile(hComm, buf, cnt, &dwBytes, NULL))
-        return ERR;
-
-    return dwBytes;
-#else
 	fd_set fds;
 	struct timeval tv;
     int total = 0, i;
@@ -374,15 +282,15 @@ int serTimedRead(void *buf, int cnt)
     {
         // basic select call setup
 	    FD_ZERO(&fds);
-	    FD_SET(radioFd, &fds);
+	    FD_SET(info->radioFd, &fds);
 
         // Set up timeout
-        tv.tv_sec = timeoutMs / 1000;
-        tv.tv_usec = (timeoutMs * 1000) % 1000000;
+        tv.tv_sec = info->timeoutMs / 1000;
+        tv.tv_usec = (info->timeoutMs * 1000) % 1000000;
 
-        if (select(radioFd + 1, &fds, NULL, NULL, &tv) > 0)
+        if (select(info->radioFd + 1, &fds, NULL, NULL, &tv) > 0)
         {
-            i = read(radioFd, ptr, cnt);
+            i = read(info->radioFd, ptr, cnt);
             if (i > 0)
             {
                 cnt -= i;
@@ -398,7 +306,6 @@ int serTimedRead(void *buf, int cnt)
     }
 
 	return total;
-#endif
 }
 
 
@@ -408,19 +315,9 @@ int serTimedRead(void *buf, int cnt)
 //
 //_____________________________________________________________________________
 
-int serWrite(void *buf, int cnt)
+int serWrite(void *buf, int cnt, const RCMInfo* info)
 {
-#ifdef WIN32
-    DWORD dwBytes = 0;
-
-    if (!WriteFile(hComm, buf, cnt, &dwBytes, NULL))
-        return ERR;
-
-    return dwBytes;
-//error occurred. Report to user.
-#else
-    return write(radioFd, buf, cnt);
-#endif
+    return write(info->radioFd, buf, cnt);
 }
 
 
@@ -430,7 +327,7 @@ int serWrite(void *buf, int cnt)
 //
 //_____________________________________________________________________________
 
-int rcmIfGetPacketSerial(void *pkt, unsigned maxSize)
+int rcmIfGetPacketSerial(void *pkt, unsigned maxSize, const RCMInfo *info)
 {
     int c=0, i, crc;
     unsigned short val;
@@ -438,13 +335,13 @@ int rcmIfGetPacketSerial(void *pkt, unsigned maxSize)
     while (1)
     {
         // read first sync byte
-        if (serTimedRead(&c, 1) <= 0)
+        if (serTimedRead(&c, 1, info) <= 0)
             return ERR;
         if (c != 0xa5)
             continue;
 
         // read second sync byte
-        if (serTimedRead(&c, 1) <= 0)
+        if (serTimedRead(&c, 1, info) <= 0)
             return ERR;
         if (c != 0xa5)
             continue;
@@ -453,19 +350,19 @@ int rcmIfGetPacketSerial(void *pkt, unsigned maxSize)
     }
 
     // read size
-    if (serTimedRead(&val, sizeof(val)) <= 0)
+    if (serTimedRead(&val, sizeof(val), info) <= 0)
         return ERR;
     val = ntohs(val);
 
     // read packet
     if (val > maxSize)
         val = maxSize;
-    i = serTimedRead((char *)pkt, val);
+    i = serTimedRead((char *)pkt, val, info);
 
     // read crc for serial port
-    if (rcmIf == rcmIfSerial)
+    if (info->rcmIf == rcmIfSerial)
     {
-        if (serTimedRead(&crc, 2) != 2)
+      if (serTimedRead(&crc, 2, info) != 2)
             return ERR;
         crc = ntohs(crc);
         if (crc != crc16(pkt, val))
@@ -484,33 +381,33 @@ int rcmIfGetPacketSerial(void *pkt, unsigned maxSize)
 //
 //_____________________________________________________________________________
 
-int rcmIfSendPacketSerial(void *pkt, unsigned size)
+int rcmIfSendPacketSerial(void *pkt, unsigned size, const RCMInfo *info)
 {
     int i;
     unsigned short val;
 
     // send sync bytes
-    i = serWrite("\xa5\xa5", 2);
+    i = serWrite("\xa5\xa5", 2, info);
     if (i < 0)
         return ERR;
 
     // send size bytes
     val = htons(size);
-    i = serWrite(&val, sizeof(val));
+    i = serWrite(&val, sizeof(val), info);
     if (i < 0)
         return ERR;
 
     // send packet
-    i = serWrite(pkt, size);
+    i = serWrite(pkt, size, info);
     if (i < 0)
         return ERR;
 
     // send CRC for serial port
-    if (rcmIf == rcmIfSerial)
+    if (info->rcmIf == rcmIfSerial)
     {
         val = crc16(pkt, size);
         val = htons(val);
-        if (serWrite(&val, sizeof(val)) < 0)
+        if (serWrite(&val, sizeof(val), info) < 0)
             return ERR;
     }
     return OK;

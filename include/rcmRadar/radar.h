@@ -21,6 +21,7 @@ class radarRanger
       rcmMsg_DataInfo dataInfo_;
       rcmMsg_ScanInfo scanInfo_;
       rcmMsg_FullScanInfo fullscanInfo_;
+      RCMInfo rcmInfo_;
 
    public:
       radarRanger(const char* radarPortString);

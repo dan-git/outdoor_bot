@@ -13,7 +13,7 @@
 #define __rcm_h
 
 #ifdef __cplusplus
-    extern "C" {
+extern "C" {
 #endif
 
 //_____________________________________________________________________________
@@ -23,7 +23,7 @@
 
 // pull in message structure declarations
 #include "hostInterfaceRCM.h"
-
+#include "rcmIf.h"
 
 //_____________________________________________________________________________
 //
@@ -59,7 +59,7 @@
 //  If confirm message is not received or BIT fails, returns ERR.
 //
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-int rcmBit(int *status);
+  int rcmBit(int *status, RCMInfo *info);
 
 
 //
@@ -74,7 +74,7 @@ int rcmBit(int *status);
 //  If confirm message is not received, returns ERR.
 //
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-int rcmConfigGet(rcmConfiguration *config);
+  int rcmConfigGet(rcmConfiguration *config, RCMInfo *info);
 
 
 //
@@ -89,7 +89,7 @@ int rcmConfigGet(rcmConfiguration *config);
 //  If confirm message is not received, returns ERR.
 //
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-int rcmConfigSet(rcmConfiguration *config);
+  int rcmConfigSet(rcmConfiguration *config, RCMInfo *info);
 
 
 //
@@ -103,8 +103,7 @@ int rcmConfigSet(rcmConfiguration *config);
 //  If confirm message is not received, returns ERR.
 //
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-int rcmOpModeSet(int opMode);
-
+  int rcmOpModeSet(int opMode, RCMInfo *info);
 
 //
 //  rcmSleepModeSet
@@ -118,8 +117,7 @@ int rcmOpModeSet(int opMode);
 //  If confirm message is not received, returns ERR.
 //
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-int rcmSleepModeSet(int sleepMode);
-
+  int rcmSleepModeSet(int sleepMode, RCMInfo *info);
 
 //
 //  rcmStatusInfoGet
@@ -134,7 +132,7 @@ int rcmSleepModeSet(int sleepMode);
 //  ERR.
 //
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-int rcmStatusInfoGet(rcmMsg_GetStatusInfoConfirm *statusInfo);
+  int rcmStatusInfoGet(rcmMsg_GetStatusInfoConfirm *statusInfo, RCMInfo *info);
 
 
 //
@@ -164,9 +162,9 @@ int rcmStatusInfoGet(rcmMsg_GetStatusInfoConfirm *statusInfo);
 //  If confirm message is not received, returns ERR.
 //
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-int rcmRangeTo(int destNodeId, int antennaMode, int dataSize, char *data,
-        rcmMsg_FullRangeInfo *rangeInfo, rcmMsg_DataInfo *dataInfo, rcmMsg_ScanInfo *scanInfo,
-        rcmMsg_FullScanInfo *fullScanInfo);
+  int rcmRangeTo(int destNodeId, int antennaMode, int dataSize, char *data, RCMInfo *info,
+                 rcmMsg_FullRangeInfo *rangeInfo, rcmMsg_DataInfo *dataInfo, rcmMsg_ScanInfo *scanInfo,
+                 rcmMsg_FullScanInfo *fullScanInfo);
 
 
 //
@@ -182,7 +180,7 @@ int rcmRangeTo(int destNodeId, int antennaMode, int dataSize, char *data,
 //  If confirm message is not received, returns ERR.
 //
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-int rcmDataSend(int antennaMode, int dataSize, char *data);
+  int rcmDataSend(int antennaMode, int dataSize, char *data, RCMInfo *info);
 
 #ifdef __cplusplus
     }

@@ -74,7 +74,7 @@ static unsigned short msgIdCount;
 // rcmBit - execute Built-In Test
 //_____________________________________________________________________________
 
-int rcmBit(int *status)
+int rcmBit(int *status, RCMInfo *info)
 {
     rcmMsg_BitRequest request;
     rcmMsg_BitConfirm confirm;
@@ -85,13 +85,13 @@ int rcmBit(int *status)
 	request.msgId = htons(msgIdCount++);
 
     // make sure no pending messages
-    rcmIfFlush();
+    rcmIfFlush(info);
 
     // send message to RCM
-	rcmIfSendPacket(&request, sizeof(request));
+    rcmIfSendPacket(&request, sizeof(request), info);
 
     // wait for response
-    numBytes = rcmIfGetPacket(&confirm, sizeof(confirm));
+    numBytes = rcmIfGetPacket(&confirm, sizeof(confirm), info);
 
     // did we get a response from the RCM?
     if (numBytes == sizeof(confirm))
@@ -116,7 +116,7 @@ int rcmBit(int *status)
 // rcmConfigGet - get rcm configuration from radio
 //_____________________________________________________________________________
 
-int rcmConfigGet(rcmConfiguration *config)
+int rcmConfigGet(rcmConfiguration *config, RCMInfo *info)
 {
     rcmMsg_GetConfigRequest request;
     rcmMsg_GetConfigConfirm confirm;
@@ -127,13 +127,13 @@ int rcmConfigGet(rcmConfiguration *config)
 	request.msgId = htons(msgIdCount++);
 
     // make sure no pending messages
-    rcmIfFlush();
+    rcmIfFlush(info);
 
     // send message to RCM
-	rcmIfSendPacket(&request, sizeof(request));
+    rcmIfSendPacket(&request, sizeof(request), info);
 
     // wait for response
-    numBytes = rcmIfGetPacket(&confirm, sizeof(rcmMsg_GetConfigConfirm));
+    numBytes = rcmIfGetPacket(&confirm, sizeof(rcmMsg_GetConfigConfirm), info);
 
     // did we get a response from the RCM?
     if (numBytes == sizeof(rcmMsg_GetConfigConfirm))
@@ -173,15 +173,15 @@ int rcmConfigGet(rcmConfiguration *config)
 // rcmConfigSet - set RCM configuration in radio
 //_____________________________________________________________________________
 
-int rcmConfigSet(rcmConfiguration *config)
+int rcmConfigSet(rcmConfiguration *config, RCMInfo *info)
 {
     rcmMsg_SetConfigRequest request;
     rcmMsg_SetConfigConfirm confirm;
     int retVal = ERR, numBytes;
 
     // create request message
-	request.msgType = htons(RCM_SET_CONFIG_REQUEST);
-	request.msgId = htons(msgIdCount++);
+    request.msgType = htons(RCM_SET_CONFIG_REQUEST);
+    request.msgId = htons(msgIdCount++);
     memcpy(&request.config, config, sizeof(*config));
 
     // Handle byte ordering in config struct
@@ -192,13 +192,13 @@ int rcmConfigSet(rcmConfiguration *config)
     request.config.flags = htons(config->flags);
 
     // make sure no pending messages
-    rcmIfFlush();
+    rcmIfFlush(info);
 
     // send message to RCM
-	rcmIfSendPacket(&request, sizeof(request));
+    rcmIfSendPacket(&request, sizeof(request), info);
 
     // wait for response
-    numBytes = rcmIfGetPacket(&confirm, sizeof(confirm));
+    numBytes = rcmIfGetPacket(&confirm, sizeof(confirm), info);
 
     // did we get a response from the RCM?
     if (numBytes == sizeof(confirm))
@@ -221,25 +221,25 @@ int rcmConfigSet(rcmConfiguration *config)
 // rcmOpModeSet - set RCM operational mode
 //_____________________________________________________________________________
 
-int rcmOpModeSet(int opMode)
+int rcmOpModeSet(int opMode, RCMInfo *info)
 {
     rcmMsg_SetOpmodeRequest request;
     rcmMsg_SetOpmodeConfirm confirm;
     int retVal = ERR, numBytes;
 
     // create request message
-	request.msgType = htons(RCM_SET_OPMODE_REQUEST);
-	request.msgId = htons(msgIdCount++);
+    request.msgType = htons(RCM_SET_OPMODE_REQUEST);
+    request.msgId = htons(msgIdCount++);
     request.opMode = htonl(opMode);
 
     // make sure no pending messages
-    rcmIfFlush();
+    rcmIfFlush(info);
 
     // send message to RCM
-	rcmIfSendPacket(&request, sizeof(request));
+    rcmIfSendPacket(&request, sizeof(request), info);
 
     // wait for response
-    numBytes = rcmIfGetPacket(&confirm, sizeof(confirm));
+    numBytes = rcmIfGetPacket(&confirm, sizeof(confirm), info);
 
     // did we get a response from the RCM?
     if (numBytes == sizeof(confirm))
@@ -262,7 +262,7 @@ int rcmOpModeSet(int opMode)
 // rcmSleepModeSet - set RCM sleep mode
 //_____________________________________________________________________________
 
-int rcmSleepModeSet(int sleepMode)
+int rcmSleepModeSet(int sleepMode, RCMInfo *info)
 {
     rcmMsg_SetSleepModeRequest request;
     rcmMsg_SetSleepModeConfirm confirm;
@@ -274,13 +274,13 @@ int rcmSleepModeSet(int sleepMode)
     request.sleepMode = htonl(sleepMode);
 
     // make sure no pending messages
-    rcmIfFlush();
+    rcmIfFlush(info);
 
     // send message to RCM
-	rcmIfSendPacket(&request, sizeof(request));
+    rcmIfSendPacket(&request, sizeof(request), info);
 
     // wait for response
-    numBytes = rcmIfGetPacket(&confirm, sizeof(confirm));
+    numBytes = rcmIfGetPacket(&confirm, sizeof(confirm), info);
 
     // did we get a response from the RCM?
     if (numBytes == sizeof(confirm))
@@ -303,7 +303,7 @@ int rcmSleepModeSet(int sleepMode)
 // rcmStatusInfoGet - retrieve RCM status from radio
 //_____________________________________________________________________________
 
-int rcmStatusInfoGet(rcmMsg_GetStatusInfoConfirm *confirm)
+int rcmStatusInfoGet(rcmMsg_GetStatusInfoConfirm *confirm, RCMInfo *info)
 {
     rcmMsg_GetStatusInfoRequest request;
     int retVal = ERR, numBytes;
@@ -313,13 +313,13 @@ int rcmStatusInfoGet(rcmMsg_GetStatusInfoConfirm *confirm)
 	request.msgId = htons(msgIdCount++);
 
     // make sure no pending messages
-    rcmIfFlush();
+    rcmIfFlush(info);
 
     // send message to RCM
-	rcmIfSendPacket(&request, sizeof(request));
+    rcmIfSendPacket(&request, sizeof(request), info);
 
     // wait for response
-    numBytes = rcmIfGetPacket(confirm, sizeof(rcmMsg_GetStatusInfoConfirm));
+    numBytes = rcmIfGetPacket(confirm, sizeof(rcmMsg_GetStatusInfoConfirm), info);
 
     // did we get a response from the RCM?
     // see if it's an old style or new style status message
@@ -362,7 +362,7 @@ int rcmStatusInfoGet(rcmMsg_GetStatusInfoConfirm *confirm)
 // rcmRangeTo - range to another RCM module
 //_____________________________________________________________________________
 
-int rcmRangeTo(int destNodeId, int antennaMode, int dataSize, char *data,
+int rcmRangeTo(int destNodeId, int antennaMode, int dataSize, char *data, RCMInfo *info,
         rcmMsg_FullRangeInfo *rangeInfo, rcmMsg_DataInfo *dataInfo, rcmMsg_ScanInfo *scanInfo,
         rcmMsg_FullScanInfo *fullScanInfo)
 {
@@ -373,8 +373,8 @@ int rcmRangeTo(int destNodeId, int antennaMode, int dataSize, char *data,
     unsigned i;
 
     // create request message
-	request.msgType = htons(RCM_SEND_RANGE_REQUEST);
-	request.msgId = htons(msgIdCount);
+    request.msgType = htons(RCM_SEND_RANGE_REQUEST);
+    request.msgId = htons(msgIdCount);
     request.responderId = htonl(destNodeId);
     request.antennaMode = antennaMode;
     request.dataSize = htons(dataSize);
@@ -385,14 +385,14 @@ int rcmRangeTo(int destNodeId, int antennaMode, int dataSize, char *data,
     memcpy(request.data, data, dataSize);
 
     // make sure no pending messages
-    rcmIfFlush();
+    rcmIfFlush(info);
 
     // send message to RCM
     numBytes = sizeof(request) - RCM_USER_DATA_LENGTH + dataSize;
-	rcmIfSendPacket(&request, numBytes);
+    rcmIfSendPacket(&request, numBytes, info);
 
     // wait for response
-    numBytes = rcmIfGetPacket(&confirm, sizeof(confirm));
+    numBytes = rcmIfGetPacket(&confirm, sizeof(confirm), info);
 
     // did we get a response from the RCM?
     if (numBytes == sizeof(confirm))
@@ -419,7 +419,7 @@ int rcmRangeTo(int destNodeId, int antennaMode, int dataSize, char *data,
 
                 // Collect any info messages
                 // We will always get a rangeInfo, maybe a dataInfo and/or scanInfo also
-                while ((numBytes = rcmIfGetPacket(&infoMsgs, sizeof(infoMsgs))) > 0)
+                while ((numBytes = rcmIfGetPacket(&infoMsgs, sizeof(infoMsgs), info)) > 0)
                 {
                     // make sure this info message has the same msgId as the request
                     // the msgId is in the same place in all structs
@@ -524,7 +524,7 @@ int rcmRangeTo(int destNodeId, int antennaMode, int dataSize, char *data,
 // rcmDataSend - broadcast a data-only packet
 //_____________________________________________________________________________
 
-int rcmDataSend(int antennaMode, int dataSize, char *data)
+int rcmDataSend(int antennaMode, int dataSize, char *data, RCMInfo *info)
 {
     rcmMsg_SendDataRequest request;
     rcmMsg_SendDataConfirm confirm;
@@ -542,14 +542,14 @@ int rcmDataSend(int antennaMode, int dataSize, char *data)
     memcpy(request.data, data, dataSize);
 
     // make sure no pending messages
-    rcmIfFlush();
+    rcmIfFlush(info);
 
     // send message to RCM
     numBytes = sizeof(request) - RCM_USER_DATA_LENGTH + dataSize;
-	rcmIfSendPacket(&request, sizeof(request));
+    rcmIfSendPacket(&request, sizeof(request), info);
 
     // wait for response
-    numBytes = rcmIfGetPacket(&confirm, sizeof(confirm));
+    numBytes = rcmIfGetPacket(&confirm, sizeof(confirm), info);
 
     // did we get a response from the RCM?
     if (numBytes == sizeof(confirm))
