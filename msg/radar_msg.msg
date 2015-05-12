@@ -6,4 +6,5 @@ float32 maxDistanceToHome
 float32 minDistanceToHome
 float32 distanceToHome
 float32 angleToHome
+float32 orientation
 

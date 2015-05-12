@@ -16,7 +16,7 @@ private:
 
 	radarRanger leftRanger_, rightRanger_;
 	double distanceFromLeftToLeft_, distanceFromLeftToRight_, distanceFromRightToLeft_, distanceFromRightToRight_;
-	double distanceToHome_, angleToHome_;
+	double distanceToHome_, angleToHome_, botOrientation_;
 
 public:
 	radar()
@@ -24,7 +24,8 @@ public:
 		  rightRanger_("/dev/ttyRadar_100"),
 		  distanceFromLeftToLeft_(0), distanceFromLeftToRight_(0.), distanceFromRightToLeft_(0.), distanceFromRightToRight_(0),
 		  distanceToHome_(0.),
-		  angleToHome_(0)
+		  angleToHome_(0.),
+		  botOrientation_(0.)
 	{
 	}
 
@@ -59,7 +60,7 @@ void getLocation()
 		- (HOME_RADAR_SEPARATION * HOME_RADAR_SEPARATION) )
 		/  ( 2. * distanceFromLeftToLeft_ * distanceFromLeftToRight_);	
 		
-	double botOrientation = -3.14 + acos(cosAngleB) + acos(cosAngleD) + acos(cosLeftHomeToLeftBot); 
+	botOrientation_ = -3.14 + acos(cosAngleB) + acos(cosAngleD) + acos(cosLeftHomeToLeftBot); 
 	
 	double distanceFromLeftToCenterSquared = 
 		( (distanceFromLeftToLeft_ * distanceFromLeftToLeft_) 
@@ -81,7 +82,7 @@ void getLocation()
 		- ((HOME_RADAR_SEPARATION * HOME_RADAR_SEPARATION)/4.) )
 		/ ( 2. * distanceFromLeftToLeft_ * distanceFromLeftToCenter);
 	
-	double anglef = acos(cosLeftHomeToLeftBot) - botOrientation;
+	double anglef = acos(cosLeftHomeToLeftBot) - botOrientation_;
 	double angleh = 3.14 - (acos(cosAngleE) + anglef);
 	
 	double distanceFromCenterToCenterSquared = 
@@ -112,7 +113,7 @@ void getLocation()
 	cout << "cosLeftHomeToLeftBot = " << cosLeftHomeToLeftBot << ", an angle of " << acos(cosLeftHomeToLeftBot) * 57.3 << " degrees" << endl;
 	cout << "cosAngleB = " << cosAngleB << ", an angle of " << acos(cosAngleB) * 57.3 << " degrees" << endl;
 	cout << "cosAngleD = " << cosAngleD << ", an angle of " << acos(cosAngleD) * 57.3 << " degrees" << endl;
-	cout << "botOrientation = " << botOrientation * 57.3 << " degrees " << endl;
+	cout << "botOrientation = " << botOrientation_ * 57.3 << " degrees " << endl;
 	cout << "distanceFromLeftToCenterSquared = " << distanceFromLeftToCenterSquared << endl;
 	cout << "distanceFromLeftToCenter = " << distanceFromLeftToCenter << endl;
 	cout << "cosAngleE = " << cosAngleE << ", an angle of " << acos(cosAngleE) * 57.3 << " degrees" << endl;
@@ -126,7 +127,7 @@ void getLocation()
 	cout << "angleToHome_ = " << angleToHome_ << endl;
 	
 	cout << "Home is " << distanceToHome_ << " meters away at an angle = " << angleToHome_ << endl;
-	cout << "Bot's orientation with respect to the platform = " << botOrientation * 57.3 << " degrees " << endl;	
+	cout << "Bot's orientation with respect to the platform = " << botOrientation_ * 57.3 << " degrees " << endl;	
 }
 
 double getDistanceFromLeftToLeft() { return distanceFromLeftToLeft_; }
@@ -135,6 +136,7 @@ double getDistanceFromRightToLeft() { return distanceFromRightToLeft_; }
 double getDistanceFromRightToRight() { return distanceFromRightToRight_; }
 double getDistanceToHome() { return distanceToHome_; }
 double getAngleToHome() { return angleToHome_; }
+double getOrientation() { return botOrientation_ * 57.3; }
 
 
 void getRadarRanges()
@@ -194,8 +196,8 @@ int main(int argc, char** argv)
    
 	while(nh.ok())
 	{
-		//myRadar.getRadarRanges();  
-		myRadar.testDataRadarRanges();
+		myRadar.getRadarRanges();  
+		//myRadar.testDataRadarRanges();
 		radarData.distanceFromBotLeftToHomeLeft = myRadar.getDistanceFromLeftToLeft() / 1000.;	// convert from mm to meters
  
 		radarData.distanceFromBotRightToHomeRight = myRadar.getDistanceFromRightToRight() / 1000.;
@@ -212,8 +214,9 @@ int main(int argc, char** argv)
 		radarData.minDistanceToHome = fmin(minDistance1, minDistance2) / 1000.;
 		
 		myRadar.getLocation();
-		radarData.distanceToHome = myRadar.getDistanceToHome();	// already in meters
-		radarData.angleToHome = myRadar.getAngleToHome();			// in degrees
+		radarData.distanceToHome = myRadar.getDistanceToHome();	// range in meters
+		radarData.angleToHome = myRadar.getAngleToHome();			// azimuth in degrees
+		radarData.orientation = myRadar.getOrientation();     // bot orientation with respect to the platform (in degrees)
 
 		radar_pub_.publish(radarData);
 		std::cout << "ranges from Bot Left to home left, right = " << myRadar.getDistanceFromLeftToLeft() << ", " << myRadar.getDistanceFromLeftToRight() << std::endl;
