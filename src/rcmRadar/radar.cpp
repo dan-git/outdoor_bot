@@ -216,7 +216,7 @@ void usage(void)
              rcmDataSend(RCM_ANTENNAMODE_TXA_RXA, strlen(str), str);
          }
          */
-         printf("The range from %d to %d is %d mm.\n",
+         printf("The range from %d to %d is %d mm\n",
 			rcmConfig_.nodeId, destNodeId_, rangeInfo_.precisionRangeMm);
          return rangeInfo_.precisionRangeMm;
       }

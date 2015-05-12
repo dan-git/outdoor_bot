@@ -35,8 +35,8 @@
 #include <termios.h>
 #endif
 
-#include "hostInterfaceCommon.h"
-#include "rcmIf.h"
+#include "../include/rcmRadar/hostInterfaceCommon.h"
+#include "../include/rcmRadar/rcmIf.h"
 
 
 //_____________________________________________________________________________

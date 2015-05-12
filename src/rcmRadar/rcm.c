@@ -30,8 +30,8 @@
 #include <unistd.h>
 #endif
 
-#include "rcmIf.h"
-#include "rcm.h"
+#include "../include/rcmRadar/rcmIf.h"
+#include "../include/rcmRadar/rcm.h"
 
 
 //_____________________________________________________________________________
