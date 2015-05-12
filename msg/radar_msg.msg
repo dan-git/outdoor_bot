@@ -1,0 +1,9 @@
+float32 distanceFromBotLeftToHomeLeft
+float32 distanceFromBotLeftToHomeRight
+float32 distanceFromBotRightToHomeLeft
+float32 distanceFromBotRightToHomeRight
+float32 maxDistanceToHome
+float32 minDistanceToHome
+float32 distanceToHome
+float32 angleToHome
+
