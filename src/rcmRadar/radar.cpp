@@ -205,7 +205,7 @@ void usage(void)
              printf("FULL_SCAN_INFO from node %d: msg ID %u, %d samples, channelRiseTime %d, vPeak %d\n",
                      fullscanInfo_.sourceId, fullscanInfo_.msgId, fullscanInfo_.numSamplesInMessage,
                      fullscanInfo_.noise, fullscanInfo_.vPeak);
-
+			
          // a rangeStatus of 0 means the range was calculated successfully
          if (rangeInfo_.rangeStatus == 0)
          {
@@ -216,8 +216,10 @@ void usage(void)
              rcmDataSend(RCM_ANTENNAMODE_TXA_RXA, strlen(str), str);
          }
          */
+         printf("The range from %d to %d is %d mm.\n",
+			rcmConfig_.nodeId, destNodeId_, rangeInfo_.precisionRangeMm);
          return rangeInfo_.precisionRangeMm;
       }
-      else return -1;
+      return -1;
    }
 

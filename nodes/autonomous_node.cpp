@@ -60,9 +60,9 @@ ros::Publisher digcam_pub_, movement_pub_, webcam_pub_, mainTargetsCommand_pub_,
 ros::Subscriber home_center_sub_, targetImageReceived_sub_, target_center_sub_, move_complete_sub_, pause_sub_;
 outdoor_bot::webcams_custom webcam_command_;
 outdoor_bot::digcams_custom digcam_command_; 
-int centerX_, centerY_, totalX_, moving_, turning_, cameraType_ = WEBCAM;
+int centerX_, centerY_, totalX_, moving_, turning_, cameraType_ = WEBCAM, totalMoveToFirstTarget_ = 0;
 int home_image_height_, home_image_width_;
-bool homeCenterUpdated_, movementComplete_, triedWebcamAlready_;
+bool homeCenterUpdated_, movementComplete_, triedWebcamAlready_, triedZoomDigcamAlready_, closeEnoughForWebcam_;
 double range_, approxRangeToTarget_, targetRange_, homeCameraRange_;
 bool zoomResult_, writeFileResult_, newMainTargetDigcamImageReceived_, newMainTargetWebcamImageReceived_, rangeUnknown_;
 bool targetCenterUpdated_, newNavTargetImageReceived_;
@@ -84,7 +84,7 @@ double startTime_, totalTime_, secondsRemaining_;
 
 
 FBFSM fsm_;
-int BootupState_, CheckFirstTargetState_, SearchForFirstTargetState_;
+int BootupState_, CheckLinedUpState_, CheckFirstTargetState_, SearchForFirstTargetState_;
 int MoveToFirstTargetState_, PickupFirstTargetState_;
 int FindTargetState_, MoveToTargetState_, PickupTargetState_;
 int CheckHomeState_, SearchForHomeState_;
@@ -107,7 +107,7 @@ class targetAquireFSM
       string camCommand_;
       int servoNumber_;
       bool firstTarget_, homeTarget_;
-      int camType_, cam_, pan_, tilt_; // servo full range goes from -127 to 127
+      int camType_, cam_, pan_, tilt_; // servo full range goes from 0 to 256
       ros::Time servoTimer_;
 
       void on_enter_MoveCamera()
@@ -416,6 +416,7 @@ void testCameras()
    	imageCapture("capture", FRONT_WEBCAM + LAPTOP_HAS_BUILTIN_WEBCAM, WEBCAM);
    }
    
+   /*
    cout << "capturing image on rear webcam..." << endl;
    imageCapture("capture", REAR_WEBCAM + LAPTOP_HAS_BUILTIN_WEBCAM, WEBCAM); 
    while (!askUser())
@@ -423,6 +424,7 @@ void testCameras()
    	cout << "capturing another image on rearcam..." << endl;
    	imageCapture("capture", REAR_WEBCAM + LAPTOP_HAS_BUILTIN_WEBCAM, WEBCAM);
    }
+   */
    
    cout << "setting zoom on zoom digital camera... " << endl;
    setZoom(ZOOM_DIGCAM, 7.);
@@ -492,7 +494,7 @@ void homeCenterCallback(const outdoor_bot::NavTargets_msg::ConstPtr &msg)
    homeCenterUpdated_ = true;
    if (homeCameraRange_ > 0)
    {
-   	cout << "NavTargets data: camType, center, homeCamerarange: " << cameraType_ << ", ("
+   	cout << "NavTargets data: camType, center, homeCameraRange: " << cameraType_ << ", ("
    		<< centerX_ << ", " << centerY_ << "), " << homeCameraRange_ << endl;
    }
    else cout << "NavTargets returned no home target" << endl;
@@ -688,6 +690,8 @@ void on_enter_BootupState()
    movementComplete_ = false;
    movementResult_ = "";
    triedWebcamAlready_ = false;
+   triedZoomDigcamAlready_ = false;
+   closeEnoughForWebcam_ = false;
    for (int i=0; i < NUM_RADARS; i++)
    {
       distanceToHome_[i] = 0.;
@@ -769,11 +773,11 @@ int on_update_BootupState()
    	if (askUser()) inputNum = 1;
 	}
    
-   cout << "bootupState is finished.  Do you want to move on to autonomous ops or retry?" << endl;
+   cout << "bootupState is finished.  Do you want to move on to LineUp or retry?" << endl;
    if (!askUser()) return BootupState_;
    startTime_ = ros::Time::now().toSec();
    secondsRemaining_ = totalTime_ - (ros::Time::now().toSec() - startTime_);
-   return PickupTargetState_;
+   return CheckLinedUpState_;
 }
 
 void on_exit_BootupState()
@@ -790,7 +794,7 @@ void on_exit_BootupState()
    centerX_ = -1; // indicator for when target centers are updated
 }
 
-void on_enter_CheckFirstTargetState()
+void on_enter_CheckLinedUpState()
 {
    // start by capturing an image using fsm
    tAF_.set_camType(DIGCAM);
@@ -799,6 +803,84 @@ void on_enter_CheckFirstTargetState()
    tAF_.set_firstTarget(true);
    tAF_.set_homeTarget(false);
    tAF_.set_state(tAF_.getCaptureImageState());
+}
+
+int on_update_CheckLinedUpState()
+{    
+   tAF_.update();
+   if (tAF_.current_state() != tAF_.getAcquireDoneState()) return CheckLinedUpState_;  // check to see if the image got analyzed 
+          
+   bool targetFound = false;
+   if (centerX_ > 0)
+   {
+      cout << "possible target found: x, y, range = " << centerX_ << ", " << centerY_ << ", " << targetRange_ << endl;
+      targetFound= true;
+   }
+   else
+   {
+      cout << "no target found yet" << endl;
+   }  
+   
+   cout << "Do you want to move on to autonomous ops or retry LineUp?" << endl;
+   if (askUser())
+   {
+   	closeEnoughForWebcam_ = false;
+   	searchCounter_ = 0;
+   	
+     	if (targetFound)
+   	{
+   		triedZoomDigcamAlready_ = false;
+   		return MoveToFirstTargetState_;
+   	}
+   	else
+   	{
+   		centerX_ = -1;
+   		triedZoomDigcamAlready_ = true;
+   		return SearchForFirstTargetState_;
+   	}
+   }
+   
+   // decided to try again, so we will capture an image using fsm
+   tAF_.set_camType(DIGCAM);
+   tAF_.set_cam(ZOOM_DIGCAM);
+   tAF_.set_camCommand("capture");
+   tAF_.set_firstTarget(true);
+   tAF_.set_homeTarget(false);
+   tAF_.set_state(tAF_.getCaptureImageState());
+   return CheckLinedUpState_;
+}
+
+void on_enter_CheckFirstTargetState()
+{
+   // start by capturing an image using fsm
+   centerX_ = -1;
+   if (!triedZoomDigcamAlready_)
+   {
+		//triedZoomDigcamAlready = true;
+		tAF_.set_camType(DIGCAM);
+		tAF_.set_cam(ZOOM_DIGCAM);
+		tAF_.set_camCommand("capture");
+		tAF_.set_firstTarget(true);
+		tAF_.set_homeTarget(false);
+		tAF_.set_state(tAF_.getCaptureImageState());
+		
+   }
+   else if (!closeEnoughForWebcam_)
+   {
+   	tAF_.set_camType(DIGCAM);
+   	tAF_.set_cam(DIGCAM);
+   	lastCamType_ = DIGCAM;
+   }
+   else
+   {
+   	tAF_.set_camType(WEBCAM);
+   	tAF_.set_cam(FRONT_WEBCAM);
+   	lastCamType_ = WEBCAM;  
+   } 	
+   tAF_.set_camCommand("capture");
+   tAF_.set_homeTarget(false);
+   tAF_.set_firstTarget(true);
+   tAF_.set_state(tAF_.getCaptureImageState()); 
 }
 
 int on_update_CheckFirstTargetState()
@@ -811,6 +893,7 @@ int on_update_CheckFirstTargetState()
    if (centerX_ > 0)
    {
       cout << "possible target found: x, y, range = " << centerX_ << ", " << centerY_ << ", " << targetRange_ << endl;
+      triedZoomDigcamAlready_ = false;
       return MoveToFirstTargetState_;
    }
    else
@@ -823,24 +906,43 @@ int on_update_CheckFirstTargetState()
 // we did not see the target in the camera image, so we need to move the camera and look again
 void on_enter_SearchForFirstTargetState()
 {
-   deltaPan_ = -deltaPan_; // switch directions each time
-   searchCounter_++;
-   currentPan_ += deltaPan_ * searchCounter_;
-   if (abs(currentPan_) > PAN_CAMERA_SEARCH_MAX)
-   {
-      searchCounter_ = 0;
-      tAF_.set_pan(0);
-      tAF_.set_tilt(0);
-      tAF_.set_state(tAF_.getMoveCameraState());
-      return; // can't find the target, so center the camera and then move ahead a bit
-   }
-   tAF_.set_pan(currentPan_);
-   tAF_.set_tilt(0);
-   
-   tAF_.set_servoNumber(ZOOM_DIGCAM_PAN);
-   tAF_.set_camType(DIGCAM);
-   //tAF_.set_camLocation(FRONT);
-   tAF_.set_state(tAF_.getMoveCameraState());
+      deltaPan_ = -deltaPan_; // switch directions each time
+		currentPan_ += deltaPan_ * searchCounter_;
+		if (abs(currentPan_) > PAN_CAMERA_SEARCH_MAX)
+		{
+		   triedZoomDigcamAlready_ = true;
+		   searchCounter_ = 0;
+		   tAF_.set_pan(0);
+		   tAF_.set_tilt(0);
+		   tAF_.set_state(tAF_.getMoveCameraState());
+		   return; // can't find the target, so center the camera and then move ahead a bit
+		}
+		
+		searchCounter_++;
+		tAF_.set_pan(currentPan_);
+		tAF_.set_tilt(0);
+		
+		if (!triedZoomDigcamAlready_)
+		{		
+			tAF_.set_servoNumber(ZOOM_DIGCAM_PAN);
+			tAF_.set_camType(DIGCAM);
+			tAF_.set_cam(ZOOM_DIGCAM);
+		}
+		
+		else if (!closeEnoughForWebcam_)
+		{
+			tAF_.set_servoNumber(DIGCAM_PAN);
+			tAF_.set_camType(DIGCAM);
+			tAF_.set_cam(DIGCAM);	
+		}	
+		else
+		{
+			tAF_.set_servoNumber(FRONT_WEBCAM_PAN);
+			tAF_.set_camType(WEBCAM);
+			tAF_.set_cam(WEBCAM);
+		}
+		
+		tAF_.set_state(tAF_.getMoveCameraState());		
 }
 
 int on_update_SearchForFirstTargetState()
@@ -857,6 +959,7 @@ int on_update_SearchForFirstTargetState()
 
 void on_enter_MoveToFirstTargetState()
 {
+   triedZoomDigcamAlready_ = false;
    if (pauseCommanded_) return;
    if (centerX_ < 0) // we don't have a target in view yet, so we will just move forward a bit
    {
@@ -886,7 +989,12 @@ int on_update_MoveToFirstTargetState()
       {
          ROS_INFO("move completed in MoveToFirstTargetState");
          movementComplete_ = false;
-         if (movementResult_.find("done") != string::npos) return MoveToFirstTargetState_; // move succeeded
+         if (movementResult_.find("done") != string::npos)
+         {
+         	totalMoveToFirstTarget_ += 10.;
+         	if (totalMoveToFirstTarget_ >= 60.) closeEnoughForWebcam_ = true;
+         	return CheckFirstTargetState_; // move succeeded, see if we can image the target
+         }
          else
          {
             previousState_ = MoveToFirstTargetState_; // come back to here when we have recovered movement
@@ -1448,6 +1556,7 @@ void on_transition(int from_state, int to_state)
 void setupStates()
 {
    BootupState_ = fsm_.add_state("BootupState");  // 0
+   CheckLinedUpState_ = fsm_.add_state("CheckLinedUpState");  
    CheckFirstTargetState_ = fsm_.add_state("CheckFirstTargetState");  // 1
    SearchForFirstTargetState_ = fsm_.add_state("SearchForFirstTargetState");
    MoveToFirstTargetState_ = fsm_.add_state("MoveToFirstTargetState");
@@ -1470,6 +1579,10 @@ void setupStates()
    fsm_.set_entry_function(BootupState_, boost::bind(&on_enter_BootupState));
    fsm_.set_update_function(BootupState_, boost::bind(&on_update_BootupState));
    fsm_.set_exit_function(BootupState_, boost::bind(&on_exit_BootupState));
+   
+   fsm_.set_entry_function(CheckLinedUpState_, boost::bind(&on_enter_CheckLinedUpState));
+   fsm_.set_update_function(CheckLinedUpState_, boost::bind(&on_update_CheckLinedUpState));
+   //fsm_.set_exit_function(CheckLinedUpState_, boost::bind(&on_exit_CheckLinedUpState));
 
    fsm_.set_entry_function(CheckFirstTargetState_, boost::bind(&on_enter_CheckFirstTargetState));
    fsm_.set_update_function(CheckFirstTargetState_, boost::bind(&on_update_CheckFirstTargetState));

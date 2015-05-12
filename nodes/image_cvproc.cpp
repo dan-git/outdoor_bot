@@ -73,7 +73,8 @@ public:
    void webcamImageCallback(const sensor_msgs::ImageConstPtr& msg)
    {
      ROS_INFO("webcam image received by image_cvproc");
-     string windowName = "webcam_front";
+     string windowName = "webcam";
+     /*
      if (webcamImageNumber_ == 1)
      {
      		cv::destroyWindow("webcam_front");
@@ -81,9 +82,10 @@ public:
      }
      if (webcamImageNumber_ > 1)
      {
-     		 if (webcamImageNumber_ == 2) cv::destroyWindow("webcam_rear");
+     		 //if (webcamImageNumber_ == 2) cv::destroyWindow("webcam_rear");
      		 windowName = "webcam";
      }
+     */
      try
      {
         cv::imshow(windowName, cv_bridge::toCvShare(msg, "bgr8")->image);
@@ -198,8 +200,8 @@ int main(int argc, char* argv[])
 
    cv::namedWindow("zoom_digcam"); 
    cv::namedWindow("digcam_right");
-   cv::namedWindow("webcam_front");
-   cv::namedWindow("webcam_rear");
+   //cv::namedWindow("webcam_front");
+   //cv::namedWindow("webcam_rear");
    cv::namedWindow("digcam");
    cv::namedWindow("webcam");
    cv::namedWindow("homecam");
