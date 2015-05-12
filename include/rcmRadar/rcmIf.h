@@ -27,6 +27,8 @@ extern "C" {
 // #defines
 //_____________________________________________________________________________
 
+#define DEFAULT_TIMEOUT_MS  500
+
 #ifndef OK
 #define OK 0
 #define ERR (-1)

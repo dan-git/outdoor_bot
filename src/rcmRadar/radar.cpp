@@ -51,7 +51,7 @@ void usage(void)
 
    radarRanger::radarRanger(const char* radarPortString)
    {
-      rcmInfo_.timeoutMS = DEFAULT_TIMEOUT_MS;
+      rcmInfo_.timeoutMs = DEFAULT_TIMEOUT_MS;
       destNodeId_= DEFAULT_DEST_NODE_ID;
       rcmIf_ = rcmIfUsb;
       initStatus_ = false;
