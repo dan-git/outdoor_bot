@@ -4,8 +4,8 @@
 #include "outdoor_bot_defines.h"
 
 #define RADAR_WAIT_TIME 0.5
-#define HOME_RADAR_SEPARATION 1000 //1800 // distance between radars on home platform, in mm
-#define BOT_RADAR_SEPARATION 1000 //1400
+#define HOME_RADAR_SEPARATION 1900 // distance between radars on home platform, in mm
+#define BOT_RADAR_SEPARATION 1092
 
 using namespace std;
 
@@ -41,19 +41,25 @@ void getLocation()
 			return;
 		}
 		
-	double cosLeftHomeToLeftBot = 
-		( (distanceFromLeftToLeft_ * distanceFromLeftToLeft_) 
+	double cosLeftHomeToLeftBot =
+	   ( (distanceFromLeftToLeft_ * distanceFromLeftToLeft_)
 		+ (HOME_RADAR_SEPARATION * HOME_RADAR_SEPARATION)
 		- (distanceFromLeftToRight_ * distanceFromLeftToRight_) )
 		/  ( 2. * distanceFromLeftToLeft_ * HOME_RADAR_SEPARATION);
-	
-	double cosLeftBotToRightHome =
-	   ( (distanceFromLeftToRight_ * distanceFromLeftToRight_)
+		
+	double cosAngleB = 
+		( (distanceFromLeftToRight_ * distanceFromLeftToRight_) 
 		+ (BOT_RADAR_SEPARATION * BOT_RADAR_SEPARATION)
 		- (distanceFromRightToRight_ * distanceFromRightToRight_) )
 		/  ( 2. * distanceFromLeftToRight_ * BOT_RADAR_SEPARATION);
 		
-	double botOrientation = 1.57 + acos(cosLeftHomeToLeftBot) + acos(cosLeftBotToRightHome);
+	double cosAngleD =
+		( (distanceFromLeftToLeft_ * distanceFromLeftToLeft_) 
+		+ (distanceFromLeftToRight_ * distanceFromLeftToRight_)
+		- (HOME_RADAR_SEPARATION * HOME_RADAR_SEPARATION) )
+		/  ( 2. * distanceFromLeftToLeft_ * distanceFromLeftToRight_);	
+		
+	double botOrientation = -3.14 + acos(cosAngleB) + acos(cosAngleD) + acos(cosLeftHomeToLeftBot); 
 	
 	double distanceFromLeftToCenterSquared = 
 		( (distanceFromLeftToLeft_ * distanceFromLeftToLeft_) 
@@ -75,28 +81,37 @@ void getLocation()
 		- ((HOME_RADAR_SEPARATION * HOME_RADAR_SEPARATION)/4.) )
 		/ ( 2. * distanceFromLeftToLeft_ * distanceFromLeftToCenter);
 	
-	double anglef = acos(cosLeftHomeToLeftBot) - (botOrientation + 1.57);
+	double anglef = acos(cosLeftHomeToLeftBot) - botOrientation;
 	double angleh = 3.14 - (acos(cosAngleE) + anglef);
 	
 	double distanceFromCenterToCenterSquared = 
 		((BOT_RADAR_SEPARATION * BOT_RADAR_SEPARATION)/4.)
 		+ (distanceFromLeftToCenter * distanceFromLeftToCenter)
 		- (BOT_RADAR_SEPARATION * distanceFromLeftToCenter * cos(angleh));
-		
-	double anglei = 
-		( (distanceFromLeftToCenter * distanceFromLeftToCenter)
+
+	double distanceFromCenterToCenter;
+	if (distanceFromCenterToCenterSquared >= 0) distanceFromCenterToCenter = sqrt(distanceFromCenterToCenterSquared);
+	else 
+	{
+		cout << "distanceFromRightToCenterSquared was < 0 " << endl;
+		return;
+	}		
+	
+	double cosAngleI = 
+		( (distanceFromCenterToCenter * distanceFromCenterToCenter)
 		+ ((BOT_RADAR_SEPARATION * BOT_RADAR_SEPARATION)/4.) 
-		- distanceFromCenterToCenterSquared ) 
-		/ (distanceFromLeftToCenter * BOT_RADAR_SEPARATION);
+		- distanceFromLeftToCenterSquared ) 
+		/ (distanceFromCenterToCenter * BOT_RADAR_SEPARATION);
 		
-	double angleToHome_ = (1.57 - anglei) * 57.3;	// convert to degrees
+	double angleToHome_ = (1.57 - acos(cosAngleI)) * 57.3;	// convert to degrees
 	
 	// convert to meters
 	if  (distanceFromCenterToCenterSquared >= 0) distanceToHome_ = sqrt(distanceFromCenterToCenterSquared) / 1000. ;
 	else cout << "distanceFromCenterToCenterSquared was negative, = " << distanceFromCenterToCenterSquared << endl;
 	
 	cout << "cosLeftHomeToLeftBot = " << cosLeftHomeToLeftBot << ", an angle of " << acos(cosLeftHomeToLeftBot) * 57.3 << " degrees" << endl;
-	cout << "cosLeftBotToRightHome = " << cosLeftBotToRightHome << ", an angle of " << acos(cosLeftBotToRightHome) * 57.3 << " degrees" << endl;
+	cout << "cosAngleB = " << cosAngleB << ", an angle of " << acos(cosAngleB) * 57.3 << " degrees" << endl;
+	cout << "cosAngleD = " << cosAngleD << ", an angle of " << acos(cosAngleD) * 57.3 << " degrees" << endl;
 	cout << "botOrientation = " << botOrientation * 57.3 << " degrees " << endl;
 	cout << "distanceFromLeftToCenterSquared = " << distanceFromLeftToCenterSquared << endl;
 	cout << "distanceFromLeftToCenter = " << distanceFromLeftToCenter << endl;
@@ -107,11 +122,11 @@ void getLocation()
 	if (distanceFromCenterToCenterSquared >= 0)
 		cout << "distanceFromCenterToCenter = " << sqrt(distanceFromCenterToCenterSquared) << endl;
 	else cout << "distanceFromCenterToCenterSquared is a negative number " << endl;
-	cout << "anglei = " << anglei * 57.3 << endl;
+	cout << "cosAngleI = " << cosAngleI << ", an angle of " << acos(cosAngleI) * 57.3 << " degrees " << endl;
 	cout << "angleToHome_ = " << angleToHome_ << endl;
 	
-	cout << "Home is " << distanceToHome_ << " meters away at an angle = "
-			<< angleToHome_ << endl;	
+	cout << "Home is " << distanceToHome_ << " meters away at an angle = " << angleToHome_ << endl;
+	cout << "Bot's orientation with respect to the platform = " << botOrientation * 57.3 << " degrees " << endl;	
 }
 
 double getDistanceFromLeftToLeft() { return distanceFromLeftToLeft_; }
@@ -146,10 +161,20 @@ void getRadarRanges()
 
 void testDataRadarRanges()
 {  
+   /*
+   // 2 meters away, facing the robot, with radar seps both = 1000 (have to set that in the #defines)
    distanceFromLeftToLeft_ = 2000.;
 	distanceFromLeftToRight_ = 2236.;
 	distanceFromRightToLeft_ = 2236.;
 	distanceFromRightToRight_ = 2000.;
+	*/
+	
+	distanceFromLeftToLeft_ = 2393.;
+	distanceFromLeftToRight_ = 2335.;
+	distanceFromRightToLeft_ = 2706.;
+	distanceFromRightToRight_ = 2155.;
+	
+	
 }
 	
 };
