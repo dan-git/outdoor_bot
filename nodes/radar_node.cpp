@@ -4,8 +4,8 @@
 #include "outdoor_bot_defines.h"
 
 #define RADAR_WAIT_TIME 0.5
-#define HOME_RADAR_SEPARATION 1800 // distance between radars on home platform, in mm
-#define BOT_RADAR_SEPARATION 1400
+#define HOME_RADAR_SEPARATION 1000 //1800 // distance between radars on home platform, in mm
+#define BOT_RADAR_SEPARATION 1000 //1400
 
 using namespace std;
 
@@ -55,10 +55,19 @@ void getLocation()
 		
 	double botOrientation = 1.57 + acos(cosLeftHomeToLeftBot) + acos(cosLeftBotToRightHome);
 	
-	double distanceFromLeftToCenter = 
+	double distanceFromLeftToCenterSquared = 
 		( (distanceFromLeftToLeft_ * distanceFromLeftToLeft_) 
 		+ ((HOME_RADAR_SEPARATION * HOME_RADAR_SEPARATION)/4.) )
 		- (distanceFromLeftToLeft_ * HOME_RADAR_SEPARATION * cosLeftHomeToLeftBot);
+		
+	double distanceFromLeftToCenter;
+	
+	if (distanceFromLeftToCenterSquared >= 0) distanceFromLeftToCenter = sqrt(distanceFromLeftToCenterSquared);
+	else 
+	{
+		cout << "distanceFromLeftToCenterSquared was < 0 " << endl;
+		return;
+	}
 	
 	double cosAngleE = 
 		( (distanceFromLeftToLeft_ * distanceFromLeftToLeft_) 
@@ -70,15 +79,15 @@ void getLocation()
 	double angleh = 3.14 - (acos(cosAngleE) + anglef);
 	
 	double distanceFromCenterToCenterSquared = 
-		((HOME_RADAR_SEPARATION * HOME_RADAR_SEPARATION)/4.)
+		((BOT_RADAR_SEPARATION * BOT_RADAR_SEPARATION)/4.)
 		+ (distanceFromLeftToCenter * distanceFromLeftToCenter)
-		- (HOME_RADAR_SEPARATION * distanceFromLeftToCenter * cos(angleh));
+		- (BOT_RADAR_SEPARATION * distanceFromLeftToCenter * cos(angleh));
 		
 	double anglei = 
 		( (distanceFromLeftToCenter * distanceFromLeftToCenter)
-		+ ((HOME_RADAR_SEPARATION * HOME_RADAR_SEPARATION)/4.) 
+		+ ((BOT_RADAR_SEPARATION * BOT_RADAR_SEPARATION)/4.) 
 		- distanceFromCenterToCenterSquared ) 
-		/ (distanceFromLeftToCenter * HOME_RADAR_SEPARATION);
+		/ (distanceFromLeftToCenter * BOT_RADAR_SEPARATION);
 		
 	double angleToHome_ = (1.57 - anglei) * 57.3;	// convert to degrees
 	
@@ -119,6 +128,14 @@ void getRadarRanges()
 	last_time = ros::Time::now();
 	while ( current_time.toSec() - last_time.toSec() < RADAR_WAIT_TIME) current_time = ros::Time::now();
 }
+
+void testDataRadarRanges()
+{  
+   distanceFromLeftToLeft_ = 2000.;
+	distanceFromLeftToRight_ = 2236.;
+	distanceFromRightToLeft_ = 2236.;
+	distanceFromRightToRight_ = 2000.;
+}
 	
 };
 
@@ -137,7 +154,8 @@ int main(int argc, char** argv)
    
 	while(nh.ok())
 	{
-		myRadar.getRadarRanges();  
+		//myRadar.getRadarRanges();  
+		myRadar.testDataRadarRanges();
 		radarData.distanceFromBotLeftToHomeLeft = myRadar.getDistanceFromLeftToLeft() / 1000.;	// convert from mm to meters
  
 		radarData.distanceFromBotRightToHomeRight = myRadar.getDistanceFromRightToRight() / 1000.;
@@ -154,12 +172,12 @@ int main(int argc, char** argv)
 		radarData.minDistanceToHome = fmin(minDistance1, minDistance2) / 1000.;
 		
 		myRadar.getLocation();
-		radarData.distanceToHome = myRadar.getDistanceToHome() / 1000.;
-		radarData.angleToHome = myRadar.getAngleToHome() / 1000.;		
+		radarData.distanceToHome = myRadar.getDistanceToHome();	// already in meters
+		radarData.angleToHome = myRadar.getAngleToHome();			// in degrees
 
 		radar_pub_.publish(radarData);
-		std::cout << "ranges from Bot Left to home left, right = " << myRadar.getDistanceFromLeftToLeft() << ", " << myRadar.getDistanceFromRightToRight() << std::endl;
-		std::cout << "ranges from Bot Right to home left, right = " << myRadar.getDistanceFromLeftToRight() << ", " << myRadar.getDistanceFromRightToLeft() << std::endl;
+		std::cout << "ranges from Bot Left to home left, right = " << myRadar.getDistanceFromLeftToLeft() << ", " << myRadar.getDistanceFromLeftToRight() << std::endl;
+		std::cout << "ranges from Bot Right to home left, right = " << myRadar.getDistanceFromRightToLeft() << ", " << myRadar.getDistanceFromRightToRight() << std::endl;
 
 	}
 	return EXIT_SUCCESS;
