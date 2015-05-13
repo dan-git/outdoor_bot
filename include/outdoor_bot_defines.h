@@ -3,8 +3,8 @@
 
 #define SERVO_ANTENNA_PAN 0
 #define SERVO_ANTENNA_TILT 1
-#define DIGCAM_PAN 2
-#define ZOOM_DIGCAM_PAN 3
+#define ZOOM_DIGCAM_PAN 2
+#define DIGCAM_PAN 3
 #define FRONT_WEBCAM_PAN 4
 #define FRONT_WEBCAM_TILT 5
 //#define REAR_DIGCAM_PAN 6
@@ -13,13 +13,13 @@
 //#define REAR_WEBCAM_PAN 9
 //#define REAR_WEBCAM_TILT 10
 
-#define ZOOM_DIGCAM_PAN_CENTER 160 // with a 160 center, valid inputs range from -160 to 94, with 0 being centered
-#define DIGCAM_PAN_CENTER 87 		// with a 87 center, valid inputs range from -87 to 167, with 0 being centered
-#define FRONT_WEBCAM_PAN_CENTER 107
-#define FRONT_WEBCAM_TILT_LEVEL 67 // this is where the camera points level
+#define ZOOM_DIGCAM_PAN_CENTER 127
+#define DIGCAM_PAN_CENTER 127
+#define FRONT_WEBCAM_PAN_CENTER 127
+#define FRONT_WEBCAM_TILT_LEVEL 127 // this is where the camera points level
 #define SERVO_MIN 0
-#define SERVO_MAX 255
-#define SERVO_UNITS_TO_DEGREES_RATIO 1.27 // about 200 degrees coverage with a 0 - 254 range of units
+#define SERVO_MAX 254
+//#define SERVO_UNITS_TO_DEGREES_RATIO 1.27 // about 200 degrees coverage with a 0 - 254 range of units
 
 #define DIGCAM 0
 #define ZOOM_DIGCAM 1

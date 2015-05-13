@@ -52,7 +52,7 @@ using namespace std;
 #define SERVO_WAIT_SECONDS 5.0  // time from servo command until we are sure servo is in position
 #define DEGREES_PER_PAN_STEP 0.64
 #define PAN_CAMERA_DELTA 20
-#define PAN_CAMERA_SEARCH_MAX 60
+#define PAN_CAMERA_SEARCH_MAX 40
 #define TILT_CAMERA_DELTA 5
 #define TILT_CAMERA_SEARCH_MAX 20
 
@@ -63,10 +63,10 @@ ros::Publisher digcam_pub_, movement_pub_, webcam_pub_, mainTargetsCommand_pub_,
 ros::Subscriber home_center_sub_, targetImageReceived_sub_, target_center_sub_, move_complete_sub_, pause_sub_;
 outdoor_bot::webcams_custom webcam_command_;
 outdoor_bot::digcams_custom digcam_command_; 
-int centerX_, centerY_, totalX_, moving_, turning_, cameraType_ = WEBCAM, totalMoveToFirstTarget_ = 0, offsetX_;
+int centerX_, centerY_, totalX_, moving_, turning_, cameraType_ = WEBCAM, totalMoveToFirstTarget_ = 0;
 int home_image_height_, home_image_width_;
 bool homeCenterUpdated_, movementComplete_, triedWebcamAlready_, triedZoomDigcamAlready_;
-double range_, approxRangeToTarget_, targetRange_, homeCameraRange_;
+double range_, approxRangeToTarget_, targetRange_, homeCameraRange_, offsetX_;
 bool zoomResult_, writeFileResult_, newMainTargetDigcamImageReceived_, newMainTargetWebcamImageReceived_, rangeUnknown_;
 bool targetCenterUpdated_, newNavTargetImageReceived_;
 int retCapToMemory_;
@@ -133,7 +133,7 @@ class targetAquireFSM
          }
          // we dont get servo feedback, so we just have to use a fixed delay for servos to get there
          double secondsSinceServoCmdSent = ros::Time::now().toSec() - servoTimer_.toSec();
-         if (secondsSinceServoCmdSent < SERVO_WAIT_SECONDS) return moveCameraState_;
+         if (secondsSinceServoCmdSent < SERVO_WAIT_SECONDS)	return moveCameraState_;
          else return acquireDoneState_;
       }
 
@@ -834,12 +834,13 @@ int on_update_CheckLinedUpState()
    cout << "Do you want to move on to autonomous ops or retry LineUp?" << endl;
    if (askUser())
    {  	
+     	//return MoveToFirstTargetState_; //********************  use this for real ops
+     	// comment out the section below for real  ops *************************************
      	if (targetFound) return MoveToFirstTargetState_;
    	else
    	{
    		centerX_ = -1;
-   		triedZoomDigcamAlready_ = true;
-   		return SearchForFirstTargetState_;
+   		return SearchForFirstTargetState_;  
    	}
    }
    
@@ -897,6 +898,9 @@ int on_update_CheckFirstTargetState()
       cout << "possible target found: x, y, range = " << centerX_ << ", " << centerY_ << ", " << targetRange_ << endl;
       triedZoomDigcamAlready_ = false;
       searchCounter_ = 0;
+      tAF_.set_pan(0);
+		tAF_.set_tilt(0);
+		tAF_.set_state(tAF_.getMoveCameraState());
       return MoveToFirstTargetState_;
    }
    else
@@ -915,15 +919,16 @@ void on_enter_SearchForFirstTargetState()
 		{
 		   tAF_.set_pan(0);
 		   tAF_.set_tilt(0);
-		   tAF_.set_state(tAF_.getMoveCameraState());
-         
-		   if (triedZoomDigcamAlready_) return; // can't find the target, so center the camera and then move ahead a bit
+		   tAF_.set_state(tAF_.getMoveCameraState());         		   
+		   while (tAF_.current_state() != tAF_.getAcquireDoneState()) 
+		   {
+			   tAF_.update();
+   			ros::spinOnce();
+		   }
 		   
-		   // if we are going to move another camera right now, then we need to
-		   // give servos time to complete the centering of the original camera.  Could call state but this is the same thing and easier.
-		   double secondsSinceCmdSent = 0.;
-		   ros::Time delayTimer = ros::Time::now();
-		   while (secondsSinceCmdSent < SERVO_WAIT_SECONDS) secondsSinceCmdSent = ros::Time::now().toSec() - delayTimer.toSec();
+		   if (triedZoomDigcamAlready_) return; // no camera sees the target, so center the camera and then move ahead a bit
+		   
+		   // move on to the next camera
 		   triedZoomDigcamAlready_ = true;
 		   searchCounter_ = 0;
 		   currentPan_ = 0;
@@ -952,7 +957,6 @@ void on_enter_SearchForFirstTargetState()
 			tAF_.set_camType(WEBCAM);
 			tAF_.set_cam(WEBCAM);
 		}
-		
 		tAF_.set_state(tAF_.getMoveCameraState());		
 }
 
@@ -998,7 +1002,7 @@ void on_enter_MoveToFirstTargetState()
 	if (lastCamType_ == WEBCAM) offsetX_ *= WEBCAM_FOV;
 	else offsetX_ *= DIGCAM_FOV;
 	cout << "center offset degrees = " << offsetX_ << endl;
-	double servoOffset = currentPan_ * SERVO_UNITS_TO_DEGREES_RATIO;
+	double servoOffset = currentPan_;
 	currentPan_ = 0.;	// the servos were centered earlier, but we waited to reset currentPan_ so we could use it here
 	cout << "servo offset degrees = " << servoOffset << endl;
 	//double offsetY = ((double) (totalY_ - centerY_)) / ((double) totalY_);
@@ -1470,7 +1474,7 @@ int on_update_HeadForHomeState()
    	if (lastCamType_ == WEBCAM) offsetX_ *= WEBCAM_FOV;
    	else offsetX_ *= DIGCAM_FOV;
    	cout << "center offset degrees = " << offsetX_ << endl;
-   	double servoOffset = currentPan_ * SERVO_UNITS_TO_DEGREES_RATIO;
+   	double servoOffset = currentPan_;
    	currentPan_ = 0.;	// the servos were centered earlier, but we waited to reset currentPan_ so we could use it here
    	cout << "servo offset degrees = " << servoOffset << endl;
    	//double offsetY = ((double) (totalY_ - centerY_)) / ((double) totalY_);

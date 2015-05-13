@@ -75,7 +75,7 @@ private:
    float rangeSquared_, approxRange_;
 	int centerX_, centerY_, numTargetsDetected_, cameraType_;
    bool newDigcamImageReceived_, newWebcamImageReceived_;
-   Mat image_, gray_, newDigcamImage_, newWebcamImage_;
+   Mat image_, gray_, newDigcamImage_, newWebcamImage_, showImg_;
    CvSize sz_;
 
 public:
@@ -590,28 +590,31 @@ bool detectBlobs(Mat im_original, bool firstTarget)
          }
          else cout << "no keypoints found" << endl;
        }
-      Mat showImg;
       //if (colorCounter == 0) 
-      showImg = im_original.clone();
+      showImg_ = im_original.clone();
       //blankImg.setTo(cv::Scalar(0,0,0));
       if (colorCounter == BLUE)
       {
-         circle(showImg, keyCenter, 25, Scalar(255,0,0), 10);
+         circle(showImg_, keyCenter, 25, Scalar(255,0,0), 10);
          //drawKeypoints(showImg, keypoints, showImg, Scalar(255,0,0), DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
       }
       else if (colorCounter == RED) 
       {
-         circle(showImg, keyCenter, 25, Scalar(0,0,255), 10);
+         circle(showImg_, keyCenter, 25, Scalar(0,0,255), 10);
          //drawKeypoints(showImg, keypoints, showImg, Scalar(0,0,255), DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
       }
       else if (colorCounter == BLUE_RED) 
       {
-         circle(showImg, keyCenter, 25, Scalar(255,0,255), 10);
+         circle(showImg_, keyCenter, 25, Scalar(255,0,255), 10);
          //drawKeypoints(showImg, keypoints, showImg, Scalar(255,0,255), DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
       }
-       imshow("keypoints", showImg );
-       waitKey(0);
-       if (firstTarget) break; // we don't do all the colors for the known white target
+      
+      Mat resizedImg;
+      Size dsize(0,0); //round(fx*src.cols), round(fy*src.rows))}
+      resize(showImg_, resizedImg, dsize, 0.25, 0.25, CV_INTER_AREA);
+      imshow("keypoints", resizedImg);
+      //waitKey(0);
+      if (firstTarget) break; // we don't do all the colors for the known white target
    } // closes for loop with colors
    if (maxArea > 0) return true;
    return false;
@@ -680,13 +683,13 @@ int main(int argc, char** argv)
    ros::init(argc, argv, "mainTargets");
    ros::NodeHandle nh;
    mainTargets mT(nh);
-   //cv::namedWindow("keypoints", CV_WINDOW_AUTOSIZE);
-   //cv::startWindowThread();
+   cv::namedWindow("keypoints", CV_WINDOW_AUTOSIZE);
+   cv::startWindowThread();
 
    ros::ServiceServer service = nh.advertiseService("mainTargetsService", &mainTargets::sendCenter, &mT);
    //if (!mT.matchFeatures()) cout << "no features matched" << endl;
    //else cout << "all done" << endl;
    ros::spin();
-   //cv::destroyWindow("Keypoints");
+   cv::destroyWindow("keypoints");
    return EXIT_SUCCESS;
 }
