@@ -47,17 +47,19 @@ public:
      Mat resizedImg;
      Size dsize(0,0); //round(fx*src.cols), round(fy*src.rows))}
      resize(img, resizedImg, dsize, 0.25, 0.25, CV_INTER_AREA);
-     string windowName = "zoom_digcam";
+     string windowName = "digcam";
+     /*
      if (digcamImageNumber_ == 1)
      {
-		   cv::destroyWindow("zoom_digcam");
-   		windowName = "digcam_right";
+		   cv::destroyWindow("digcam");
+   		windowName = "digcam_left";
      }
      if (digcamImageNumber_ > 1)
      {
-     	  if (digcamImageNumber_ == 2) cv::destroyWindow("digcam_right");
+     	  if (digcamImageNumber_ == 2) cv::destroyWindow("digcam_left");
      	  windowName = "digcam";
      }
+     */
      try
      {
         cv::imshow(windowName, resizedImg);
@@ -198,8 +200,8 @@ int main(int argc, char* argv[])
    //ic.publishImage(ic.getImage());
 
 
-   cv::namedWindow("zoom_digcam"); 
-   cv::namedWindow("digcam_right");
+   //cv::namedWindow("zoom_digcam"); 
+   //cv::namedWindow("digcam_left");
    //cv::namedWindow("webcam_front");
    //cv::namedWindow("webcam_rear");
    cv::namedWindow("digcam");

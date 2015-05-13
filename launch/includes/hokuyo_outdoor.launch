@@ -28,27 +28,12 @@ hokuyo ls names:
     <param name="calibrate_time" type="bool" value="true"/> 
     
     <!-- Set the port to connect to here -->
-    <param name="port" type="string" value="/dev/sensors/hokuyo_H0713066"/> 
+    <param name="port" type="string" value="/dev/ttyHokuyo"/> 
   
     <param name="intensity" type="bool" value="false"/>
 
     <param name="frame_id" type="string" value="hokuyo_front_link" />
     <param name="frameid" type="string" value="hokuyo_front_link" />
-  </node>
-  
-
-  <node name="hokuyo_rear" pkg="hokuyo_node" type="hokuyo_node" respawn="false" output="screen">
-  
-    <param name="calibrate_time" type="bool" value="true"/> 
-    
-    <param name="port" type="string" value="/dev/sensors/hokuyo_H0713131"/> 
-  
-    <param name="intensity" type="bool" value="false"/>
-
-    <param name="frame_id" type="string" value="hokuyo_right_link" />
-    <param name="frameid" type="string" value="hokuyo_right_link" />
-    <remap from="scan" to="right_scan"/>
-  </node>
-  
+  </node> 
  
 </launch>

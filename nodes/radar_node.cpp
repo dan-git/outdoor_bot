@@ -163,6 +163,9 @@ void getRadarRanges()
 
 void testDataRadarRanges()
 {  
+	ros::Time last_time;
+   ros::Time current_time = ros::Time::now();
+   
    /*
    // 2 meters away, facing the robot, with radar seps both = 1000 (have to set that in the #defines)
    distanceFromLeftToLeft_ = 2000.;
@@ -176,6 +179,8 @@ void testDataRadarRanges()
 	distanceFromRightToLeft_ = 2706.;
 	distanceFromRightToRight_ = 2155.;
 	
+	last_time = ros::Time::now();
+	while ( current_time.toSec() - last_time.toSec() < RADAR_WAIT_TIME) current_time = ros::Time::now();
 	
 }
 	

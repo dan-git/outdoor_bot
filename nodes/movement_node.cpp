@@ -72,6 +72,7 @@ private:
    bool radarDataEnabled_;
    
    radarRanger *rRanger_;   // remember to set the serial port for this to work!
+   radarRanger *leftRanger_;   // remember to set the serial port for this to work!
       
    bool getRadarData(int destNodeNumber)
 	{
@@ -117,7 +118,8 @@ public:
    encoderBinShade_= 0;
    numObjectsGathered_ = 0;
    cmd_vel_pub_ = nh.advertise<geometry_msgs::Twist>("cmd_vel", 1);
-   rRanger_  = new radarRanger("/dev/radar");
+   rRanger_  = new radarRanger("/dev/radar_103");
+   leftRanger_  = new radarRanger("/dev/radar_100");
 
    // subscribe to keyboard and motion
    keyboardCommandsSub_ = nh.subscribe("keyboard", 1, &movementControl::keyboardCommandCallback, this);
@@ -138,6 +140,7 @@ public:
    {
       delete ac_;
       delete rRanger_;
+      delete leftRanger_;
    }
 
 bool callRadarService()	// this gets the latest radar data that robotPose has gathered
