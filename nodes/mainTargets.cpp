@@ -436,7 +436,7 @@ bool detectBlobs(Mat im_original, bool firstTarget)
          }
          else
          {
-            params.minArea = 100;
+            params.minArea = 5000;
             params.maxArea = totalArea / 3.;
          }
 	      // Filter by Color-- this is not actually color, it is intensity and goes from 0 to 255

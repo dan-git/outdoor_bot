@@ -7,6 +7,7 @@
 #include "std_msgs/Int32.h"
 #include "geometry_msgs/PoseWithCovarianceStamped.h"
 #include "outdoor_bot/encoders_service.h"
+#include "outdoor_bot/accelerometers_service.h"
 #include "outdoor_bot/dirAnt_service.h"
 #include "outdoor_bot/radar_service.h"
 #include "outdoor_bot/setPose_service.h"
@@ -76,7 +77,7 @@ using namespace std;
 
 ros::Subscriber ucResponseMsg, assignedPose, poseWithCovariance_, moveCmd;
 ros::Publisher odom_pub, imu_pub, sensors_pub, pause_pub;
-ros::ServiceServer encoders_serv, radar_serv, dirAnt_serv, setPose_serv;
+ros::ServiceServer encoders_serv, radar_serv, dirAnt_serv, setPose_serv, accelerometers_serv;
 tf::TransformBroadcaster *odom_broadcaster;	// have to use a pointer because declaring this before running
 						// ros:init causes a run-time error
 
@@ -205,7 +206,7 @@ bool getRadarData(int destNodeNumber)
       odom.twist.twist.linear.y = 0;
       odom.twist.twist.angular.z = pose_vYaw;
 
-      if (abs(pose_currentVelocity) < 0.01 )
+      if (fabs(pose_currentVelocity) < 0.01 )
       {
         odom.pose.covariance = ODOM_POSE_STOPPED_COVARIANCE;
         odom.twist.covariance = ODOM_TWIST_STOPPED_COVARIANCE;
@@ -363,7 +364,7 @@ void sendOutNavData()
 
 
     // now calculate delta yaw since last cycle
-    if (abs(vYaw) < 0.02) vYaw = 0.0; // tiny gyro readings are almost always
+    if (fabs(vYaw) < 0.02) vYaw = 0.0; // tiny gyro readings are almost always
                // just noise and sometimes the noise
                // is biased a little which leads to drift if you use it
     // if too much time passes between updates, we will get yaw movements
@@ -614,6 +615,14 @@ bool dirAnt_service_send(outdoor_bot::dirAnt_service::Request  &req, outdoor_bot
    return true;
 }
 
+bool accelerometers_service_send(outdoor_bot::accelerometers_service::Request &req, outdoor_bot:: accelerometers_service::Response &res)
+{
+	res.accelX = accelX;
+	res.accelY = accelY;
+	res.accelZ = accelZ;
+	return true;
+}
+
 bool radar_service_send(outdoor_bot::radar_service::Request  &req, outdoor_bot::radar_service::Response &res)
 {
 	radarDataEnabled_ = req.enableRadarData;
@@ -682,7 +691,7 @@ void moveCommandCallback(const geometry_msgs::Twist::ConstPtr& cmd_vel)
   }
   double vx = cmd_vel->linear.x;	// in meters/sec
   double vy = cmd_vel->linear.y;  
-  if (abs(vy) > 0.001) cout << "vy is not zero" << endl << endl;
+  if (fabs(vy) > 0.001) cout << "vy is not zero" << endl << endl;
   vYaw = cmd_vel->angular.z;	// in radians/sec
   current_time = ros::Time::now();
   double deltaSeconds = current_time.toSec() - last_time.toSec();
@@ -719,6 +728,7 @@ int main(int argc, char** argv){
   sensors_pub = n.advertise<std_msgs::String>("sensor_readings", 50);
   pause_pub = n.advertise<std_msgs::Int32>("pause_state", 50);
   encoders_serv = n.advertiseService("encoders_service", encoders_service_send);
+  accelerometers_serv = n.advertiseService("accelerometers_service", accelerometers_service_send);
   radar_serv = n.advertiseService("radar_service", radar_service_send);
   dirAnt_serv = n.advertiseService("dirAnt_service", dirAnt_service_send);
   setPose_serv = n.advertiseService("setPose_service", setPose_service_send);
