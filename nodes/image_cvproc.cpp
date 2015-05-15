@@ -5,6 +5,10 @@
 #include <sensor_msgs/image_encodings.h>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
+#include "outdoor_bot/mainTargetsCommand_msg.h"
+#include "outdoor_bot/NavTargets_msg.h"
+#include "outdoor_bot_defines.h"
+
 //#include <iostream>
 //#include "outdoor_bot/digital_cams_custom.h"
 
@@ -15,10 +19,10 @@ class image_cvproc
 {
 private:
    ros::NodeHandle nh_;
-   ros::Publisher filename_pub_;
+   ros::Publisher filename_pub_, navTargetsCommand_pub_, mainTargetsCommand_pub_;
    std::string camFilename_;  
    image_transport::ImageTransport it_;
-	image_transport::Publisher image_pub_;
+	image_transport::Publisher home_image_pub_, digcam_image_pub_, webcam_image_pub_;
    image_transport::Subscriber subWebcam_;
    image_transport::Subscriber subDigcam_;
    image_transport::Subscriber subHomecam_;
@@ -32,7 +36,11 @@ public:
    :  nh_(nh), it_(nh), digcamImageNumber_(0), webcamImageNumber_(0)
    {
       filename_pub_ = nh_.advertise<std_msgs::String>("camera_file", 50); // advertise camera files
-      image_pub_ = it_.advertise("home_target_image", 5); 
+      home_image_pub_ = it_.advertise("home_target_image", 5); 
+      digcam_image_pub_ = it_.advertise("digcam_image", 5); 
+      webcam_image_pub_ = it_.advertise("webcam_image", 5); 
+      mainTargetsCommand_pub_ = nh.advertise<outdoor_bot::mainTargetsCommand_msg>("mainTargets_cmd", 25);
+      navTargetsCommand_pub_ = nh.advertise<std_msgs::String>("NavTargets_cmd", 5);
       subDigcam_ = it_.subscribe("digcam_image", 5, &image_cvproc::digcamImageCallback, this);
       subWebcam_ = it_.subscribe("webcam_image", 5, &image_cvproc::webcamImageCallback, this);
       subHomecam_ = it_.subscribe("home_target_image", 5, &image_cvproc::homecamImageCallback, this);
@@ -157,12 +165,23 @@ public:
       return false;
    }
 
-   void publishImage(Mat image)
+   void publishHomeImage(Mat image)
    {
       sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", image).toImageMsg();
-      image_pub_.publish(msg);
+      home_image_pub_.publish(msg);
    }
    
+   void publishWebcamImage(Mat image)
+   {
+      sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", image).toImageMsg();
+      webcam_image_pub_.publish(msg);
+   }
+   
+   void publishDigcamImage(Mat image)
+   {
+      sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", image).toImageMsg();
+      digcam_image_pub_.publish(msg);
+   }
 		
 	bool askUser()
 	{
@@ -183,6 +202,30 @@ public:
 	}
 	
    Mat getImage() { return fileImage_; }
+   
+   void analyzeImage(int camName, double approxRange, bool firstTarget, bool homeTarget)
+   {
+   
+      if (homeTarget)
+      {
+      	cout << "sending command to analyze image for home target" << endl;
+      	//newNavTargetImageReceived_ = false;
+      	std_msgs::String msg;
+      	msg.data = "home";
+      	navTargetsCommand_pub_.publish(msg); 
+      }
+      else
+      {
+	      cout << "sending command to mainTargets to analyze image" << endl;
+	      //if (newMainTargetDigcamImageReceived_ && (camName_ == REGULAR_DIGCAM || camName == ZOOM_DIGCAM) newMainTargetDigcamImageReceived_ = false;
+	      //if (newMainTargetWebcamImageReceived_ && camName_ == WEBCAM) newMainTargetWebcamImageReceived_ = false;
+	      outdoor_bot::mainTargetsCommand_msg msg; 
+	      msg.cameraName = camName;
+	      msg.firstTarget = firstTarget; 
+	      msg.approxRange = approxRange; 
+	      mainTargetsCommand_pub_.publish(msg);
+	   }
+}
 };
 
 int main(int argc, char* argv[])
@@ -193,11 +236,26 @@ int main(int argc, char* argv[])
    image_cvproc ic(nh);
 
    // test sending images
-   //string filenm = "/home/dbarry/Dropbox/outdoor_bot/media/image_processing/target_on_bookcase.jpg";
-   //ic.readImageFile(filenm);
-   //cout << "ready to publish?" << endl;
-   //ic.askUser();		// have to have a delay in here or the message does not publish
-   //ic.publishImage(ic.getImage());
+   //string filenm = "/home/dbarry/Dropbox/outdoor_bot/media/image_processing/digcam/zoom_digcam_zoom7_5m.jpg";
+   //string filenm = "/home/dbarry/Dropbox/outdoor_bot/media/image_processing/digcam/digcam__white_zoom7_5m_area_11747.jpg";
+   string filenm = "/home/dbarry/Dropbox/outdoor_bot/media/image_processing/webcam/webcam_white_1_5m.jpg";
+   
+   ic.readImageFile(filenm);
+   cout << "ready to publish?" << endl;
+   ic.askUser();		// have to have a delay in here or the message does not publish
+   ic.publishDigcamImage(ic.getImage());
+   cout << "ready to analyze?" << endl;
+   ic.askUser();	
+   
+   bool homeTarget = false;
+   bool firstTarget = true;
+   bool camName = WEBCAM;
+   double approxRange = 5.0;
+   ic.analyzeImage(camName, approxRange, firstTarget, homeTarget);
+   
+
+   //ic.publishWebcamImage(ic.getImage());
+   //ic.publishHomeImage(ic.getImage());
 
 
    //cv::namedWindow("zoom_digcam"); 

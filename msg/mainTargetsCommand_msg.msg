@@ -1,4 +1,4 @@
-int32 cameraType
+int32 cameraName
 float32 approxRange
 bool firstTarget
 

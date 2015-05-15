@@ -21,14 +21,16 @@
 #define SERVO_MAX 254
 //#define SERVO_UNITS_TO_DEGREES_RATIO 1.27 // about 200 degrees coverage with a 0 - 254 range of units
 
-#define DIGCAM 0
-#define ZOOM_DIGCAM 1
-#define FRONT_WEBCAM 0
-#define REAR_WEBCAM 1
 
-#define WEBCAM 1
-#define HOMECAM 2
+// camera numbers
+#define WEBCAM 0
+//#define REAR_WEBCAM 1
 #define LAPTOP_HAS_BUILTIN_WEBCAM 1	// 1 if it has a built in webcam, 0 if not
+
+// camera names, cannot overlap camera numbers
+#define REGULAR_DIGCAM 2
+#define ZOOM_DIGCAM 3
+#define HOMECAM 4
 
 #define DIGCAM_PIXELS_WIDTH 2272
 #define DIGCAM_PIXELS_HEIGHT 1704
@@ -38,7 +40,7 @@
 #define LARGE_TARGET_WIDTH 0.445
 #define WEBCAM_FOV 41.  // logitech 310 sees 7.5m at 10m -> has 40 degrees field of view
 #define ORBITCAM_FOV	54.	// orbitcam sees 14m at 10m -> has 54 degree FOV
-#define DIGCAM_FOV 14.  // powershot digcam with zoom = 7, sees 2.5m wide at 10m -> 14 degree FOV
+#define REGULAR_DIGCAM_FOV 14.  // powershot digcam with zoom = 7, sees 2.5m wide at 10m -> 14 degree FOV
 #define ZOOM_DIGCAM_FOV 3.8 // zoom = 7, sees 0.66 m wide at 10m -> 4 degree FOV
 
 //#define FRONT 1

@@ -1,2 +1,2 @@
-int32 cameraType
+int32 cameraName
 

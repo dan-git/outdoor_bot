@@ -405,12 +405,12 @@ bool setZoom(int camNum, float value)
       {
          if (!cameraCommand.compare("cap_home")) cap_home_ = true;
          else cap_home_ = false;
-         int cameraNumber = msg->camera_number;
-         if (cameraNumber < numCams_ && cameraNumber >= 0)
+         int cameraName = msg->cameraName;
+         if (cameraName == ZOOM_DIGCAM || cameraName == REGULAR_DIGCAM)
          {
-            if (msg->write_file) capture(cameraNumber, true);
-            else capture(cameraNumber, false);
-            cout << " from digcam" << cameraNumber << endl << endl;
+            if (msg->write_file) capture(cameraName, true);
+            else capture(cameraName, false);
+            cout << " from digcam" << cameraName << endl << endl;
          }
          else ROS_ERROR("invalid camera number requested for capture");
       }
@@ -426,10 +426,10 @@ bool setZoom(int camNum, float value)
       }
       else if (!cameraCommand.compare("setZoom"))
       {
-         int cameraNumber = msg->camera_number;
+         int cameraName = msg->cameraName;
          float zoom = msg->zoom;
-         cout << "Setting zoom on digcam" << cameraNumber << " to " << zoom << endl;
-         setZoom(cameraNumber, zoom);
+         cout << "Setting zoom on digcam" << cameraName << " to " << zoom << endl;
+         setZoom(cameraName, zoom);
       } 
        
       else ROS_ERROR("unkown command sent to digcams");   
@@ -442,12 +442,12 @@ bool setZoom(int camNum, float value)
       {
          if (!cameraCommand.compare("cap_home")) cap_home_ = true;
          else cap_home_ = false;
-         int cameraNumber = req.camera_number;
-         if (cameraNumber < numCams_ && cameraNumber >= 0)
+         int cameraName = req.cameraName;
+         if (cameraName == ZOOM_DIGCAM || cameraName == REGULAR_DIGCAM)
          {
-            cout << "capturing from digcam" << cameraNumber << endl;
-            if (req.write_file) capture(cameraNumber, true);
-            else capture(cameraNumber, false);
+            cout << "capturing from digcam" << cameraName << endl;
+            if (req.write_file) capture(cameraName, true);
+            else capture(cameraName, false);
          }
          else ROS_ERROR("invalid camera number requested for capture");
       }
@@ -463,10 +463,10 @@ bool setZoom(int camNum, float value)
       }
       else if (!cameraCommand.compare("setZoom"))
       {
-         int cameraNumber = req.camera_number;
+         int cameraName = req.cameraName;
          float zoom = req.zoom;
-         cout << "Setting zoom on digcam" << cameraNumber << " to " << zoom << endl;
-         zoomResult_ = setZoom(cameraNumber, zoom);
+         cout << "Setting zoom on digcam" << cameraName << " to " << zoom << endl;
+         zoomResult_ = setZoom(cameraName, zoom);
       }         
       else ROS_ERROR("unkown command sent to digcams"); 
 

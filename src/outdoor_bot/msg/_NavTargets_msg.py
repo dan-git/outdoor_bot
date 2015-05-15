@@ -6,10 +6,10 @@ import struct
 
 
 class NavTargets_msg(genpy.Message):
-  _md5sum = "e10a8a7064868c76e8682c0f02a43934"
+  _md5sum = "b7de7276c52243a45ec3b31688df05fd"
   _type = "outdoor_bot/NavTargets_msg"
   _has_header = False #flag to mark the presence of a Header object
-  _full_text = """int32 cameraType
+  _full_text = """int32 cameraName
 int32 centerX
 int32 centerY
 int32 totalX
@@ -17,7 +17,7 @@ float32 range
 
 
 """
-  __slots__ = ['cameraType','centerX','centerY','totalX','range']
+  __slots__ = ['cameraName','centerX','centerY','totalX','range']
   _slot_types = ['int32','int32','int32','int32','float32']
 
   def __init__(self, *args, **kwds):
@@ -28,7 +28,7 @@ float32 range
     changes.  You cannot mix in-order arguments and keyword arguments.
 
     The available fields are:
-       cameraType,centerX,centerY,totalX,range
+       cameraName,centerX,centerY,totalX,range
 
     :param args: complete set of field values, in .msg order
     :param kwds: use keyword arguments corresponding to message field names
@@ -37,8 +37,8 @@ float32 range
     if args or kwds:
       super(NavTargets_msg, self).__init__(*args, **kwds)
       #message fields cannot be None, assign default values for those that are
-      if self.cameraType is None:
-        self.cameraType = 0
+      if self.cameraName is None:
+        self.cameraName = 0
       if self.centerX is None:
         self.centerX = 0
       if self.centerY is None:
@@ -48,7 +48,7 @@ float32 range
       if self.range is None:
         self.range = 0.
     else:
-      self.cameraType = 0
+      self.cameraName = 0
       self.centerX = 0
       self.centerY = 0
       self.totalX = 0
@@ -67,7 +67,7 @@ float32 range
     """
     try:
       _x = self
-      buff.write(_struct_4if.pack(_x.cameraType, _x.centerX, _x.centerY, _x.totalX, _x.range))
+      buff.write(_struct_4if.pack(_x.cameraName, _x.centerX, _x.centerY, _x.totalX, _x.range))
     except struct.error as se: self._check_types(struct.error("%s: '%s' when writing '%s'" % (type(se), str(se), str(_x))))
     except TypeError as te: self._check_types(ValueError("%s: '%s' when writing '%s'" % (type(te), str(te), str(_x))))
 
@@ -81,7 +81,7 @@ float32 range
       _x = self
       start = end
       end += 20
-      (_x.cameraType, _x.centerX, _x.centerY, _x.totalX, _x.range,) = _struct_4if.unpack(str[start:end])
+      (_x.cameraName, _x.centerX, _x.centerY, _x.totalX, _x.range,) = _struct_4if.unpack(str[start:end])
       return self
     except struct.error as e:
       raise genpy.DeserializationError(e) #most likely buffer underfill
@@ -95,7 +95,7 @@ float32 range
     """
     try:
       _x = self
-      buff.write(_struct_4if.pack(_x.cameraType, _x.centerX, _x.centerY, _x.totalX, _x.range))
+      buff.write(_struct_4if.pack(_x.cameraName, _x.centerX, _x.centerY, _x.totalX, _x.range))
     except struct.error as se: self._check_types(struct.error("%s: '%s' when writing '%s'" % (type(se), str(se), str(_x))))
     except TypeError as te: self._check_types(ValueError("%s: '%s' when writing '%s'" % (type(te), str(te), str(_x))))
 
@@ -110,7 +110,7 @@ float32 range
       _x = self
       start = end
       end += 20
-      (_x.cameraType, _x.centerX, _x.centerY, _x.totalX, _x.range,) = _struct_4if.unpack(str[start:end])
+      (_x.cameraName, _x.centerX, _x.centerY, _x.totalX, _x.range,) = _struct_4if.unpack(str[start:end])
       return self
     except struct.error as e:
       raise genpy.DeserializationError(e) #most likely buffer underfill

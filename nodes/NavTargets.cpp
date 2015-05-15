@@ -109,7 +109,7 @@ void homeImageCallback(const sensor_msgs::ImageConstPtr& msg)
     newHomeImage_ = cv_bridge::toCvCopy(msg, "bgr8")->image;
     newHomeImageReceived_ = true;
     outdoor_bot::mainTargets_imageReceived_msg imMsg;
-    imMsg.cameraType = HOMECAM;
+    imMsg.cameraName = HOMECAM;
     image_received_pub_.publish(imMsg);   // publish that we received a home image
   }
   catch (cv_bridge::Exception& e)
@@ -962,14 +962,21 @@ int main(int argc, char* argv[])
    //cv::namedWindow("view");
    //cv::startWindowThread();
 
+   /*
    while(nh.ok())
    {
-   	ros::spinOnce();  // check for incoming messages
-   	struct timespec ts;
-      ts.tv_sec = 0;
-      ts.tv_nsec = 10000000;
-      nanosleep(&ts, NULL); // update every 10 ms
+   	//ros::spinOnce();  // check for incoming messages
+   	//struct timespec ts;
+      //ts.tv_sec = 0;
+      //ts.tv_nsec = 10000000;
+      //nanosleep(&ts, NULL); // update every 10 ms
+		ros::Time last_time = ros::Time::now();
+		while ( ros::Time::now.toSec() - last_time.toSec() < 0.01) ros::spinOnce(); // delay a bit
+		
    }
+   */
+   
+   ros::spin();
    //cv::destroyWindow("view");
    return EXIT_SUCCESS;
 }

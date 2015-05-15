@@ -6,14 +6,14 @@ import struct
 
 
 class mainTargets_imageReceived_msg(genpy.Message):
-  _md5sum = "fe9e884b6ec58fff0d5dfaf59d39b342"
+  _md5sum = "3a4a19b804cb61dcf2eb4c26ed75cb3a"
   _type = "outdoor_bot/mainTargets_imageReceived_msg"
   _has_header = False #flag to mark the presence of a Header object
-  _full_text = """int32 cameraType
+  _full_text = """int32 cameraName
 
 
 """
-  __slots__ = ['cameraType']
+  __slots__ = ['cameraName']
   _slot_types = ['int32']
 
   def __init__(self, *args, **kwds):
@@ -24,7 +24,7 @@ class mainTargets_imageReceived_msg(genpy.Message):
     changes.  You cannot mix in-order arguments and keyword arguments.
 
     The available fields are:
-       cameraType
+       cameraName
 
     :param args: complete set of field values, in .msg order
     :param kwds: use keyword arguments corresponding to message field names
@@ -33,10 +33,10 @@ class mainTargets_imageReceived_msg(genpy.Message):
     if args or kwds:
       super(mainTargets_imageReceived_msg, self).__init__(*args, **kwds)
       #message fields cannot be None, assign default values for those that are
-      if self.cameraType is None:
-        self.cameraType = 0
+      if self.cameraName is None:
+        self.cameraName = 0
     else:
-      self.cameraType = 0
+      self.cameraName = 0
 
   def _get_types(self):
     """
@@ -50,7 +50,7 @@ class mainTargets_imageReceived_msg(genpy.Message):
     :param buff: buffer, ``StringIO``
     """
     try:
-      buff.write(_struct_i.pack(self.cameraType))
+      buff.write(_struct_i.pack(self.cameraName))
     except struct.error as se: self._check_types(struct.error("%s: '%s' when writing '%s'" % (type(se), str(se), str(_x))))
     except TypeError as te: self._check_types(ValueError("%s: '%s' when writing '%s'" % (type(te), str(te), str(_x))))
 
@@ -63,7 +63,7 @@ class mainTargets_imageReceived_msg(genpy.Message):
       end = 0
       start = end
       end += 4
-      (self.cameraType,) = _struct_i.unpack(str[start:end])
+      (self.cameraName,) = _struct_i.unpack(str[start:end])
       return self
     except struct.error as e:
       raise genpy.DeserializationError(e) #most likely buffer underfill
@@ -76,7 +76,7 @@ class mainTargets_imageReceived_msg(genpy.Message):
     :param numpy: numpy python module
     """
     try:
-      buff.write(_struct_i.pack(self.cameraType))
+      buff.write(_struct_i.pack(self.cameraName))
     except struct.error as se: self._check_types(struct.error("%s: '%s' when writing '%s'" % (type(se), str(se), str(_x))))
     except TypeError as te: self._check_types(ValueError("%s: '%s' when writing '%s'" % (type(te), str(te), str(_x))))
 
@@ -90,7 +90,7 @@ class mainTargets_imageReceived_msg(genpy.Message):
       end = 0
       start = end
       end += 4
-      (self.cameraType,) = _struct_i.unpack(str[start:end])
+      (self.cameraName,) = _struct_i.unpack(str[start:end])
       return self
     except struct.error as e:
       raise genpy.DeserializationError(e) #most likely buffer underfill

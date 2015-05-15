@@ -89,6 +89,7 @@ long EncoderPickerUpper = 0, EncoderBinShade = 0, EncoderDropBar = 0, EncoderExt
 int battery, pauseState = 0, dirAntMaxDir = 0, dirAntMaxTilt = 0,  dirAntLevel = 0;
 unsigned long arduinoCycleTime, arduinoDataCounter;
 bool firstTime = true, radarDataEnabled_ = true;
+bool pauseStateSent_ = false, releaseStateSent_ = false;
 ros::Time current_time, last_time;
 radarRanger rRanger_("/dev/ttyRadar_103");
 radarRanger leftRanger_("/dev/ttyRadar_100");
@@ -282,12 +283,23 @@ void sendOutNavData()
     // if this is the first time odometry data has come in, then we have no previous time reference
     // and no initial number of odometer ticks, so we need to set those
 
-   if (pauseState)
+   if (pauseState && (!pauseStateSent_))
    {
       std_msgs::Int32 pauseAlert;
       pauseAlert.data = pauseState;
       pause_pub.publish(pauseAlert);
+      pauseStateSent_ = true;
+      releaseStateSent_ = false;
    }
+   else if ((!pauseState) && (!releaseStateSent_))
+   {
+      std_msgs::Int32 pauseAlert;
+      pauseAlert.data = pauseState;
+      pause_pub.publish(pauseAlert);
+      pauseStateSent_ = false;
+      releaseStateSent_ = true;
+   }   	
+   	
 
    if (firstTime)
    {

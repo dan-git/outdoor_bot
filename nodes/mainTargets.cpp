@@ -20,13 +20,16 @@
 using namespace std;
 using namespace cv;
 
-
 #define MAX_NUM_TARGETS 50
 #define PIX_PER_CM_AT_3M 8.
-#define FRONT_CAMERA_FULLZOOM_FIRST_TARGET_RANGE_PARAMETER 1000000
+#define FRONT_CAMERA_FULLZOOM_FIRST_TARGET_RANGE_PARAMETER 1000000.
 #define BLUE 0
 #define RED 1
 #define BLUE_RED 2
+#define ZOOM_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER 150000.
+#define REGULAR_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER 60000. // ratio of area to distance  
+#define WEBCAM_FIRST_TARGET_RANGE_PARAMETER 1000.
+
 
 int getUserInputInteger()
 {
@@ -73,7 +76,7 @@ private:
    image_transport::Subscriber subWebcam_, subDigcam_;
    std::string filename_;
    float rangeSquared_, approxRange_;
-	int centerX_, centerY_, numTargetsDetected_, cameraType_;
+	int centerX_, centerY_, numTargetsDetected_, cameraName_;
    bool newDigcamImageReceived_, newWebcamImageReceived_;
    Mat image_, gray_, newDigcamImage_, newWebcamImage_, showImg_;
    CvSize sz_;
@@ -102,14 +105,15 @@ mainTargets(ros::NodeHandle &nh)
    void commandCallback(const outdoor_bot::mainTargetsCommand_msg msg)
    {
       bool firstTarget = msg.firstTarget;
-      cameraType_ = msg.cameraType;
-      if (cameraType_ == DIGCAM && newDigcamImageReceived_)
+      cameraName_ = msg.cameraName;
+      if ( (cameraName_ == REGULAR_DIGCAM || cameraName_ == ZOOM_DIGCAM) && newDigcamImageReceived_)
       {
-         ROS_INFO("mainTargets is using a digcam image via image transport.");
+         if (cameraName_ == REGULAR_DIGCAM ) ROS_INFO("mainTargets is using a digcam image via image transport.");
+         else if (cameraName_ == ZOOM_DIGCAM ) ROS_INFO("mainTargets is using a zoom digcam image via image transport.");
          image_ = newDigcamImage_.clone();
          newDigcamImageReceived_ = false;
       }
-      else if (cameraType_ == WEBCAM && newWebcamImageReceived_)
+      else if (cameraName_ == WEBCAM && newWebcamImageReceived_)
       {
          image_ = newWebcamImage_.clone();
          newWebcamImageReceived_ = false;
@@ -119,7 +123,7 @@ mainTargets(ros::NodeHandle &nh)
       approxRange_ = msg.approxRange;
 
       outdoor_bot::mainTargets_msg output_msg;
-      output_msg.cameraType = cameraType_; 
+      output_msg.cameraName = cameraName_; 
       output_msg.totalX = image_.cols;
  
       if (detectBlobs(image_, firstTarget))
@@ -150,7 +154,7 @@ mainTargets(ros::NodeHandle &nh)
        newDigcamImage_ = cv_bridge::toCvCopy(msg, "bgr8")->image;
        newDigcamImageReceived_ = true;
        outdoor_bot::mainTargets_imageReceived_msg imMsg;
-       imMsg.cameraType = DIGCAM;
+       imMsg.cameraName = REGULAR_DIGCAM;
        image_received_pub_.publish(imMsg);   // publish that we received a digcam image
      }
      catch (cv_bridge::Exception& e)
@@ -169,7 +173,7 @@ mainTargets(ros::NodeHandle &nh)
        newWebcamImage_ = cv_bridge::toCvCopy(msg, "bgr8")->image;
        newWebcamImageReceived_ = true;
        outdoor_bot::mainTargets_imageReceived_msg imMsg;
-       imMsg.cameraType = WEBCAM;
+       imMsg.cameraName = WEBCAM;
        image_received_pub_.publish(imMsg);   // publish that we received a webcam image
      }
      catch (cv_bridge::Exception& e)
@@ -429,14 +433,31 @@ bool detectBlobs(Mat im_original, bool firstTarget)
                               // even a radius of 48 corresponds to an area of only 7238.2
          if (approxRange_ > 1.)
          {
-            float predictedArea = FRONT_CAMERA_FULLZOOM_FIRST_TARGET_RANGE_PARAMETER / (approxRange_ * approxRange_);
-            cout << "mainTargets predicted Area = " << predictedArea << endl;
-            params.minArea = predictedArea / 2.;
-            params.maxArea = predictedArea * 5;
+            float predictedArea;
+            if (cameraName_ == ZOOM_DIGCAM) 
+            {
+            	cout << "Zoom digcam ";
+            	predictedArea = ZOOM_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER / approxRange_;
+            }
+            else if (cameraName_ == REGULAR_DIGCAM)
+            {
+            	cout << "REGULAR_DIGCAM ";
+            	predictedArea = REGULAR_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER / approxRange_;
+            }
+            else if (cameraName_ == WEBCAM) 
+            {
+            	cout << "WEBCAM ";
+            	predictedArea = WEBCAM_FIRST_TARGET_RANGE_PARAMETER / approxRange_;
+            }
+            cout << "mainTargets predicted Area = " << predictedArea << " using an approximate range of " << approxRange_ << " meters " << endl;
+            params.minArea = 7000.; //predictedArea / 2.;
+            params.maxArea = 100000; //predictedArea * 5;
          }
          else
          {
-            params.minArea = 5000;
+            if (cameraName_ == ZOOM_DIGCAM) params.minArea = 7000;
+            if (cameraName_ == REGULAR_DIGCAM) params.minArea = 7000;
+            if (cameraName_ == WEBCAM) params.minArea = 1000;
             params.maxArea = totalArea / 3.;
          }
 	      // Filter by Color-- this is not actually color, it is intensity and goes from 0 to 255
@@ -461,7 +482,6 @@ bool detectBlobs(Mat im_original, bool firstTarget)
       }
       else  
       {
-
          cout << endl << endl;
          if (colorCounter == BLUE) cout << "For blue image: " << endl;
          else if (colorCounter == RED) cout << "For red image: " << endl;
@@ -487,11 +507,12 @@ bool detectBlobs(Mat im_original, bool firstTarget)
 
          // Filter by Area.
 	      params.filterByArea = true;
+
 	      //params.minArea = 7327; // 7327 corresponds to a size value (~radius?) of 47.8009 for the keypoint
                               // if that was a radius, it would correspond to an area of 7178.3
                               // even a radius of 48 corresponds to an area of only 7238.2
-         params.minArea = 100; //totalArea / 500;
-         params.maxArea = totalArea / 4;
+         //params.minArea = 100; //totalArea / 500;
+         //params.maxArea = totalArea / 4;
 
 	      // Filter by Color-- this is not actually color, it is intensity and goes from 0 to 255
          // the blob has to match this intensity exactly, so it is only useful if you have thresholded
@@ -556,10 +577,10 @@ bool detectBlobs(Mat im_original, bool firstTarget)
        }
 
        Point keyCenter(0,0);
-       if (maxKeypointArea > maxArea )
+       if (maxKeypointArea > maxArea) // &&  maxKeypointArea >= minArea)
        {
-         cout << "Analyzing filename: " << filename_ << endl;
-         cout << "containing an image with rows, cols, area = " << im_original.rows << ", " << im_original.cols << ", "
+         //cout << "Analyzing filename: " << filename_ << endl;
+         cout << "Analysing image with rows, cols, area = " << im_original.rows << ", " << im_original.cols << ", "
          << im_original.rows * im_original.cols << endl;
          maxArea = maxKeypointArea;
          cout << "Possible target found, from " << keypoints.size() << " keypoints: " << endl;
@@ -567,12 +588,19 @@ bool detectBlobs(Mat im_original, bool firstTarget)
          cout << "Target radius: " << keypoints[maxIndex].size << endl;
          cout << "Target area: " <<  maxKeypointArea << endl;
          //cout << "Target response: " << keypoints[maxIndex].response << endl;
-         cout << "Target angle: " << keypoints[maxIndex].angle << endl;
+         //cout << "Target angle: " << keypoints[maxIndex].angle << endl;
          //cout << "Target class_id: " << keypoints[maxIndex].class_id << endl;
          //cout << "Target octave: " << keypoints[maxIndex].octave << endl;
          centerX_ = (int) keypoints[maxIndex].pt.x;
          centerY_ = (int) keypoints[maxIndex].pt.y;
-         rangeSquared_ = FRONT_CAMERA_FULLZOOM_FIRST_TARGET_RANGE_PARAMETER / maxKeypointArea;
+         if (cameraName_ == ZOOM_DIGCAM) rangeSquared_ = (ZOOM_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER * ZOOM_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER) / (maxKeypointArea * maxKeypointArea);
+         else if (cameraName_ == REGULAR_DIGCAM) rangeSquared_ = (REGULAR_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER * REGULAR_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER) / (maxKeypointArea * maxKeypointArea);
+         else if (cameraName_ == WEBCAM) rangeSquared_ = (WEBCAM_FIRST_TARGET_RANGE_PARAMETER * WEBCAM_FIRST_TARGET_RANGE_PARAMETER) / (maxKeypointArea * maxKeypointArea);
+			else
+			{
+				rangeSquared_ = 0.;
+				cout << "unknown camera type in mainTargets" << endl;
+			}
          keyCenter.x = centerX_;
          keyCenter.y = centerY_;
        } // closes if > maxArea
@@ -595,17 +623,17 @@ bool detectBlobs(Mat im_original, bool firstTarget)
       //blankImg.setTo(cv::Scalar(0,0,0));
       if (colorCounter == BLUE)
       {
-         circle(showImg_, keyCenter, 25, Scalar(255,0,0), 10);
+         circle(showImg_, keyCenter, 25, Scalar(255,0,0), keypoints[maxIndex].size);
          //drawKeypoints(showImg, keypoints, showImg, Scalar(255,0,0), DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
       }
       else if (colorCounter == RED) 
       {
-         circle(showImg_, keyCenter, 25, Scalar(0,0,255), 10);
+         circle(showImg_, keyCenter, 25, Scalar(0,0,255), keypoints[maxIndex].size);
          //drawKeypoints(showImg, keypoints, showImg, Scalar(0,0,255), DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
       }
       else if (colorCounter == BLUE_RED) 
       {
-         circle(showImg_, keyCenter, 25, Scalar(255,0,255), 10);
+         circle(showImg_, keyCenter, 25, Scalar(255,0,255), keypoints[maxIndex].size);
          //drawKeypoints(showImg, keypoints, showImg, Scalar(255,0,255), DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
       }
       
