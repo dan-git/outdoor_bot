@@ -9,7 +9,7 @@
 #include "outdoor_bot/webcams_custom.h"
 #include "outdoor_bot_defines.h"
 
-#define MAX_NUM_WEBCAMS 3
+#define MAX_NUM_WEBCAMS 2
 
 using namespace cv;
 using namespace std;
@@ -204,7 +204,11 @@ class webcamControl
 
       bool capture(int camNumber)
       {
-         if (camNumber > numWebcams_ || camNumber < 0) return false;
+         if (camNumber > numWebcams_ || camNumber < 0)
+         {
+         	cout << "invalid camera number requested for capture in webcams, camera number = " << camNumber << endl;
+         	return false;
+         }
          char filename[80];
          sprintf(filename, "webcam%d", camNumber);
          Mat image;
@@ -259,7 +263,8 @@ class webcamControl
       void cameraCommandCallback(const outdoor_bot::webcams_custom::ConstPtr &msg)
       {
          std::string cameraCommand = msg->command; 
-         int camNum = msg->camera_number;
+         int camNum = msg->camera_number + LAPTOP_HAS_BUILTIN_WEBCAM;
+         cout << "webcam command received for camera number " << camNum << endl;
          if ( (!cameraCommand.compare("cap_and_rel")) || (!cameraCommand.compare("capture")) || (!cameraCommand.compare("cap_home")) )
          {
             if (!cameraCommand.compare("cap_home")) cap_home_ = true;
@@ -379,6 +384,7 @@ int main(int argc, char* argv[])
    }
    else ROS_ERROR("webcam1 capture failed");
    */
+   /*
    while(nh.ok())
    {
    	ros::spinOnce();  // check for incoming messages
@@ -387,6 +393,8 @@ int main(int argc, char* argv[])
       ts.tv_nsec = 10000000;
       nanosleep(&ts, NULL); // update every 10 ms
    }
+   */
+   ros::spin();
    //wcControl.closeWindow(0);
    return EXIT_SUCCESS;
 }

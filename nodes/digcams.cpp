@@ -10,6 +10,8 @@
 #define POWERSHOT --camera="Canon PowerShot A520 (PTP mode)" --port usb:
 #define CHECK(f) {int res = f; if (res < 0) {printf ("ERROR: %s\n", gp_result_as_string (res)); return (1);}} 
 
+#define ZOOM_DIGCAM_NUMBER 1
+#define REGULAR_DIGCAM_NUMBER 0
 
 using namespace cv;
 using namespace std;
@@ -96,8 +98,16 @@ public:
       return true;
    }
 
-   void waitForCameraEvent(int camNum)
+   void waitForCameraEvent(int camName)
    {
+      int camNum;
+      if (camName == ZOOM_DIGCAM) camNum = ZOOM_DIGCAM_NUMBER;
+      else if (camName == REGULAR_DIGCAM) camNum = REGULAR_DIGCAM_NUMBER;
+      else
+      {
+      	cout << "invalid digital camera requested in digcams capture.  camera number = " << camName << endl;
+      	return;
+      }
       int waittime = 2000;
       CameraEventType type;
       void *data;
@@ -152,10 +162,18 @@ public:
 
 
    //void capture (int camNum, char* filename)
-   void capture (int camNum, bool writeFile = false)
+   void capture (int camName, bool writeFile = false)
    {
 	   char* data;
       unsigned long size;
+      int camNum;
+      if (camName == ZOOM_DIGCAM) camNum = ZOOM_DIGCAM_NUMBER;
+      else if (camName == REGULAR_DIGCAM) camNum = REGULAR_DIGCAM_NUMBER;
+      else
+      {
+      	cout << "invalid digital camera requested in digcams capture.  camera number = " << camName << endl;
+      	return;
+      }
 
       //capture_to_file(cams_[camNum], context_, filename);	  
       capture_to_memory(cams_[camNum], context_, (const char**)&data, &size);
@@ -214,9 +232,17 @@ public:
    }
 */
 
-bool setZoom(int camNum, float value)
+bool setZoom(int camName, float value)
    {
-      int ret;
+      int camNum;
+      if (camName == ZOOM_DIGCAM) camNum = ZOOM_DIGCAM_NUMBER;
+      else if (camName == REGULAR_DIGCAM) camNum = REGULAR_DIGCAM_NUMBER;
+      else
+      {
+      	cout << "invalid digital camera requested in digcams zoom.  camera number = " << camName << endl;
+      	return false;
+      }
+            int ret;
       const char *key = "zoom";
       float newZoom = value, previousZoom;
 
@@ -262,8 +288,17 @@ bool setZoom(int camNum, float value)
       return true;
    } 
 
-   /*void setCameraParameter(int camNum, bool parameterSet = true, bool parameterGet = false)
+   /*void setCameraParameter(int camName, bool parameterSet = true, bool parameterGet = false)
    {
+      int camNum;
+      if (camName == ZOOM_DIGCAM) camNum = ZOOM_DIGCAM_NUMBER;
+      else if (camName == REGULAR_DIGCAM) camNum = REGULAR_ REGULAR_DIGCAM_NUMBER;
+      else
+      {
+      	cout << "invalid digital camera requested in digcams setCameraParameter.  camera number = " << camName << endl;
+      	return;
+      }
+      
       const char* val;
       const char* stringToSet;
       int ret;
@@ -532,7 +567,7 @@ int main (int argc, char *argv[])
    //camControl.setZoom(0, 5.);
 
    //camControl.capture(0, true);
-
+	/*
    while(nh.ok())
    {
    	ros::spinOnce();  // check for incoming messages
@@ -541,6 +576,8 @@ int main (int argc, char *argv[])
       ts.tv_nsec = 10000000;
       nanosleep(&ts, NULL); // update every 10 ms
    }
+   */
+   ros::spin();
    return EXIT_SUCCESS;
 
 }

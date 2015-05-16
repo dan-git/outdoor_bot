@@ -54,25 +54,18 @@ using namespace std;
 #define SERVO_WAIT_SECONDS 5.0  // time from servo command until we are sure servo is in position
 #define DEGREES_PER_PAN_STEP 0.64
 #define PAN_CAMERA_DELTA 20
-#define PAN_CAMERA_SEARCH_MAX 40
+#define PAN_CAMERA_SEARCH_MAX 20
 #define TILT_CAMERA_DELTA 5
 #define TILT_CAMERA_SEARCH_MAX 20
-
-// sections
-#define BOOTUP 0
-#define FIRST_TARGET 1
-#define TARGETS 2
-#define HOME 3
-#define PLATFORM 4
-
 
 ros::ServiceClient NavTargets_client_, radar_client_, accelerometers_client_; //, encoders_client_; //, mainTargets_client_, mainTargetsCheckImage_client_;
 ros::ServiceClient setPose_client_; //digcams_client_, 
 ros::Publisher digcam_pub_, movement_pub_, webcam_pub_, mainTargetsCommand_pub_, NavTargetsCommand_pub_, servo_pub_; //, pmotor_pub_;
-ros::Subscriber home_center_sub_, targetImageReceived_sub_, target_center_sub_, move_complete_sub_, pause_sub_;
+ros::Subscriber home_center_sub_, targetImageReceived_sub_, target_center_sub_, move_complete_sub_;
+ros::Subscriber userDesignatedTargets_sub_, pause_sub_;
 outdoor_bot::webcams_custom webcam_command_;
 outdoor_bot::digcams_custom digcam_command_; 
-int centerX_, centerY_, totalX_, moving_, turning_, totalMoveToFirstTarget_ = 0;
+int centerX_, centerY_, totalX_, moving_, turning_, picking_, totalMoveToFirstTarget_ = 0;
 int home_image_height_, home_image_width_;
 bool homeCenterUpdated_, movementComplete_, triedWebcamAlready_, triedZoomDigcamAlready_;
 double range_, approxRangeToTarget_, targetRange_, homeCameraRange_, offsetX_;
@@ -94,6 +87,9 @@ std::string movementResult_;
 bool prepping_, placing_, driving_, pushing_, scooping_, dropping_, retrieving_;
 ros::Time overallTimer_;
 double startTime_, totalTime_, secondsRemaining_;
+double userCmdDistance_[32], userCmdTurn_[32], userCmdSpeed_[32], userCmdPickup_[32];
+int userCmdNumDataValues_, currentUserCommandNumber_, userCmdReturnSection_;
+bool userCommandReceived_;
 bool currentSection_;
 
 
@@ -102,7 +98,7 @@ int BootupState_, CheckLinedUpState_, PhaseTwoFirstState_, CheckFirstTargetState
 int MoveToFirstTargetState_;
 int FindTargetState_, MoveToTargetState_, PickupTargetState_;
 int CheckHomeState_, SearchForHomeState_;
-int HeadForHomeState_, MoveOntoPlatformState_;
+int HeadForHomeState_, MoveOntoPlatformState_, UserCommandState_;
 int MoveToRecoverState_, MoveToRecoverFailedState_, ReEntryState_, PauseState_, AllDoneState_;
 int MoveToRecoverCounter_ = 0, TurnToRecoverCounter_ = 0;
 int platformNumber_;
@@ -187,6 +183,7 @@ class targetAquireFSM
 		      outdoor_bot::mainTargetsCommand_msg msg; 
 		      msg.cameraName = acquireCamName_;
 		      msg.firstTarget = firstTarget_;  
+		      msg.approxRange = approxRangeToTarget_;
 		      mainTargetsCommand_pub_.publish(msg);
 		   }
       }  
@@ -376,20 +373,23 @@ void imageCapture(string command, int camName, bool writeFile)
 {
   if (camName == WEBCAM)
    {
+      cout << "publishing command for webcam capture" << endl;
       webcam_command_.command = command;
       webcam_command_.camera_number = camName;
       if (writeFile) webcam_command_.write_file = true;
       else webcam_command_.write_file = false;
       webcam_pub_.publish(webcam_command_);
    }
-   else
+   else if (camName == ZOOM_DIGCAM || camName == REGULAR_DIGCAM)
    {
+      cout << "publishing command for digcam or zoom digcam capture" << endl;
       digcam_command_.command = command;
       digcam_command_.cameraName = camName;
       if (writeFile) digcam_command_.write_file = true;
       else digcam_command_.write_file = false;
       digcam_pub_.publish(digcam_command_); 
    }
+   else cout << "request made for capture from unknown camera, camera number = " << camName << endl;
 }     
 
 void setZoom(int camName, float zoom)
@@ -405,7 +405,7 @@ void testCameras()
    cout << "testing cameras" << endl;
    // the digital cams:
    
-   bool fileWrite = true;
+   bool fileWrite = false;
    cout << "capturing image on zoom digcam..." << endl;
    imageCapture("capture", ZOOM_DIGCAM);
    while (!askUser())
@@ -424,20 +424,20 @@ void testCameras()
    
    // the webcams:
    cout << "capturing image on front webcam..." << endl;
-   imageCapture("capture", WEBCAM + LAPTOP_HAS_BUILTIN_WEBCAM, fileWrite);
+   imageCapture("capture", WEBCAM, fileWrite);
    while (!askUser())
    {
    	cout << "capturing another image on front webcam..." << endl;
-   	imageCapture("capture", WEBCAM + LAPTOP_HAS_BUILTIN_WEBCAM, fileWrite);
+   	imageCapture("capture", WEBCAM, fileWrite);
    }
    
    /*
    cout << "capturing image on rear webcam..." << endl;
-   imageCapture("capture", REAR_WEBCAM + LAPTOP_HAS_BUILTIN_WEBCAM); 
+   imageCapture("capture", REAR_WEBCAM); 
    while (!askUser())
    {
    	cout << "capturing another image on rearcam..." << endl;
-   	imageCapture("capture", REAR_WEBCAM + LAPTOP_HAS_BUILTIN_WEBCAM);
+   	imageCapture("capture", REAR_WEBCAM);
    }
    */
    
@@ -493,6 +493,62 @@ void pauseCallback(const std_msgs::Int32::ConstPtr& msg)
    }   	
 }
 
+void userDesignatedTargetsCallback(const std_msgs::String::ConstPtr& msg)
+{
+  // make a set of user designated moves
+  // first parse the string
+  string parseCommand = msg->data.c_str();  
+  std::string cmdBuffer[32];
+  string substr;
+
+  std::size_t found = parseCommand.find_first_of(";");
+  userCmdNumDataValues_ = 0;
+  while (found!=std::string::npos)
+  {
+    cmdBuffer[userCmdNumDataValues_] = parseCommand.substr(0,found);
+    parseCommand = parseCommand.substr(found + 1, std::string::npos);
+    cout << " cmdBuffer[" << userCmdNumDataValues_ << "] = " << cmdBuffer[userCmdNumDataValues_] << endl;
+    cout << "UserCommand = " << parseCommand << endl;
+    userCmdNumDataValues_++;
+    found = parseCommand.find_first_of(";");
+  }
+  
+  userCmdNumDataValues_ -= 1;
+  
+  ROS_INFO("parsed user command strings: ");
+  for (int i = 0; i < userCmdNumDataValues_; i++)
+  {
+    cout << cmdBuffer[i].c_str() << endl;
+    found = cmdBuffer[i].find_first_of(",");
+    substr = cmdBuffer[i].substr(0,found);
+    userCmdDistance_[i] = atof(substr.c_str());
+    cmdBuffer[i] =  cmdBuffer[i].substr(found + 1, std::string::npos);
+    found = cmdBuffer[i].find_first_of(",");
+    substr = cmdBuffer[i].substr(0,found);
+    userCmdTurn_[i] = atof(substr.c_str());
+    cmdBuffer[i] = cmdBuffer[i].substr(found + 1, std::string::npos);
+    found = cmdBuffer[i].find_first_of(",");
+    substr = cmdBuffer[i].substr(0,found);
+    userCmdSpeed_[i] = atof(substr.c_str()); 
+    cmdBuffer[i] = cmdBuffer[i].substr(found + 1, std::string::npos);
+    found = cmdBuffer[i].find_first_of(",");
+    if (found!=std::string::npos)
+    {
+    	substr = cmdBuffer[i].substr(0,found);
+    	userCmdPickup_[i] = atof(substr.c_str()); 
+    }  
+    cout << "parsed values for dataset " << i << " = " << userCmdDistance_[i] << ", "
+    	<< userCmdTurn_[i] << ", " << userCmdSpeed_[i] << ", " << userCmdPickup_[i] << endl;  
+  }
+  
+  substr = cmdBuffer[userCmdNumDataValues_].c_str();
+  userCmdReturnSection_ = atof(substr.c_str());
+  cout << "commanded return section number = " << userCmdReturnSection_ << endl;
+  
+  currentUserCommandNumber_ = 0;
+  userCommandReceived_ = true;
+}
+
 void moveCompleteCallback(const std_msgs::String::ConstPtr& msg)
 {
    movementResult_ = msg->data.c_str();
@@ -530,20 +586,20 @@ void targetCenterCallback(const outdoor_bot::mainTargets_msg::ConstPtr &msg)
 void targetImageReceivedCallback(const outdoor_bot::mainTargets_imageReceived_msg msg)
 {
    int cameraName = msg.cameraName;
-   if (cameraName == REGULAR_DIGCAM || ZOOM_DIGCAM) 
+   if (cameraName == REGULAR_DIGCAM || cameraName == ZOOM_DIGCAM) 
    {
    	newMainTargetDigcamImageReceived_ = true;
-   	cout << "digcam image was received by mainTargets" << endl;
+   	cout << "digcam image was received by mainTargets, cameraName = " << cameraName << endl;
    }
    else if (cameraName == WEBCAM) 
    {
    	newMainTargetWebcamImageReceived_ = true;
-   	cout << "webcam image was received by mainTargets" << endl;
+   	cout << "webcam image was received by mainTargets, cameraName = " << cameraName << endl;
    }
    else if (cameraName == HOMECAM)
    {
    	newNavTargetImageReceived_ = true;
-   	cout << "image was received by NavTargets" << endl;
+   	cout << "image was received by NavTargets, cameraName = " << cameraName << endl;
    }
 }
 
@@ -710,10 +766,10 @@ bool callEncodersService()
 void on_enter_BootupState()
 {
 	currentSection_ = BOOTUP;
-	approxRangeToTarget_ = 41.; // we start at about 70m from the first target
-   targetRange_ = 41.;
+	approxRangeToTarget_ = 15.; // change to 70 for real ops *****************************************
+   targetRange_ = 15.; // change to 70 for real ops *************************************************
    homeCameraRange_ = 10.;
-   range_ = 71.;
+   range_ = 15;	// change to 70 for real ops ******************************************************
    rangeUnknown_ = false;
    retCapToMemory_ = -1;
    centerX_ = -1; // indicator for when target centers are updated
@@ -727,6 +783,7 @@ void on_enter_BootupState()
    homeCenterUpdated_ = false;
    moving_ = false;
    turning_ = false;
+   picking_ = false;
    movementComplete_ = false;
    movementResult_ = "";
    triedWebcamAlready_ = false;
@@ -755,6 +812,18 @@ void on_enter_BootupState()
    //encoderPickerUpper_ = 0;
    //encoderDropBar_ = 0;
    //encoderBinShade_= 0;
+   
+  for (int i=0; i < 32; i++)
+  {
+  	userCmdDistance_[i] = 0.;
+  	userCmdTurn_[i] = 0.;
+  	userCmdSpeed_[i] = 0.;
+  	userCmdPickup_[i] = 0.;
+  }
+  userCmdNumDataValues_ = 0;
+  currentUserCommandNumber_ = 0;
+  userCmdReturnSection_ = TARGETS;
+  userCommandReceived_ = false;
    
    cout << "finished enter bootupState" << endl;
 
@@ -809,7 +878,8 @@ int on_update_BootupState()
  	int inputNum = 0;
    while (inputNum == 0)
    {
-   	imageCapture("capture", ZOOM_DIGCAM);	
+   	imageCapture("capture", REGULAR_DIGCAM);	// ********************** change to zoom cam for real ops
+   	
    	cout << "check image and center the robot on the target.  Do you want to move on or retry?" << endl;
    	if (askUser()) inputNum = 1;
 	}
@@ -835,6 +905,7 @@ void on_exit_BootupState()
    homeCenterUpdated_ = false;
    moving_ = false;
    turning_ = false;
+   picking_ = false;
    movementComplete_ = false;
    movementResult_ = "";
    centerX_ = -1; // indicator for when target centers are updated
@@ -962,6 +1033,7 @@ void on_enter_CheckFirstTargetState()
 {
    // start by capturing an image using fsm
    centerX_ = -1;
+   cout << "entering CheckFirstTargetState, approximate range to target = " << approxRangeToTarget_ << endl;
    if (!triedZoomDigcamAlready_)
    {
 		tAF_.set_acquireCamName(ZOOM_DIGCAM);
@@ -1181,10 +1253,12 @@ int on_update_MoveToFirstTargetState()
 		if (fabs(offsetX_) > 10.)
 		{
 			// send turn command to center the target
-			msg.command = "turn";
-			msg.angle = offsetX_;
+			msg.command = "autoMove";
+			msg.angle = offsetX_;	// sign here does not matter, direction is set by the speed
+			// positive offset means turn to the left (ccw), negative to the right.
+			if (offsetX_ > 0) msg.speed = 20.;	// degrees per second
+			else msg.speed = -20.
 			msg.distance = 0.;
-				// positive offset means turn to the left, negative to the right.
 			movement_pub_.publish(msg);
 		   turning_ = true;
 		   movementComplete_ = false;
@@ -1258,16 +1332,18 @@ int on_update_MoveToFirstTargetState()
 		msg.speed = 200;   	// mm/sec or deg/sec 
 		ROS_INFO("auto moving forward 1m"); 
 	}    
-	/*   
+	   
 	else if (range_ > 0.01)
 	{
 	   // final approach
 	   cout << "moving to home spot, range_ = " << range_ << endl;
 	   moving_ = false;
 	   turning_ = false;
-	   return PickupTargetState_;
+	   //return PickupTargetState_;
+	   pauseCommanded_ = true;
+	   return PauseState_;
 	}
-	*/
+	
 	else return CheckFirstTargetState_;
 	
    
@@ -1484,7 +1560,7 @@ void on_enter_CheckHomeState()
    centerX_ = -1;
    if (!triedWebcamAlready_)
    {
-   	tAF_.set_acquireCamName(WEBCAM + LAPTOP_HAS_BUILTIN_WEBCAM);
+   	tAF_.set_acquireCamName(WEBCAM);
    	triedWebcamAlready_ = true;
    	lastCamName_ = WEBCAM;
    }
@@ -1725,6 +1801,82 @@ int on_update_MoveOntoPlatformState()
    return MoveOntoPlatformState_;
 }
 
+void on_enter_UserCommandState()
+{
+   moving_ = false;
+   turning_ = false;
+   picking_ = false;
+   movementComplete_ = false;	
+}
+
+int on_update_UserCommandState()
+{
+   if (pauseCommanded_)
+   {
+      previousState_ = UserCommandState_;
+      return PauseState_;
+   }
+
+   // check to see if we have arrived at the new pose   
+   if ( (moving_ || turning_ || picking_) && (!movementComplete_ ))
+   {
+   	ros::spinOnce();
+   	return UserCommandState_;  // move has not completed yet
+   } 
+   
+   if (moving_ || turning_ || picking_)	//  move is complete
+   {
+   	moving_ = false;
+		turning_ = false;
+		picking_ = false;
+		currentUserCommandNumber_++;
+		userCmdNumDataValues_--;
+   	if (userCmdNumDataValues_ == 0)
+   	{
+   		cout << "completed user commanded actions, total steps = " << currentUserCommandNumber_ << endl;
+   		return PauseState_;
+   	} 
+   }
+   
+   outdoor_bot::movement_msg msg;
+   
+   cout << "doing user commanded action step " << currentUserCommandNumber_ << endl;
+   cout << "distancce, angle, speed, pickup: " << endl;
+   cout << userCmdDistance_[currentUserCommandNumber_] << ", " << userCmdTurn_[currentUserCommandNumber_]; 
+   cout << ", " << userCmdSpeed_[currentUserCommandNumber_] << ", " << userCmdPickup_[currentUserCommandNumber_] << endl;
+   
+   if (fabs(userCmdDistance_[currentUserCommandNumber_]) > 0.1)  // got a move command
+   {
+   	msg.command = "autoMove";
+		msg.distance = userCmdDistance_[currentUserCommandNumber_];	// mm
+		msg.angle = 0.;
+		msg.speed = userCmdSpeed_[currentUserCommandNumber_];   	// mm/sec or deg/sec
+		moving_ = true;
+		movement_pub_.publish(msg);
+	}
+	else if (fabs(userCmdTurn_[currentUserCommandNumber_]) > 0.1)  // got a turn command
+   {
+   	msg.command = "autoMove";
+		msg.distance = 0.;	// mm
+		msg.angle = userCmdTurn_[currentUserCommandNumber_];
+		msg.speed = userCmdSpeed_[currentUserCommandNumber_];   	// mm/sec or deg/sec
+		turning_ = true;
+		movement_pub_.publish(msg);		
+	}  
+	
+	// if we are in here, we got a pickup command, which we have not coded yet, so just skip
+	picking_ = true;
+	movementComplete_ = true;
+	
+	return UserCommandState_; 		
+}
+
+void on_exit_UserCommandState()
+{
+	currentSection_ = userCmdReturnSection_;
+	userCommandReceived_ = false;
+}
+
 void on_enter_AllDoneState()
 {
 	ROS_INFO("All done, going into pause mode");
@@ -1756,6 +1908,7 @@ void on_enter_MoveToRecoverState()
    movementComplete_ = false;
    msg.command = "autoMove";
 	msg.distance = 1000;	// mm
+	msg.angle = 0.;
 	msg.speed = -200;   	// mm/sec or deg/sec 
 	ROS_INFO("auto moving backward 1m"); 
 	movement_pub_.publish(msg);
@@ -1833,6 +1986,8 @@ void on_enter_PauseState()
 int on_update_PauseState()
 {
    if (pauseCommanded_) return PauseState_;
+   
+   if (userCommandReceived_) return UserCommandState_;
    if (currentSection_ == BOOTUP) return BootupState_;
    if (currentSection_ == FIRST_TARGET) return CheckFirstTargetState_;
    if (currentSection_ == TARGETS) return FindTargetState_;
@@ -1871,6 +2026,7 @@ void setupStates()
    MoveOntoPlatformState_ = fsm_.add_state("MoveOntoPlatformState");
    MoveToRecoverState_ = fsm_.add_state("MoveOntoRecoverState");
    MoveToRecoverFailedState_ = fsm_.add_state("MoveOntoRecoverFailedState");
+   UserCommandState_ = fsm_.add_state("UserCommandState");
    ReEntryState_ = fsm_.add_state("ReEntryState");
    PauseState_ = fsm_.add_state("PauseState");
    AllDoneState_ = fsm_.add_state("AllDoneState");
@@ -1933,6 +2089,10 @@ void setupStates()
    fsm_.set_update_function(MoveToRecoverFailedState_, boost::bind(&on_update_MoveToRecoverFailedState));
    //fsm_.set_exit_function(MoveToRecoverFailedState_, boost::bind(&on_exit_MoveToRecoverFailedState));
 
+   fsm_.set_entry_function(UserCommandState_, boost::bind(&on_enter_UserCommandState));
+   fsm_.set_update_function(UserCommandState_, boost::bind(&on_update_UserCommandState));
+   fsm_.set_exit_function(UserCommandState_, boost::bind(&on_exit_UserCommandState));
+   
    //fsm_.set_entry_function(ReEntryState_, boost::bind(&on_enter_ReEntryState));
    fsm_.set_update_function(ReEntryState_, boost::bind(&on_update_ReEntryState));
    //fsm_.set_exit_function(ReEntryState_, boost::bind(&on_exit_ReEntryState));
@@ -1977,6 +2137,7 @@ int main(int argc, char* argv[])
    pause_sub_ = nh.subscribe("pause_state", 4, pauseCallback);
    //image_sent_ = nh.subscribe("digcam_file", 50, imageSentCallback);
    targetImageReceived_sub_ = nh.subscribe("target_image_received", 5, targetImageReceivedCallback);
+   userDesignatedTargets_sub_ = nh.subscribe("user_commands", 2, userDesignatedTargetsCallback);
 
    pauseCommanded_ = false;
   
@@ -1999,15 +2160,15 @@ int main(int argc, char* argv[])
    while (nh.ok())
    {
       //ros::spinOnce();
-      //struct timespec ts;
-      //ts.tv_sec = 0;
-      //ts.tv_nsec = 10000000;
-      //nanosleep(&ts, NULL); // update every 10 ms
+      struct timespec ts;
+      ts.tv_sec = 0;
+      ts.tv_nsec = 10000000;
+      nanosleep(&ts, NULL); // update every 10 ms
       //cout << "state before update = " << fsm_.current_state() << endl;
       fsm_.update();
       //cout << "current state = " << fsm_.current_state() << endl;
-      ros::Time last_time = ros::Time::now();
-		while ( ros::Time::now().toSec() - last_time.toSec() < 0.01) ros::spinOnce(); // delay a bit
+      //ros::Time last_time = ros::Time::now();
+		//while ( ros::Time::now().toSec() - last_time.toSec() < 0.01) ros::spinOnce(); // delay a bit
    }
 
    cout << "all done" << endl;

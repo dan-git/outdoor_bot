@@ -455,7 +455,7 @@ void sendOutNavData()
 
 void parseNavData(std::string data)
 {
-  std::string navDataBuffer[1024];
+  std::string navDataBuffer[64];
 
   //ROS_INFO("parsing nav data");
   //ROS_INFO(data.c_str());

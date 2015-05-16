@@ -1,6 +1,13 @@
 #ifndef __OUTDOOR_BOT_DEFINES__H__
 #define __OUTDOOR_BOT_DEFINES__H__
 
+// sections
+#define BOOTUP 0
+#define FIRST_TARGET 1
+#define TARGETS 2
+#define HOME 3
+#define PLATFORM 4
+
 #define SERVO_ANTENNA_PAN 0
 #define SERVO_ANTENNA_TILT 1
 #define ZOOM_DIGCAM_PAN 2
