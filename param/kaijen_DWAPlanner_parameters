@@ -1,0 +1,28 @@
+DWAPlannerROS:
+  acc_lim_th: 3.2
+  acc_lim_x: 2.0
+  acc_lim_y: 0.0
+
+  max_trans_vel: .3  
+  min_trans_vel: 0.0 
+
+  max_vel_x: 0.3 
+  min_vel_x: 0.0 
+
+  max_vel_y: 0.0
+  min_vel_y: 0.0
+
+  max_rot_vel: 1.0
+  min_rot_vel: 0.0
+
+  yaw_goal_tolerance: 0.2
+  xy_goal_tolerance: 0.1  
+  latch_xy_goal_tolerance: true 
+
+  stop_time_buffer: 0.25
+  path_distance_bias: 10.0
+  goal_distance_bias: 10.0
+  vx_samples: 5  
+  vy_samples: 0
+  vtheta_samples: 18
+  occdist_scale: 0.0

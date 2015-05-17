@@ -1,0 +1,4 @@
+---
+float32 accelX
+float32 accelY
+float32 accelZ

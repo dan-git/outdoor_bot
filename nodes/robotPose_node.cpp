@@ -9,9 +9,10 @@
 #include "outdoor_bot/encoders_service.h"
 #include "outdoor_bot/accelerometers_service.h"
 #include "outdoor_bot/dirAnt_service.h"
-#include "outdoor_bot/radar_service.h"
+//#include "outdoor_bot/radar_service.h"
+//#include "rcmRadar/radar.h"
 #include "outdoor_bot/setPose_service.h"
-#include "rcmRadar/radar.h"
+#include "outdoor_bot/radar_msg.h"
 #include "outdoor_bot_defines.h"
 #include <sstream>
 
@@ -75,15 +76,15 @@ boost::array<double, 9> ORIENTATION_COVARIANCE = {
 
 using namespace std;
 
-ros::Subscriber ucResponseMsg, assignedPose, poseWithCovariance_, moveCmd;
+ros::Subscriber ucResponseMsg, assignedPose, poseWithCovariance_, moveCmd, radar_sub_;
 ros::Publisher odom_pub, imu_pub, sensors_pub, pause_pub;
-ros::ServiceServer encoders_serv, radar_serv, dirAnt_serv, setPose_serv, accelerometers_serv;
+ros::ServiceServer encoders_serv, dirAnt_serv, setPose_serv, accelerometers_serv;
 tf::TransformBroadcaster *odom_broadcaster;	// have to use a pointer because declaring this before running
 						// ros:init causes a run-time error
 
 double ticksPerMeter_;
 double accelX, accelY, accelZ;
-double velocityLeft, velocityRight, dtROS_;
+double velocityLeft, velocityRight, dtROS_ = 0.02;
 long EncoderTicksRight = 0, EncoderTicksLeft = 0, previousEncoderTicksRight = 0, previousEncoderTicksLeft = 0;
 long EncoderPickerUpper = 0, EncoderBinShade = 0, EncoderDropBar = 0, EncoderExtra = 0;
 int battery, pauseState = 0, dirAntMaxDir = 0, dirAntMaxTilt = 0,  dirAntLevel = 0;
@@ -91,13 +92,10 @@ unsigned long arduinoCycleTime, arduinoDataCounter;
 bool firstTime = true, radarDataEnabled_ = true;
 bool pauseStateSent_ = false, releaseStateSent_ = false;
 ros::Time current_time, last_time;
-radarRanger rRanger_("/dev/ttyRadar_103");
-radarRanger leftRanger_("/dev/ttyRadar_100");
 
-double homeX_ = 0., homeY_ = 0., homeYaw_ = 0.;
-double distanceToHome_[NUM_RADARS], previousDistanceToHome_[NUM_RADARS], deltaDistanceToHome_[NUM_RADARS];
-int destNode_[NUM_RADARS], radarCounter_ = 0;
-double velocityFromHome_[NUM_RADARS], currentVelocity_ = 0.; 
+double homeX_ = 0., homeY_ = 0., homeYaw_ = 0., currentVelocity_ = 0.;
+double distanceToHomeRadar_ = 0., angleToHomeRadar_ = 0., orientationToHomeRadar_ = 0.;
+//double velocityToHome_ = 0., previousdistanceToHomeRadar_ = 0.; 
 
 
 //double x = 24.0, y = 19.0, yaw = 2.3;	// match with initial pose specificed in _amcl_hokuyo.launch
@@ -122,41 +120,30 @@ void smoothOdometry(double *distanceMoved)
  } 
 */ 
 
-bool getRadarData(int destNodeNumber)
+void radarCallback(const outdoor_bot::radar_msg::ConstPtr& msg)
 {
-   double currentDistanceToHome  = ((double) rRanger_.getRange(destNodeNumber));	// returns value in mm  
-   
-   if (currentDistanceToHome > 0.01)
-   {
-      if (destNodeNumber == LEFT_RADAR_NUMBER) 
-      {
-		   distanceToHome_[LEFT_RADAR_INDEX] = currentDistanceToHome / 1000.;	// convert to meters
-		   deltaDistanceToHome_[LEFT_RADAR_INDEX] = distanceToHome_[LEFT_RADAR_INDEX] - previousDistanceToHome_[LEFT_RADAR_INDEX];
-		   previousDistanceToHome_[LEFT_RADAR_INDEX] = distanceToHome_[LEFT_RADAR_INDEX];
-		   if (dtROS_ > 0) velocityFromHome_[LEFT_RADAR_INDEX] =  deltaDistanceToHome_[LEFT_RADAR_INDEX] / dtROS_;
-		}
-      
-      else if (destNodeNumber == RIGHT_RADAR_NUMBER) 
-      {
-		   distanceToHome_[RIGHT_RADAR_INDEX] = currentDistanceToHome / 1000.;	// convert to meters
-		   deltaDistanceToHome_[RIGHT_RADAR_INDEX] = distanceToHome_[RIGHT_RADAR_INDEX] - previousDistanceToHome_[RIGHT_RADAR_INDEX];
-		   previousDistanceToHome_[RIGHT_RADAR_INDEX] = distanceToHome_[RIGHT_RADAR_INDEX];
-		   if (dtROS_ > 0) velocityFromHome_[RIGHT_RADAR_INDEX] =  deltaDistanceToHome_[RIGHT_RADAR_INDEX] / dtROS_;
-		}
-		
-      else if (destNodeNumber == CENTER_RADAR_NUMBER) 
-      {
-		   distanceToHome_[CENTER_RADAR_INDEX] = currentDistanceToHome / 1000.;	// convert to meters
-		   deltaDistanceToHome_[CENTER_RADAR_INDEX] = distanceToHome_[CENTER_RADAR_INDEX] - previousDistanceToHome_[CENTER_RADAR_INDEX];
-		   previousDistanceToHome_[CENTER_RADAR_INDEX] = distanceToHome_[CENTER_RADAR_INDEX];
-		   if (dtROS_ > 0) velocityFromHome_[CENTER_RADAR_INDEX] =  deltaDistanceToHome_[CENTER_RADAR_INDEX] / dtROS_;
-		}
-				
-      return true;
-   }
-   //if (currentDistanceToHome == -2) radarStatus_ = false;
-   cout << "radar not reporting" << endl;
-   return false;
+	if (!msg->goodData) // none of the radars are reporting
+	{
+		distanceToHomeRadar_ = 0.;
+		return;
+	}
+	
+	if (!msg->goodLocation) // at least one radar is reporting and at least one is not
+	{
+		distanceToHomeRadar_ = (msg->minDistanceToHome + msg->maxDistanceToHome) / 2.;
+		return;
+	}
+	
+	distanceToHomeRadar_ = msg->distanceToHome;
+	angleToHomeRadar_ = msg->angleToHome;
+	//distanceToHomeRadar_ = msg->runningAverageDistanceToHome;	
+	//angleToHomeRadar_ = msg->runningAverageAngleToHome;	
+	orientationToHomeRadar_ = msg->orientation;
+	
+	//velocityToHome_ = (previousdistanceToHomeRadar_ - distanceToHomeRadar_ ) / deltaTime;
+	
+	//previousdistanceToHomeRadar_ = distanceToHomeRadar_;
+
 }
    
   void publishPose(double poseX, double poseY, double poseYaw, double pose_vYaw, double pose_currentVelocity)
@@ -274,7 +261,7 @@ bool getRadarData(int destNodeNumber)
                  
 
 void sendOutNavData()
-  {
+{
     double delta_DistanceMoved = 0.0, delta_x = 0.0, delta_y = 0.0, delta_Yaw = 0.0, dtArduino;
     currentVelocity_ = 0.0;
     static int leftTotalTicks, rightTotalTicks;
@@ -309,7 +296,6 @@ void sendOutNavData()
       previousEncoderTicksLeft = EncoderTicksLeft;
       leftTotalTicks = 0;
       rightTotalTicks = 0;
-      getRadarData(destNode_[LEFT_RADAR_INDEX]);
       ROS_INFO("first nav data: EncoderTicksLeft = %ld, EncoderTicksRight = %ld", EncoderTicksLeft, EncoderTicksRight);
       return;
     } 
@@ -354,26 +340,18 @@ void sendOutNavData()
     leftTotalTicks += leftDeltaTicks;
     rightTotalTicks += rightDeltaTicks;
 
-    /*
-    if (roger_) // this will leave delta_DistanceMoved unchanged if we have a burst of ticks, which happens sometimes in roger_
-    {           // in that case, we will just use a distance equal to the previous distance
-      if (abs(leftDeltaTicks) + abs(rightDeltaTicks) <= ROGER_MAX_TICKS_PER_CYCLE)
-      {
-        delta_DistanceMoved = ((double) (rightDeltaTicks + leftDeltaTicks)) / (2. * ticksPerMeter_); 
-        smoothOdometry(&delta_DistanceMoved); // roger's course encoders are helped by some smoothing
-      }
-    }
-    // the other robots do not need these checks and smoothing
-    else
-    */
-
+    // this will leave delta_DistanceMoved unchanged if we have a burst of ticks, which happens sometimes
+    // in that case, we will just use a distance equal to the previous distance
+    //if (abs(leftDeltaTicks) + abs(rightDeltaTicks) <= MAX_TICKS_PER_CYCLE)
+    //{
+    // delta_DistanceMoved = ((double) (rightDeltaTicks + leftDeltaTicks)) / (2. * ticksPerMeter_); 
+    // smoothOdometry(&delta_DistanceMoved); // roger's course encoders are helped by some smoothing
+    //}
     delta_DistanceMoved = ((double) (rightDeltaTicks + leftDeltaTicks)) / (2. * ticksPerMeter_); 
      
-
     currentVelocity_ = delta_DistanceMoved / dtArduino;   // in base_footprint frame, which is what the twist
                         // messages are supposed to be in.  Use dtArduino, so that the deltaV is based
                         // on the actual odometry measurement interval, not the time to this point in the program
-
 
     // now calculate delta yaw since last cycle
     if (fabs(vYaw) < 0.02) vYaw = 0.0; // tiny gyro readings are almost always
@@ -401,56 +379,33 @@ void sendOutNavData()
     y += sin(yaw) * delta_x + cos(yaw) * delta_y; // assumes 
     
   
-    // since radar gives us an absolute distance from home, we can scale x and y to match this
-    // radar data takes around a hundred milliseconds to return, so we have to only occasionally get the data
-    
-	  //cout << "radar counter,  mod 50 = " << radarCounter_ << ", " << radarCounter_ % 50 << endl;
-	  
-	  
-	  
-	  if (radarCounter_ % 200 == 0  && radarDataEnabled_)
-     {
-		 int radarIndex = LEFT_RADAR_INDEX; 
-		 if (radarCounter_ % 400 == 0)
-		 {
-		 	radarIndex = RIGHT_RADAR_INDEX;
-		 	radarCounter_ = 0;
-		 }
-		 
-		 if (getRadarData(destNode_[radarIndex]))
-		 {
-		 	cout << "in robotPose, radar distance to home = " <<  distanceToHome_[radarIndex] << endl;
-		 	if (distanceToHome_[radarIndex] > 0.001)
+	// since radar gives us an absolute distance from home, we can scale x and y to match this	  
+	//cout << "in robotPose, radar distance to home = " <<  distanceToHomeRadar_ << endl;
+	if (distanceToHomeRadar_ > 0.001)
+	{
+		double odomDistanceToHome = sqrt((double) (((x - homeX_) * (x - homeX_)) + ((y - homeY_) * (y - homeY_))));
+		//cout << "in robotPose, odom distance to home = " <<  odomDistanceToHome << endl;
+		double ratioHomeDistances;
+		if (odomDistanceToHome > 0.01) 
+		{
+			ratioHomeDistances = ((double) distanceToHomeRadar_) / odomDistanceToHome;
+			x = ((x - homeX_) * ratioHomeDistances) + homeX_;
+			y = ((y - homeY_) * ratioHomeDistances) + homeY_;
+			//if (ratioHomeDistances > 1.5 || ratioHomeDistances < 0.5) // let the user know we corrected by more than a bit
 			{
-				double odomDistanceToHome = sqrt((double) (((x - homeX_) * (x - homeX_)) + ((y - homeY_) * (y - homeY_))));
-				cout << "in robotPose, odom distance to home = " <<  odomDistanceToHome << endl;
-				double ratioHomeDistances;
-				if (odomDistanceToHome > 0.01) 
-				{
-					ratioHomeDistances = ((double) distanceToHome_[radarIndex]) / odomDistanceToHome;
-					x = ((x - homeX_) * ratioHomeDistances) + homeX_;
-					y = ((y - homeY_) * ratioHomeDistances) + homeY_;
-				   //if (ratioHomeDistances > 1.5 || ratioHomeDistances < 0.5) // let the user know we corrected by more than a bit
-					{
-						cout << "ratio of home distances = " <<  ratioHomeDistances << endl;
-						cout << "distanceToHome = " <<  distanceToHome_[radarIndex] << endl;
-						cout << "odomDistanceToHome = " <<  odomDistanceToHome << endl;
-					 }
-				  }
-			   }
-			else cout << "radar data not available for odom updating" << endl;
-			
-		 }
-		 else cout << "radar call failed in robotPose, radar distance to Home = " << distanceToHome_[radarIndex] << endl;
-	  }
-	  radarCounter_++;
+				cout << "ratio of home distances = " <<  ratioHomeDistances << endl;
+				cout << "distanceToHomeRadar = " <<  distanceToHomeRadar_ << endl;
+				cout << "odomDistanceToHome = " <<  odomDistanceToHome << endl;
+			 }
+		  }
+		  distanceToHomeRadar_ = 0.; // only update once for each radar message, they only happen about every 200 ms
+	 }
 
-	 
-    yaw += delta_Yaw;
-    
-    publishPose(x, y, yaw, vYaw, currentVelocity_);
-
-  }
+	 yaw += delta_Yaw;
+	 // compare yaw from gyro to yaw from radar
+	 cout << "yaw from gyro, yaw from radar = " << yaw << ", " << orientationToHomeRadar_ << endl;
+	 publishPose(x, y, yaw, vYaw, currentVelocity_);
+}
  
 
 void parseNavData(std::string data)
@@ -635,61 +590,6 @@ bool accelerometers_service_send(outdoor_bot::accelerometers_service::Request &r
 	return true;
 }
 
-bool radar_service_send(outdoor_bot::radar_service::Request  &req, outdoor_bot::radar_service::Response &res)
-{
-	radarDataEnabled_ = req.enableRadarData;
-	cout << " robotPose received radar service request " << endl;
-	res.distanceToHomeLeft = distanceToHome_[LEFT_RADAR_INDEX];
-	//res.deltaDistanceToHome = deltaDistanceToHome_[LEFT_RADAR_INDEX];
-	//res.velocityFromHome = velocityFromHome_[LEFT_RADAR_INDEX]; 
-	cout << "robotPose responded to radar service request with left distanceToHome_ = " << distanceToHome_[LEFT_RADAR_INDEX] << endl;
-	
-	res.distanceToHomeRight = distanceToHome_[RIGHT_RADAR_INDEX];
-	//res.deltaDistanceToHome = deltaDistanceToHome_[RIGHT_RADAR_INDEX];
-	//res.velocityFromHome = velocityFromHome_[RIGHT_RADAR_INDEX];
-	cout << "robotPose responded to radar service request with right distanceToHome_ = " << distanceToHome_[RIGHT_RADAR_INDEX] << endl; 
-
-	res.distanceToHomeCenter = distanceToHome_[CENTER_RADAR_INDEX];
-	//res.deltaDistanceToHome = deltaDistanceToHome_[CENTER_RADAR_INDEX];
-	//res.velocityFromHome = velocityFromHome_[CENTER_RADAR_INDEX]; 
-	cout << "robotPose responded to radar service request with center distanceToHome_ = " << distanceToHome_[CENTER_RADAR_INDEX] << endl;
-
-   return true;
-}
-
-/*
-bool radar_service_send(outdoor_bot::radar_service::Request  &req, outdoor_bot::radar_service::Response &res)
-{
-   int radarNumber = req.radarNumber;
-   cout << " robotPose received radar service request for radar number " << radarNumber << endl;
-   
-   if (radarNumber == LEFT_RADAR_NUMBER)
-   {
-   	res.distanceToHome = distanceToHome_[LEFT_RADAR_INDEX];
-   	res.deltaDistanceToHome = deltaDistanceToHome_[LEFT_RADAR_INDEX];
-		res.velocityFromHome = velocityFromHome_[LEFT_RADAR_INDEX]; 
-		cout << "robotPose responded to radar service request with left distanceToHome_ = " << distanceToHome_[LEFT_RADAR_INDEX] << endl;
-	} 
-	
-	if (radarNumber == RIGHT_RADAR_NUMBER)
-   {
-   	res.distanceToHome = distanceToHome_[RIGHT_RADAR_INDEX];
-   	res.deltaDistanceToHome = deltaDistanceToHome_[RIGHT_RADAR_INDEX];
-		res.velocityFromHome = velocityFromHome_[RIGHT_RADAR_INDEX];
-		cout << "robotPose responded to radar service request with right distanceToHome_ = " << distanceToHome_[RIGHT_RADAR_INDEX] << endl; 
-	} 
-	
-	if (radarNumber == CENTER_RADAR_NUMBER)
-   {
-   	res.distanceToHome = distanceToHome_[CENTER_RADAR_INDEX];
-   	res.deltaDistanceToHome = deltaDistanceToHome_[CENTER_RADAR_INDEX];
-		res.velocityFromHome = velocityFromHome_[CENTER_RADAR_INDEX]; 
-		cout << "robotPose responded to radar service request with center distanceToHome_ = " << distanceToHome_[CENTER_RADAR_INDEX] << endl;
-	} 
-
-   return true;
-}
-*/
 
 
 void moveCommandCallback(const geometry_msgs::Twist::ConstPtr& cmd_vel)
@@ -741,7 +641,6 @@ int main(int argc, char** argv){
   pause_pub = n.advertise<std_msgs::Int32>("pause_state", 50);
   encoders_serv = n.advertiseService("encoders_service", encoders_service_send);
   accelerometers_serv = n.advertiseService("accelerometers_service", accelerometers_service_send);
-  radar_serv = n.advertiseService("radar_service", radar_service_send);
   dirAnt_serv = n.advertiseService("dirAnt_service", dirAnt_service_send);
   setPose_serv = n.advertiseService("setPose_service", setPose_service_send);
   
@@ -751,24 +650,15 @@ int main(int argc, char** argv){
 
   //Subscribe to nav_data messages with arduino sensor data
   ucResponseMsg = n.subscribe("uc1Response", 100, ucResponseCallback);
+  
+  // subscribe to radar messages from radar_node
+  radar_sub_ = n.subscribe("radar", 5, radarCallback);
 
   // Subscribe to pose settings from rviz (pose estimates entered by the user)
   assignedPose = n.subscribe("initialpose",10, assignedPoseCallback);
 
   // Subscribe to pose settings from amcl.  We'll use these as times to send out battery values.
   poseWithCovariance_ = n.subscribe("amcl_pose", 10, poseCommandCallback); // subscribe to amcl pose
-  
-  for (int i=0; i < NUM_RADARS; i++)
-  {
-  	 distanceToHome_[i] = 0.;
-  	 previousDistanceToHome_[i] = 0.;
-  	 deltaDistanceToHome_[i] = 0.;
-	 velocityFromHome_[i] = 0.;
-	}
-	
-	destNode_[LEFT_RADAR_INDEX] = LEFT_RADAR_NUMBER;
-	destNode_[RIGHT_RADAR_INDEX] = RIGHT_RADAR_NUMBER;
-	destNode_[CENTER_RADAR_INDEX] = CENTER_RADAR_NUMBER;
 	
 
 // this section is just for testing move_base
@@ -788,8 +678,6 @@ while(n.ok())
 	while ( current_time.toSec() - last_time.toSec() < 0.1) current_time = ros::Time::now(); // delay a bit
 	last_time = ros::Time::now();
    sendOutNavData();
-   //getRadarData(destNode_[LEFT_RADAR_INDEX]);
-   cout << "distance = " << distanceToHome_[LEFT_RADAR_INDEX] << endl;
    //publishPose(x, y, yaw, vYaw, currentVelocity_);
 }
 // comment out the above section when running the real bot

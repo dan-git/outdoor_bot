@@ -1,3 +1,5 @@
+bool goodData
+bool goodLocation
 float32 maxDistanceToHome
 float32 minDistanceToHome
 float32 distanceToHome

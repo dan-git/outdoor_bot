@@ -3,7 +3,7 @@
 #include "rcmRadar/radar.h"
 #include "outdoor_bot_defines.h"
 
-#define RADAR_WAIT_TIME 0.5
+#define RADAR_WAIT_TIME 0.2
 #define HOME_RADAR_SEPARATION 1900. // distance between radars on home platform, in mm
 #define BOT_RADAR_SEPARATION 1092.
 
@@ -199,6 +199,63 @@ void getRadarRanges()
 	while ( current_time.toSec() - last_time.toSec() < RADAR_WAIT_TIME) current_time = ros::Time::now();
 }
 
+/*
+
+bool radar_service_send(outdoor_bot::radar_service::Request  &req, outdoor_bot::radar_service::Response &res)
+{
+	radarDataEnabled_ = req.enableRadarData;
+	cout << " robotPose received radar service request " << endl;
+	res.distanceToHomeLeft = distanceToHome_[LEFT_RADAR_INDEX];
+	//res.deltaDistanceToHome = deltaDistanceToHome_[LEFT_RADAR_INDEX];
+	//res.velocityFromHome = velocityFromHome_[LEFT_RADAR_INDEX]; 
+	cout << "robotPose responded to radar service request with left distanceToHome_ = " << distanceToHome_[LEFT_RADAR_INDEX] << endl;
+	
+	res.distanceToHomeRight = distanceToHome_[RIGHT_RADAR_INDEX];
+	//res.deltaDistanceToHome = deltaDistanceToHome_[RIGHT_RADAR_INDEX];
+	//res.velocityFromHome = velocityFromHome_[RIGHT_RADAR_INDEX];
+	cout << "robotPose responded to radar service request with right distanceToHome_ = " << distanceToHome_[RIGHT_RADAR_INDEX] << endl; 
+
+	res.distanceToHomeCenter = distanceToHome_[CENTER_RADAR_INDEX];
+	//res.deltaDistanceToHome = deltaDistanceToHome_[CENTER_RADAR_INDEX];
+	//res.velocityFromHome = velocityFromHome_[CENTER_RADAR_INDEX]; 
+	cout << "robotPose responded to radar service request with center distanceToHome_ = " << distanceToHome_[CENTER_RADAR_INDEX] << endl;
+
+   return true;
+}
+
+bool radar_service_send(outdoor_bot::radar_service::Request  &req, outdoor_bot::radar_service::Response &res)
+{
+   int radarNumber = req.radarNumber;
+   cout << " robotPose received radar service request for radar number " << radarNumber << endl;
+   
+   if (radarNumber == LEFT_RADAR_NUMBER)
+   {
+   	res.distanceToHome = distanceToHome_[LEFT_RADAR_INDEX];
+   	res.deltaDistanceToHome = deltaDistanceToHome_[LEFT_RADAR_INDEX];
+		res.velocityFromHome = velocityFromHome_[LEFT_RADAR_INDEX]; 
+		cout << "robotPose responded to radar service request with left distanceToHome_ = " << distanceToHome_[LEFT_RADAR_INDEX] << endl;
+	} 
+	
+	if (radarNumber == RIGHT_RADAR_NUMBER)
+   {
+   	res.distanceToHome = distanceToHome_[RIGHT_RADAR_INDEX];
+   	res.deltaDistanceToHome = deltaDistanceToHome_[RIGHT_RADAR_INDEX];
+		res.velocityFromHome = velocityFromHome_[RIGHT_RADAR_INDEX];
+		cout << "robotPose responded to radar service request with right distanceToHome_ = " << distanceToHome_[RIGHT_RADAR_INDEX] << endl; 
+	} 
+	
+	if (radarNumber == CENTER_RADAR_NUMBER)
+   {
+   	res.distanceToHome = distanceToHome_[CENTER_RADAR_INDEX];
+   	res.deltaDistanceToHome = deltaDistanceToHome_[CENTER_RADAR_INDEX];
+		res.velocityFromHome = velocityFromHome_[CENTER_RADAR_INDEX]; 
+		cout << "robotPose responded to radar service request with center distanceToHome_ = " << distanceToHome_[CENTER_RADAR_INDEX] << endl;
+	} 
+
+   return true;
+}
+*/
+
 void testDataRadarRanges()
 {  
 	ros::Time last_time;
@@ -247,7 +304,7 @@ int main(int argc, char** argv)
    ros::NodeHandle nh;
 
 	ros::Publisher radar_pub_ = nh.advertise<outdoor_bot::radar_msg>("radar", 5);
-	
+   //ros::ServiceServer radar_serv = n.advertiseService("radar_service", radar_service_send);	
 	outdoor_bot::radar_msg radarData;
 
    double runningAverageDistanceToHome = 0.;
@@ -270,17 +327,39 @@ int main(int argc, char** argv)
 		double minDistance2 = fmin(myRadar.getDistanceFromRightToLeft(), myRadar.getDistanceFromRightToRight());
 		radarData.maxDistanceToHome = fmax(maxDistance1, maxDistance2) / 1000.;
 		radarData.minDistanceToHome = fmin(minDistance1, minDistance2) / 1000.;
-		
-		myRadar.getLocation();
-		radarData.distanceToHome = myRadar.getDistanceToHome();	// range in meters
-		radarData.angleToHome = myRadar.getAngleToHome();			// azimuth in degrees
-		radarData.orientation = myRadar.getOrientation();     // bot orientation with respect to the platform (in degrees)
-		radarData.distanceToStagingPoint = myRadar.getDistanceToStagingPoint();	// range in meters
-		radarData.angleToStagingPoint = myRadar.getAngleToStagingPoint();			// azimuth in degrees
-		runningAverageDistanceToHome += (radarData.distanceToHome - runningAverageDistanceToHome)  * 0.1;
-		runningAverageAngleToHome += (radarData.angleToHome - runningAverageAngleToHome)  * 0.1;
-		radarData.runningAverageDistanceToHome = runningAverageDistanceToHome;	
-		radarData.runningAverageAngleToHome = runningAverageAngleToHome;
+
+		if (myRadar.getDistanceFromLeftToRight() < 0.05 
+			&& myRadar.getDistanceFromRightToRight() < 0.05
+			&& myRadar.getDistanceFromLeftToRight() < 0.05
+			&& myRadar.getDistanceFromRightToRight() < 0.05 )
+		{	
+			cout << "all radar data is missing" << endl;
+			radarData.goodData = false;
+		}
+		else radarData.goodData = true;	
+				
+		if (myRadar.getDistanceFromLeftToRight() > 0.05 
+			&& myRadar.getDistanceFromRightToRight() > 0.05
+			&& myRadar.getDistanceFromLeftToRight() > 0.05
+			&& myRadar.getDistanceFromRightToRight() > 0.05 )
+		{		
+			myRadar.getLocation();
+			radarData.distanceToHome = myRadar.getDistanceToHome();	// range in meters
+			radarData.angleToHome = myRadar.getAngleToHome();			// azimuth in degrees
+			radarData.orientation = myRadar.getOrientation();     // bot orientation with respect to the platform (in degrees)
+			radarData.distanceToStagingPoint = myRadar.getDistanceToStagingPoint();	// range in meters
+			radarData.angleToStagingPoint = myRadar.getAngleToStagingPoint();			// azimuth in degrees
+			runningAverageDistanceToHome += (radarData.distanceToHome - runningAverageDistanceToHome)  * 0.1;
+			runningAverageAngleToHome += (radarData.angleToHome - runningAverageAngleToHome)  * 0.1;
+			radarData.runningAverageDistanceToHome = runningAverageDistanceToHome;	
+			radarData.runningAverageAngleToHome = runningAverageAngleToHome;
+			radarData.goodLocation = true;
+		}
+		else
+		{
+			cout << "got at least one bad radar range, so we won't calculate location" << endl;
+			radarData.goodLocation = false;
+		}
 
 		radar_pub_.publish(radarData);
 		std::cout << "ranges from Bot Left to home left, right = " << myRadar.getDistanceFromLeftToLeft() << ", " << myRadar.getDistanceFromLeftToRight() << std::endl;
