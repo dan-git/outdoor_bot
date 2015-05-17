@@ -4,9 +4,10 @@
 #include "outdoor_bot_defines.h"
 
 #define RADAR_WAIT_TIME 0.5
-#define HOME_RADAR_SEPARATION 1900 // distance between radars on home platform, in mm
-#define BOT_RADAR_SEPARATION 1092
+#define HOME_RADAR_SEPARATION 1000. //1900 // distance between radars on home platform, in mm
+#define BOT_RADAR_SEPARATION 1000. //1092
 
+#define STAGING_POINT_DISTANCE 10000. // in mm
 using namespace std;
 
 class radar
@@ -17,6 +18,7 @@ private:
 	radarRanger leftRanger_, rightRanger_;
 	double distanceFromLeftToLeft_, distanceFromLeftToRight_, distanceFromRightToLeft_, distanceFromRightToRight_;
 	double distanceToHome_, angleToHome_, botOrientation_;
+	double distanceToStagingPoint_, angleToStagingPoint_;
 
 public:
 	radar()
@@ -107,8 +109,36 @@ void getLocation()
 	double angleToHome_ = (1.57 - acos(cosAngleI)) * 57.3;	// convert to degrees
 	
 	// convert to meters
-	if  (distanceFromCenterToCenterSquared >= 0) distanceToHome_ = sqrt(distanceFromCenterToCenterSquared) / 1000. ;
-	else cout << "distanceFromCenterToCenterSquared was negative, = " << distanceFromCenterToCenterSquared << endl;
+	if  (distanceFromCenterToCenterSquared >= 0) distanceToHome_ = sqrt(distanceFromCenterToCenterSquared);
+	else 
+	{
+		cout << "distanceFromCenterToCenterSquared was negative, = " << distanceFromCenterToCenterSquared << endl;
+		return;
+	}
+	
+	double angleN = 3.14 - (acos(cosAngleI) + botOrientation_);
+	double angleO = angleN - 1.57;
+	double distanceToStagingPointSquared = 
+		(STAGING_POINT_DISTANCE * STAGING_POINT_DISTANCE)
+		+ distanceFromCenterToCenterSquared
+		- (2.* cos(angleO) * STAGING_POINT_DISTANCE * distanceToHome_);
+		
+	if (distanceToStagingPointSquared > 0.1)
+	{
+		distanceToStagingPoint_ = sqrt(distanceToStagingPointSquared);
+		
+		double cosAngleToStagingPoint = 
+		( (distanceToStagingPointSquared + distanceFromCenterToCenterSquared )
+		- (STAGING_POINT_DISTANCE * STAGING_POINT_DISTANCE) )
+		/ (2. * distanceToStagingPoint_ * distanceToHome_);
+		
+		angleToStagingPoint_ = (acos(cosAngleToStagingPoint) * 57.3) + angleToHome_;	// convert to degrees
+	}
+	else cout << "distanceToStagingPointSquared is negative, = " << distanceToStagingPointSquared << endl;
+	
+	distanceToHome_ /= 1000.; // convert to meters
+	distanceToStagingPoint_ /= 1000.;
+	
 	
 	cout << "cosLeftHomeToLeftBot = " << cosLeftHomeToLeftBot << ", an angle of " << acos(cosLeftHomeToLeftBot) * 57.3 << " degrees" << endl;
 	cout << "cosAngleB = " << cosAngleB << ", an angle of " << acos(cosAngleB) * 57.3 << " degrees" << endl;
@@ -125,10 +155,15 @@ void getLocation()
 	else cout << "distanceFromCenterToCenterSquared is a negative number " << endl;
 	cout << "cosAngleI = " << cosAngleI << ", an angle of " << acos(cosAngleI) * 57.3 << " degrees " << endl;
 	cout << "angleToHome_ = " << angleToHome_ << endl;
-	
+	cout << "angleN = " << angleN * 57.3 << endl;
+	cout << "angleO = " << angleO * 57.3 << endl << endl;
+		
 	cout << "Home is " << distanceToHome_ << " meters away at an angle = " << angleToHome_ << endl;
-	cout << "Bot's orientation with respect to the platform = " << botOrientation_ * 57.3 << " degrees " << endl;	
+	cout << "Bot's orientation with respect to the platform = " << botOrientation_ * 57.3 << " degrees " << endl;
+	cout << "Staging point is " << distanceToStagingPoint_ << " meters away at an angle = " <<
+		 angleToStagingPoint_  << " degrees" << endl << endl << endl;
 }
+	
 
 double getDistanceFromLeftToLeft() { return distanceFromLeftToLeft_; }
 double getDistanceFromLeftToRight() { return distanceFromLeftToRight_; }
@@ -137,6 +172,8 @@ double getDistanceFromRightToRight() { return distanceFromRightToRight_; }
 double getDistanceToHome() { return distanceToHome_; }
 double getAngleToHome() { return angleToHome_; }
 double getOrientation() { return botOrientation_ * 57.3; }
+double getDistanceToStagingPoint() { return distanceToStagingPoint_; }
+double getAngleToStagingPoint() { return angleToStagingPoint_; }
 
 
 void getRadarRanges()
@@ -174,10 +211,19 @@ void testDataRadarRanges()
 	distanceFromRightToRight_ = 2000.;
 	*/
 	
+   
+   // 20 meters away, facing the robot, with radar seps both = 1000 (have to set that in the #defines)
+   distanceFromLeftToLeft_ = 20000.;
+	distanceFromLeftToRight_ = 20024.;
+	distanceFromRightToLeft_ = 20024.;
+	distanceFromRightToRight_ = 20000.;
+	
+	/*
 	distanceFromLeftToLeft_ = 2393.;
 	distanceFromLeftToRight_ = 2335.;
 	distanceFromRightToLeft_ = 2706.;
 	distanceFromRightToRight_ = 2155.;
+	*/
 	
 	last_time = ros::Time::now();
 	while ( current_time.toSec() - last_time.toSec() < RADAR_WAIT_TIME) current_time = ros::Time::now();
@@ -201,8 +247,8 @@ int main(int argc, char** argv)
    
 	while(nh.ok())
 	{
-		myRadar.getRadarRanges();  
-		//myRadar.testDataRadarRanges();
+		//myRadar.getRadarRanges();  
+		myRadar.testDataRadarRanges();
 		radarData.distanceFromBotLeftToHomeLeft = myRadar.getDistanceFromLeftToLeft() / 1000.;	// convert from mm to meters
  
 		radarData.distanceFromBotRightToHomeRight = myRadar.getDistanceFromRightToRight() / 1000.;
@@ -222,6 +268,8 @@ int main(int argc, char** argv)
 		radarData.distanceToHome = myRadar.getDistanceToHome();	// range in meters
 		radarData.angleToHome = myRadar.getAngleToHome();			// azimuth in degrees
 		radarData.orientation = myRadar.getOrientation();     // bot orientation with respect to the platform (in degrees)
+		radarData.distanceToStagingPoint = myRadar.getDistanceToStagingPoint();	// range in meters
+		radarData.angleToStagingPoint = myRadar.getAngleToStagingPoint();			// azimuth in degrees	
 
 		radar_pub_.publish(radarData);
 		std::cout << "ranges from Bot Left to home left, right = " << myRadar.getDistanceFromLeftToLeft() << ", " << myRadar.getDistanceFromLeftToRight() << std::endl;

@@ -311,6 +311,7 @@ bool askUser()
 	int userValue = 1;
    cout << "Enter 1 to move on, 0 to retry: " << endl;
    getline(cin, input);
+   ros::spinOnce(); // listen to hear pause command
 
    // This code converts from string to number safely.
    stringstream myStream(input);
@@ -825,16 +826,22 @@ void on_enter_BootupState()
   userCmdReturnSection_ = TARGETS;
   userCommandReceived_ = false;
    
-   cout << "finished enter bootupState" << endl;
+  cout << "finished enter bootupState" << endl;
 
 }
 
 int on_update_BootupState()
 {
+   
    cout << "now in update bootupState" << endl;
    // give some time for everyone to setup and get started, then ask what platform we are assigned
    cout << "Do you want to move on to autonomous ops or go through bootstate stuff?" << endl;
-   if (askUser()) return CheckLinedUpState_;;
+   if (askUser()) 
+   {
+   	if (pauseCommanded_) return PauseState_;
+   	return CheckLinedUpState_;;
+   }
+   if (pauseCommanded_) return PauseState_;
    if (getUserInput())
    {
 		   platPoseX_ = platformXPose_[platformNumber_ - 1];
@@ -1985,8 +1992,8 @@ void on_enter_PauseState()
   
 int on_update_PauseState()
 {
-   if (pauseCommanded_) return PauseState_;
-   
+   ros::spinOnce();
+   if (pauseCommanded_) return PauseState_;  
    if (userCommandReceived_) return UserCommandState_;
    if (currentSection_ == BOOTUP) return BootupState_;
    if (currentSection_ == FIRST_TARGET) return CheckFirstTargetState_;

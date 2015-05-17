@@ -7,4 +7,6 @@ float32 minDistanceToHome
 float32 distanceToHome
 float32 angleToHome
 float32 orientation
+float32 distanceToStagingPoint
+float32 angleToStagingPoint
 
