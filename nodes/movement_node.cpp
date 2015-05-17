@@ -31,7 +31,8 @@ sqrt(0.5)	0	0	-sqrt(0.5)	-90° rotation around Z axis
 #include "outdoor_bot/autoMove_msg.h"
 #include "outdoor_bot/radar_service.h"
 #include "outdoor_bot/encoders_service.h"
-#include "rcmRadar/radar.h"
+#include "outdoor_bot/radar_msg.h"
+//#include "rcmRadar/radar.h"
 #include "outdoor_bot_defines.h"
 
 #define FINAL_RANGE 1.2
@@ -53,10 +54,10 @@ class movementControl
 private:
 
    ros::NodeHandle nh_;
-   ros::ServiceClient radar_client_, encoders_client_;
+   ros::ServiceClient encoders_client_;
    ros::Publisher cmd_vel_pub_, complete_pub_, pmotor_pub_, autoMove_pub_;
    // we subscribe motion and keyboard commands publishers
-   ros::Subscriber keyboardCommandsSub_, motionCommandsSub_, movementCommandsSub_;
+   ros::Subscriber keyboardCommandsSub_, motionCommandsSub_, movementCommandsSub_, radar_sub_;
 
    // create the action client to send goals to move_base
    // true causes the client to spin its own thread
@@ -67,43 +68,39 @@ private:
    int quatX_, quatY_, quatZ_, quatW_;
    std::string command_;
    
-   double distanceToHome_[NUM_RADARS], deltaDistanceToHome_[NUM_RADARS], velocityFromHome_[NUM_RADARS];
+   double distanceToHomeRadar_, angleToHomeRadar_, orientationToHomeRadar_;
+   //double velocityToHome_ = 0., previousdistanceToHomeRadar_ = 0.; 
    float range_;
-   bool radarDataEnabled_;
-   
-   radarRanger *rRanger_;   // remember to set the serial port for this to work!
-   radarRanger *leftRanger_;   // remember to set the serial port for this to work!
-      
-   bool getRadarData(int destNodeNumber)
+	void radarCallback(const outdoor_bot::radar_msg::ConstPtr& msg)
 	{
-		double currentDistanceToHome  = ((double) rRanger_->getRange(destNodeNumber));	// returns value in mm  
-		
-		if (currentDistanceToHome > 0.01)
+		if (!msg->goodData) // none of the radars are reporting
 		{
-		   if (destNodeNumber == LEFT_RADAR_NUMBER) 
-		   {
-				distanceToHome_[LEFT_RADAR_INDEX] = currentDistanceToHome / 1000.;	// convert to meters
-			}		   
-		   else if (destNodeNumber == RIGHT_RADAR_NUMBER) 
-		   {
-				distanceToHome_[RIGHT_RADAR_INDEX] = currentDistanceToHome / 1000.;	// convert to meters
-			}		
-		   else if (destNodeNumber == CENTER_RADAR_NUMBER) 
-		   {
-				distanceToHome_[CENTER_RADAR_INDEX] = currentDistanceToHome / 1000.;	// convert to meters
-			}				
-		   return true;
+			distanceToHomeRadar_ = 0.;
+			return;
 		}
-		//if (currentDistanceToHome == -2) radarStatus_ = false;
-		cout << "radar not reporting" << endl;
-		return false;
+	
+		if (!msg->goodLocation) // at least one radar is reporting and at least one is not
+		{
+			distanceToHomeRadar_ = (msg->minDistanceToHome + msg->maxDistanceToHome) / 2.;
+			return;
+		}
+	
+		distanceToHomeRadar_ = msg->distanceToHome;
+		angleToHomeRadar_ = msg->angleToHome;
+		//distanceToHomeRadar_ = msg->runningAverageDistanceToHome;	
+		//angleToHomeRadar_ = msg->runningAverageAngleToHome;	
+		orientationToHomeRadar_ = msg->orientation;
+	
+		//velocityToHome_ = (previousdistanceToHomeRadar_ - distanceToHomeRadar_ ) / deltaTime;
+	
+		//previousdistanceToHomeRadar_ = distanceToHomeRadar_;
+
 	} 
 
 public:
   movementControl(ros::NodeHandle &nh)
    :  nh_(nh)
 {
-   radarDataEnabled_ = true;
    range_ = 0.;
    distance_ = 0;
    angle_ = 0;
@@ -117,15 +114,15 @@ public:
    encoderDropBar_ = 0;
    encoderBinShade_= 0;
    numObjectsGathered_ = 0;
+   distanceToHomeRadar_ = 0.;
+   angleToHomeRadar_ = 0.;
+   orientationToHomeRadar_ = 0.;
    cmd_vel_pub_ = nh.advertise<geometry_msgs::Twist>("cmd_vel", 1);
-   rRanger_  = new radarRanger("/dev/radar_103");
-   leftRanger_  = new radarRanger("/dev/radar_100");
 
-   // subscribe to keyboard and motion
    keyboardCommandsSub_ = nh.subscribe("keyboard", 1, &movementControl::keyboardCommandCallback, this);
    movementCommandsSub_ = nh.subscribe("movement_command", 2, &movementControl::movementCommandCallback, this);
+   radar_sub_ = nh.subscribe("radar", 5, &movementControl::radarCallback, this);
    encoders_client_ = nh.serviceClient<outdoor_bot::encoders_service>("encoders_service");
-   radar_client_ = nh.serviceClient<outdoor_bot::radar_service>("radar_service");
    complete_pub_ = nh.advertise<std_msgs::String>("movement_complete", 4);
    pmotor_pub_ = nh.advertise<outdoor_bot::pmotor_msg>("pmotor_cmd", 5);
    autoMove_pub_ = nh.advertise<outdoor_bot::autoMove_msg>("autoMove_cmd", 2);
@@ -139,10 +136,9 @@ public:
    ~movementControl()
    {
       delete ac_;
-      delete rRanger_;
-      delete leftRanger_;
    }
 
+/*
 bool callRadarService()	// this gets the latest radar data that robotPose has gathered
 {
    outdoor_bot::radar_service::Request req;
@@ -159,6 +155,7 @@ bool callRadarService()	// this gets the latest radar data that robotPose has ga
    }
    return false;
 }
+*/
 
 bool callEncodersService()
 {
@@ -539,37 +536,18 @@ void movementCommandCallback(const outdoor_bot::movement_msg msg)
     {
       cout << "final approach phase in movement node" << endl;
       range_ = -1.;
-      
-      // we will control the radar calls, no longer using move_base or robotPose, just moving up onto the platform
-      
-      radarDataEnabled_ = false;	// turn off robotPose calls to the radar, so we do not have colliding calls
-      // make a last call to get radar data from robotPose
-		if (callRadarService())
-		{ 
-			cout << "left radar distance to home = " << distanceToHome_[LEFT_RADAR_INDEX] << endl;
-			cout << "center radar distance to home = " << distanceToHome_[CENTER_RADAR_INDEX] << endl;
-			cout << "right radar distance to home = " << distanceToHome_[RIGHT_RADAR_INDEX] << endl;
-
-			if (distanceToHome_[CENTER_RADAR_INDEX] > 0.1) range_ = distanceToHome_[CENTER_RADAR_INDEX];
-			else if (distanceToHome_[LEFT_RADAR_INDEX] > 0.1) range_ = distanceToHome_[LEFT_RADAR_INDEX];
-			else if (distanceToHome_[RIGHT_RADAR_INDEX] > 0.1) range_ = distanceToHome_[RIGHT_RADAR_INDEX];
-		}
-		else 
-		{
-			cout << "call to radar service failed" << endl;    
-		}		
-		cout << "starting move onto platform = " << range_ << endl;
+		if (distanceToHomeRadar_ > 0.1) range_ = distanceToHomeRadar_;
+		else cout << "call to radar service failed" << endl;    
 
       if (range_ < 0.01)
       {
       	ROS_INFO("failed to get range data in movement_node, so the base failed to move");
          msgResult.data = "failed";
-         radarDataEnabled_ = true;	// turn back on robotPose calls to the radar
-         callRadarService();
          complete_pub_.publish(msgResult);
          return;
       }
-      
+
+		cout << "starting move onto platform = " << range_ << endl;      
       float startingRange = range_;
       geometry_msgs::Twist movement_cmd;
 		// our bot does not use these motions, set them to 0
@@ -587,44 +565,28 @@ void movementCommandCallback(const outdoor_bot::movement_msg msg)
       int stopCount = 0;
       int notProgressingCounter = 0;
             
-      while ((range_ > FINAL_RANGE) && stopCount < 10 && notProgressingCounter < 100)      
+      while (range_ > FINAL_RANGE && stopCount < 50 && notProgressingCounter < 400)      
       {      
-			if (getRadarData(CENTER_RADAR_NUMBER)) range_ = distanceToHome_[CENTER_RADAR_INDEX] - CENTER_RADAR_HOME_DISTANCE;
+			if (distanceToHomeRadar_ > 0.01) range_ = distanceToHomeRadar_ - CENTER_RADAR_HOME_DISTANCE;
 			else
 			{
-				// can't make radar calls too close together
-				last_time = ros::Time::now(); 
-				while ( current_time.toSec() - last_time.toSec() < 0.15) current_time = ros::Time::now();
-				if (getRadarData(LEFT_RADAR_NUMBER)) range_ = distanceToHome_[LEFT_RADAR_INDEX] - LEFT_RADAR_HOME_DISTANCE;
-				else
-				{
-					// can't make radar calls too close together
-					last_time = ros::Time::now(); 
-					while ( current_time.toSec() - last_time.toSec() < 0.15) current_time = ros::Time::now(); 
-					if (getRadarData(RIGHT_RADAR_NUMBER)) range_ = distanceToHome_[RIGHT_RADAR_INDEX] - RIGHT_RADAR_HOME_DISTANCE;
-					else
-					{
-						cout << "failed to get range data in movement node" << endl;
-						stopCount++;
-					}
-				}
+				cout << "failed to get range data in movement node" << endl;
+				stopCount++;
 			}    	
 
 			cout << "Moving onto platform in movement node, range = " << range_ << endl;
 			notProgressingCounter++;
 
-			//update every 150 ms, we are limited by the rate that the radar can process ranges
+			//we are limited by the rate that the radar can process ranges, so we might as well use that to rate limit the counters
 
 			last_time = ros::Time::now();
-			while ( current_time.toSec() - last_time.toSec() < 0.15) current_time = ros::Time::now();
+			while ( current_time.toSec() - last_time.toSec() < 0.1) current_time = ros::Time::now();
       }
       
       if (stopCount >= 10 || notProgressingCounter >= 100)
       {
       	ROS_INFO("failed to move onto platform in movement_node");
          msgResult.data = "failed";
-         radarDataEnabled_ = true;	// turn back on robotPose calls to the radar
-         callRadarService();
          complete_pub_.publish(msgResult);
          return;
       }
@@ -636,21 +598,9 @@ void movementCommandCallback(const outdoor_bot::movement_msg msg)
       //publish the assembled command
       cmd_vel_pub_.publish(movement_cmd); // stopping on the platform
       msgResult.data = "platform_done";
-      complete_pub_.publish(msgResult);
-      
-   	getRadarData(CENTER_RADAR_NUMBER);
-   	last_time = ros::Time::now(); 
-		while ( current_time.toSec() - last_time.toSec() < 0.15) current_time = ros::Time::now();
-		getRadarData(LEFT_RADAR_NUMBER);
-   	last_time = ros::Time::now(); 
-		while ( current_time.toSec() - last_time.toSec() < 0.15) current_time = ros::Time::now();
-		getRadarData(RIGHT_RADAR_NUMBER);		
-   	
-		cout << "left radar distance to home = " << distanceToHome_[LEFT_RADAR_INDEX] << endl;
-		cout << "center radar distance to home = " << distanceToHome_[CENTER_RADAR_INDEX] << endl;
-		cout << "right radar distance to home = " << distanceToHome_[RIGHT_RADAR_INDEX] << endl;
+      complete_pub_.publish(msgResult);		
 
-		cout << "total distance moved to get onto platform = " << startingRange - distanceToHome_[CENTER_RADAR_INDEX] << endl;
+		cout << "total distance moved to get onto platform = " << startingRange - distanceToHomeRadar_ << endl;
       return;
     }
 
