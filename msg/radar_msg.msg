@@ -1,7 +1,3 @@
-float32 distanceFromBotLeftToHomeLeft
-float32 distanceFromBotLeftToHomeRight
-float32 distanceFromBotRightToHomeLeft
-float32 distanceFromBotRightToHomeRight
 float32 maxDistanceToHome
 float32 minDistanceToHome
 float32 distanceToHome
@@ -9,4 +5,5 @@ float32 angleToHome
 float32 orientation
 float32 distanceToStagingPoint
 float32 angleToStagingPoint
-
+float32 runningAverageDistanceToHome
+float32 runningAverageAngleToHome

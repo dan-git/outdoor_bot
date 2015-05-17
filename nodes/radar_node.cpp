@@ -4,8 +4,8 @@
 #include "outdoor_bot_defines.h"
 
 #define RADAR_WAIT_TIME 0.5
-#define HOME_RADAR_SEPARATION 1000. //1900 // distance between radars on home platform, in mm
-#define BOT_RADAR_SEPARATION 1000. //1092
+#define HOME_RADAR_SEPARATION 1900. // distance between radars on home platform, in mm
+#define BOT_RADAR_SEPARATION 1092.
 
 #define STAGING_POINT_DISTANCE 10000. // in mm
 using namespace std;
@@ -139,7 +139,7 @@ void getLocation()
 	distanceToHome_ /= 1000.; // convert to meters
 	distanceToStagingPoint_ /= 1000.;
 	
-	
+/*	
 	cout << "cosLeftHomeToLeftBot = " << cosLeftHomeToLeftBot << ", an angle of " << acos(cosLeftHomeToLeftBot) * 57.3 << " degrees" << endl;
 	cout << "cosAngleB = " << cosAngleB << ", an angle of " << acos(cosAngleB) * 57.3 << " degrees" << endl;
 	cout << "cosAngleD = " << cosAngleD << ", an angle of " << acos(cosAngleD) * 57.3 << " degrees" << endl;
@@ -158,10 +158,11 @@ void getLocation()
 	cout << "angleN = " << angleN * 57.3 << endl;
 	cout << "angleO = " << angleO * 57.3 << endl << endl;
 		
-	cout << "Home is " << distanceToHome_ << " meters away at an angle = " << angleToHome_ << endl;
+	cout << "Home is " << distanceToHome_ << " meters away at an angle = " << angleToHome_ << " degrees" << endl;
 	cout << "Bot's orientation with respect to the platform = " << botOrientation_ * 57.3 << " degrees " << endl;
 	cout << "Staging point is " << distanceToStagingPoint_ << " meters away at an angle = " <<
 		 angleToStagingPoint_  << " degrees" << endl << endl << endl;
+*/
 }
 	
 
@@ -211,12 +212,19 @@ void testDataRadarRanges()
 	distanceFromRightToRight_ = 2000.;
 	*/
 	
-   
+   /*
    // 20 meters away, facing the robot, with radar seps both = 1000 (have to set that in the #defines)
    distanceFromLeftToLeft_ = 20000.;
 	distanceFromLeftToRight_ = 20024.;
 	distanceFromRightToLeft_ = 20024.;
 	distanceFromRightToRight_ = 20000.;
+	*/
+	
+	// 20 meters away, facing the robot, with actual radar seps (1900 base and 1092 bot)
+   distanceFromLeftToLeft_ = 20024.;
+	distanceFromLeftToRight_ = 20100.;
+	distanceFromRightToLeft_ = 20100.;
+	distanceFromRightToRight_ = 20024.;
 	
 	/*
 	distanceFromLeftToLeft_ = 2393.;
@@ -242,20 +250,19 @@ int main(int argc, char** argv)
 	
 	outdoor_bot::radar_msg radarData;
 
+   double runningAverageDistanceToHome = 0.;
+   double runningAverageAngleToHome = 0.;
    
    radar myRadar;
    
 	while(nh.ok())
 	{
-		//myRadar.getRadarRanges();  
-		myRadar.testDataRadarRanges();
-		radarData.distanceFromBotLeftToHomeLeft = myRadar.getDistanceFromLeftToLeft() / 1000.;	// convert from mm to meters
- 
-		radarData.distanceFromBotRightToHomeRight = myRadar.getDistanceFromRightToRight() / 1000.;
-
-		radarData.distanceFromBotLeftToHomeRight = myRadar.getDistanceFromLeftToRight() / 1000.;
-
-		radarData.distanceFromBotRightToHomeLeft = myRadar.getDistanceFromRightToLeft() / 1000.;
+		myRadar.getRadarRanges();  
+		//myRadar.testDataRadarRanges();
+		//radarData.distanceFromBotLeftToHomeLeft = myRadar.getDistanceFromLeftToLeft() / 1000.;	// convert from mm to meters 
+		//radarData.distanceFromBotRightToHomeRight = myRadar.getDistanceFromRightToRight() / 1000.;
+		//radarData.distanceFromBotLeftToHomeRight = myRadar.getDistanceFromLeftToRight() / 1000.;
+		//radarData.distanceFromBotRightToHomeLeft = myRadar.getDistanceFromRightToLeft() / 1000.;
 		
 		double maxDistance1 = fmax(myRadar.getDistanceFromLeftToLeft(), myRadar.getDistanceFromLeftToRight());
 		double maxDistance2 = fmax(myRadar.getDistanceFromRightToLeft(), myRadar.getDistanceFromRightToRight());
@@ -269,7 +276,11 @@ int main(int argc, char** argv)
 		radarData.angleToHome = myRadar.getAngleToHome();			// azimuth in degrees
 		radarData.orientation = myRadar.getOrientation();     // bot orientation with respect to the platform (in degrees)
 		radarData.distanceToStagingPoint = myRadar.getDistanceToStagingPoint();	// range in meters
-		radarData.angleToStagingPoint = myRadar.getAngleToStagingPoint();			// azimuth in degrees	
+		radarData.angleToStagingPoint = myRadar.getAngleToStagingPoint();			// azimuth in degrees
+		runningAverageDistanceToHome += (radarData.distanceToHome - runningAverageDistanceToHome)  * 0.1;
+		runningAverageAngleToHome += (radarData.angleToHome - runningAverageAngleToHome)  * 0.1;
+		radarData.runningAverageDistanceToHome = runningAverageDistanceToHome;	
+		radarData.runningAverageAngleToHome = runningAverageAngleToHome;
 
 		radar_pub_.publish(radarData);
 		std::cout << "ranges from Bot Left to home left, right = " << myRadar.getDistanceFromLeftToLeft() << ", " << myRadar.getDistanceFromLeftToRight() << std::endl;
