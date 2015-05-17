@@ -9,7 +9,7 @@
 #include "outdoor_bot/mainTargets_msg.h"
 #include "outdoor_bot/mainTargetsCommand_msg.h"
 #include "outdoor_bot/mainTargets_imageReceived_msg.h"
-#include "outdoor_bot/radar_service.h"
+#include "outdoor_bot/radar_msg.h"
 #include "outdoor_bot/accelerometers_service.h"
 #include "outdoor_bot/setPose_service.h"
 //#include "outdoor_bot/encoders_service.h"
@@ -58,10 +58,10 @@ using namespace std;
 #define TILT_CAMERA_DELTA 5
 #define TILT_CAMERA_SEARCH_MAX 20
 
-ros::ServiceClient NavTargets_client_, radar_client_, accelerometers_client_; //, encoders_client_; //, mainTargets_client_, mainTargetsCheckImage_client_;
+ros::ServiceClient NavTargets_client_, accelerometers_client_; //, encoders_client_; //, mainTargets_client_, mainTargetsCheckImage_client_;
 ros::ServiceClient setPose_client_; //digcams_client_, 
 ros::Publisher digcam_pub_, movement_pub_, webcam_pub_, mainTargetsCommand_pub_, NavTargetsCommand_pub_, servo_pub_; //, pmotor_pub_;
-ros::Subscriber home_center_sub_, targetImageReceived_sub_, target_center_sub_, move_complete_sub_;
+ros::Subscriber home_center_sub_, targetImageReceived_sub_, target_center_sub_, move_complete_sub_, radar_sub_;
 ros::Subscriber userDesignatedTargets_sub_, pause_sub_;
 outdoor_bot::webcams_custom webcam_command_;
 outdoor_bot::digcams_custom digcam_command_; 
@@ -73,7 +73,8 @@ double accelX_, accelY_, accelZ_;
 bool zoomResult_, writeFileResult_, newMainTargetDigcamImageReceived_, newMainTargetWebcamImageReceived_, rangeUnknown_;
 bool targetCenterUpdated_, newNavTargetImageReceived_;
 int retCapToMemory_;
-double distanceToHome_[NUM_RADARS], deltaDistanceToHome_[NUM_RADARS], velocityFromHome_[NUM_RADARS];
+double distanceToHomeRadar_, angleToHomeRadar_, orientationToHomeRadar_;
+//double velocityToHomeRadar_ = 0., previousdistanceToHomeRadar_ = 0.; 
 int platformXPose_[3], platPoseX_;
 int platformYPose_[3], platPoseY_;
 int platformYawPose_[3], platPoseYaw_;
@@ -91,6 +92,7 @@ double userCmdDistance_[32], userCmdTurn_[32], userCmdSpeed_[32], userCmdPickup_
 int userCmdNumDataValues_, currentUserCommandNumber_, userCmdReturnSection_;
 bool userCommandReceived_;
 bool currentSection_;
+
 
 
 FBFSM fsm_;
@@ -695,21 +697,30 @@ bool CallDigcamsService(int camNum, string command, string filename, float zoom,
    return false; // false if service call failed
 }
 */
-bool callRadarService()
+void radarCallback(const outdoor_bot::radar_msg::ConstPtr& msg)
 {
-   outdoor_bot::radar_service::Request req;
-   outdoor_bot::radar_service::Response resp;
-   cout << "Calling radar service" << endl;
-   req.enableRadarData = true;
-   bool success = radar_client_.call(req,resp);
-   if (success)
-   { 
-      distanceToHome_[LEFT_RADAR_INDEX] = resp.distanceToHomeLeft;
-      distanceToHome_[RIGHT_RADAR_INDEX] = resp.distanceToHomeRight;
-      distanceToHome_[CENTER_RADAR_INDEX] = resp.distanceToHomeCenter;
-      return true;
-   }
-   return false;
+	if (!msg->goodData) // none of the radars are reporting
+	{
+		distanceToHomeRadar_ = 0.;
+		return;
+	}
+	
+	if (!msg->goodLocation) // at least one radar is reporting and at least one is not
+	{
+		distanceToHomeRadar_ = (msg->minDistanceToHome + msg->maxDistanceToHome) / 2.;
+		return;
+	}
+	
+	distanceToHomeRadar_ = msg->distanceToHome;
+	angleToHomeRadar_ = msg->angleToHome;
+	//distanceToHomeRadar_ = msg->runningAverageDistanceToHome;	
+	//angleToHomeRadar_ = msg->runningAverageAngleToHome;	
+	orientationToHomeRadar_ = msg->orientation;
+	
+	//velocityToHome_ = (previousdistanceToHomeRadar_ - distanceToHomeRadar_ ) / deltaTime;
+	
+	//previousdistanceToHomeRadar_ = distanceToHomeRadar_;
+
 }
 
 bool callAccelerometersService()
@@ -791,12 +802,9 @@ void on_enter_BootupState()
    triedZoomDigcamAlready_ = false;
    recoverTurnedAlready_ = false;
    firstMoveToFirstTarget_ = true;
-   for (int i=0; i < NUM_RADARS; i++)
-   {
-      distanceToHome_[i] = 0.;
-      deltaDistanceToHome_[i] = 0.;
-      velocityFromHome_[i] = 0.;
-   }
+   distanceToHomeRadar_ = 0.;
+   orientationToHomeRadar_ = 0;
+   angleToHomeRadar_ = 0.;   
 
    platformXPose_[0] = plat1_X;
    platformXPose_[1] = plat2_X;
@@ -864,15 +872,11 @@ int on_update_BootupState()
    }
 	
    // get radar ranges
-   if (callRadarService())
-   { 
-		cout << "left radar distance to home = " << distanceToHome_[LEFT_RADAR_INDEX] << endl;
-		cout << "center radar distance to home = " << distanceToHome_[CENTER_RADAR_INDEX] << endl;
-		cout << "right radar distance to home = " << distanceToHome_[RIGHT_RADAR_INDEX] << endl;
-	}
+   if (distanceToHomeRadar_ > 0.01) cout << "radar distance, angle, orientation = " <<
+   	 distanceToHomeRadar_ << ", " << angleToHomeRadar_ << ", " << orientationToHomeRadar_ << endl;
    else
    {
-      cout << "radar service failed, do you want to retry bootstate?" << endl;
+      cout << "radar failed, do you want to retry bootstate?" << endl;
       if (!askUser()) return BootupState_;
    }
    
@@ -1562,6 +1566,9 @@ int on_update_PickupTargetState()
 
 void on_enter_CheckHomeState()
 {
+   // start by seeing if we can get a radar range and angle
+ //  if (distanceToHomeRadar_ > 0.1)
+   
    // start by capturing an image using fsm
    currentSection_ = HOME;
    centerX_ = -1;
@@ -1652,14 +1659,9 @@ int on_update_HeadForHomeState()
    	if (moving_)
    	{
    		moving_ = false;
-   		cout << "move finished, ranges: " << endl;
-			if (callRadarService())
-			{ 
-				cout << "left radar distance to home = " << distanceToHome_[LEFT_RADAR_INDEX] << endl;
-				cout << "center radar distance to home = " << distanceToHome_[CENTER_RADAR_INDEX] << endl;
-				cout << "right radar distance to home = " << distanceToHome_[RIGHT_RADAR_INDEX] << endl; 
-			}
-			else cout << "call to radar service failed" << endl;
+			if (distanceToHomeRadar_ > 0.01) cout << "move finished, range = " << distanceToHomeRadar_ << endl;
+
+			else cout << "move finished but call to radar service failed" << endl;
 			return CheckHomeState_;
 		}
     	turning_ = false;
@@ -1705,19 +1707,10 @@ int on_update_HeadForHomeState()
 	}
 */
 	msg.command = "move"; 
-	if (callRadarService())
-	{ 
-		cout << "left radar distance to home = " << distanceToHome_[LEFT_RADAR_INDEX] << endl;
-		cout << "center radar distance to home = " << distanceToHome_[CENTER_RADAR_INDEX] << endl;
-		cout << "right radar distance to home = " << distanceToHome_[RIGHT_RADAR_INDEX] << endl;
-
-		if (distanceToHome_[CENTER_RADAR_INDEX] > 0.1) range_ = distanceToHome_[CENTER_RADAR_INDEX];
-		else if (distanceToHome_[LEFT_RADAR_INDEX] > 0.1) range_ = distanceToHome_[LEFT_RADAR_INDEX];
-		else if (distanceToHome_[RIGHT_RADAR_INDEX] > 0.1) range_ = distanceToHome_[RIGHT_RADAR_INDEX];
-	}
+	if (distanceToHomeRadar_ > 0.01)	range_ = distanceToHomeRadar_;
 	else 
 	{
-		cout << "call to radar service failed" << endl;    
+		cout << "call to radar failed" << endl;    
 		if (homeCameraRange_ > 1.0)  range_ = homeCameraRange_; // use optical range if radar fails
    	else 
    	{
@@ -2125,7 +2118,6 @@ int main(int argc, char* argv[])
    ros::NodeHandle nh;
 
    //digcams_client_ = nh.serviceClient<outdoor_bot::digcams_service>("digcams_service");
-   radar_client_ = nh.serviceClient<outdoor_bot::radar_service>("radar_service");
    accelerometers_client_ = nh.serviceClient<outdoor_bot::accelerometers_service>("accelerometers_service");
    //encoders_client_ = nh.serviceClient<outdoor_bot::encoders_service>("encoders_service");
    setPose_client_ = nh.serviceClient<outdoor_bot::setPose_service>("setPose_service");
@@ -2144,6 +2136,7 @@ int main(int argc, char* argv[])
    pause_sub_ = nh.subscribe("pause_state", 4, pauseCallback);
    //image_sent_ = nh.subscribe("digcam_file", 50, imageSentCallback);
    targetImageReceived_sub_ = nh.subscribe("target_image_received", 5, targetImageReceivedCallback);
+   radar_sub_ = nh.subscribe("radar", 5, radarCallback);
    userDesignatedTargets_sub_ = nh.subscribe("user_commands", 2, userDesignatedTargetsCallback);
 
    pauseCommanded_ = false;
