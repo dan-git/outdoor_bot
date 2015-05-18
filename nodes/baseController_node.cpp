@@ -4,6 +4,7 @@
 #include <geometry_msgs/Twist.h>
 #include "std_msgs/String.h"
 #include "outdoor_bot/servo_msg.h"
+#include "outdoor_bot/dirAnt_msg.h"
 #include "outdoor_bot/pmotor_msg.h"
 #include "outdoor_bot/autoMove_msg.h"
 #include "outdoor_bot_defines.h"
@@ -13,7 +14,7 @@
 //#define WHEEL_SEPARATION 0.36 // meters
 
 ros::Publisher ucCommand;
-ros::Subscriber moveCmd, ucResponse, servoCmd, pmotorCmd, autoMoveCmd;
+ros::Subscriber moveCmd, ucResponse, servoCmd, dirAntCmd, pmotorCmd, autoMoveCmd;
 
 //bool roger_ = false; // use a launch file parameter to determine if this stays false or gets set to true
 		// if it is true, it implies that we are connecting to a telepresence bot with a server, false for standard bot
@@ -106,8 +107,24 @@ void servoCommandCallback(const outdoor_bot::servo_msg msg)
    commandString.append(",");
    sprintf(intStr,"%d", msg.servoPan);
    commandString.append(intStr);
+   //commandString.append(",");
+   //sprintf(intStr,"%d", msg.servoTilt);
+   //commandString.append(intStr);
+   commandString.append(");"); 
+   std_msgs::String command;           
+   command.data = commandString;
+   ucCommand.publish(command);
+}
+
+void dirAntCommandCallback(const outdoor_bot::dirAnt_msg msg)
+{
+   char intStr[33];	// needs to be large enough to take biggest possible number and /0
+   std::string commandString;
+   commandString = "dirAnt(";
+   sprintf(intStr,"%d", msg.antennaCommand);
+   commandString.append(intStr);
    commandString.append(",");
-   sprintf(intStr,"%d", msg.servoTilt);
+   sprintf(intStr,"%d", msg.antennaPan);
    commandString.append(intStr);
    commandString.append(");"); 
    std_msgs::String command;           
@@ -161,6 +178,7 @@ int main(int argc, char** argv){
   //moveCmd = n.subscribe("/base_controller/command", 50, moveCommandCallback);  // subscribe to move commands
   moveCmd = n.subscribe("cmd_vel", 50, moveCommandCallback);  // subscribe to move commands
   servoCmd = n.subscribe("servo_cmd", 5, servoCommandCallback);
+  dirAntCmd = n.subscribe("dirAnt_send", 2, dirAntCommandCallback);
   pmotorCmd = n.subscribe("pmotor_cmd", 5, pmotorCommandCallback);
   autoMoveCmd = n.subscribe("autoMove_cmd", 5, autoMoveCommandCallback);
   ucCommand = n.advertise<std_msgs::String>("uc1Command", 50); // advertise commands to be sent to the arduino's serial port

@@ -120,7 +120,6 @@ mainTargets(ros::NodeHandle &nh)
       newDigcamImageReceived_ = false;
       newWebcamImageReceived_ = false;
 }
-
    // commanded to analyze image
 
    void commandCallback(const outdoor_bot::mainTargetsCommand_msg msg)

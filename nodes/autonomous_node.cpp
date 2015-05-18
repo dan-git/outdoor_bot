@@ -10,6 +10,7 @@
 #include "outdoor_bot/mainTargetsCommand_msg.h"
 #include "outdoor_bot/mainTargets_imageReceived_msg.h"
 #include "outdoor_bot/radar_msg.h"
+#include "outdoor_bot/dirAnt_msg.h"
 #include "outdoor_bot/accelerometers_service.h"
 #include "outdoor_bot/setPose_service.h"
 //#include "outdoor_bot/encoders_service.h"
@@ -60,7 +61,7 @@ using namespace std;
 
 ros::ServiceClient NavTargets_client_, accelerometers_client_; //, encoders_client_; //, mainTargets_client_, mainTargetsCheckImage_client_;
 ros::ServiceClient setPose_client_; //digcams_client_, 
-ros::Publisher digcam_pub_, movement_pub_, webcam_pub_, mainTargetsCommand_pub_, NavTargetsCommand_pub_, servo_pub_; //, pmotor_pub_;
+ros::Publisher digcam_pub_, movement_pub_, webcam_pub_, mainTargetsCommand_pub_, NavTargetsCommand_pub_, servo_pub_, dirAnt_pub_; //, pmotor_pub_;
 ros::Subscriber home_center_sub_, targetImageReceived_sub_, target_center_sub_, move_complete_sub_, radar_sub_;
 ros::Subscriber userDesignatedTargets_sub_, pause_sub_;
 outdoor_bot::webcams_custom webcam_command_;
@@ -98,7 +99,7 @@ bool currentSection_;
 FBFSM fsm_;
 int BootupState_, CheckLinedUpState_, PhaseTwoFirstState_, CheckFirstTargetState_, SearchForFirstTargetState_;
 int MoveToFirstTargetState_;
-int FindTargetState_, MoveToTargetState_, PickupTargetState_;
+int FindTargetState_, MoveToTargetState_, PickupTargetState_, PhaseOneHomeState_;
 int CheckHomeState_, SearchForHomeState_;
 int HeadForHomeState_, MoveOntoPlatformState_, UserCommandState_;
 int MoveToRecoverState_, MoveToRecoverFailedState_, ReEntryState_, PauseState_, AllDoneState_;
@@ -1555,19 +1556,44 @@ int on_update_PickupTargetState()
    	if (phase1_)
    	{
    		currentSection_ = HOME;
-   		return CheckHomeState_;
+   		// turn 180 degrees and start looking for home
+   		return PhaseOneHomeState_;
    	}
    	currentSection_ = TARGETS;
    	return FindTargetState_;
    }			   
    return PickupTargetState_;
+}		
+
+void on_enter_PhaseOneHomeState()
+{
+	movementComplete_ = false;
+	outdoor_bot::movement_msg msg;   
+   cout << "turning 180 degrees after retrieving target" << endl;
+   msg.command = "autoMove";
+   msg.distance = 0;
+   msg.angle = 180; 
+   msg.speed = 20;  	  
+	movement_pub_.publish(msg);
 }
 
+int on_update_PhaseOneHomeState()
+{
+	if (!movementComplete_) return PhaseOneHomeState_;
+	// now look at radar and dirAnt data
+	outdoor_bot::dirAnt_msg dirAntMsg;
+	dirAntMsg.antennaCommand = 1;		// sweep antenna to find max direction.  Note that this takes the arduino about a second
+	dirAntMsg.antennaPan = 127;
+	dirAnt_pub_.publish(dirAntMsg);
+	// now, after a while, the directional antenna data should show up and we can get it from Robot Pose's service
+	return CheckHomeState_;
+}
 
 void on_enter_CheckHomeState()
 {
    // start by seeing if we can get a radar range and angle
  //  if (distanceToHomeRadar_ > 0.1)
+ 
    
    // start by capturing an image using fsm
    currentSection_ = HOME;
@@ -2020,6 +2046,7 @@ void setupStates()
    FindTargetState_ = fsm_.add_state("FindTargetState");
    PickupTargetState_ = fsm_.add_state("PickupTargetState");
    MoveToTargetState_ = fsm_.add_state("MoveToTargetState");
+   PhaseOneHomeState_ = fsm_.add_state("PhaseOneHomeState");
    CheckHomeState_ = fsm_.add_state("CheckHomeState");
    SearchForHomeState_ = fsm_.add_state("SearchForHomeState");
    HeadForHomeState_ = fsm_.add_state("HeadForHomeState");
@@ -2065,6 +2092,10 @@ void setupStates()
    fsm_.set_update_function(PickupTargetState_, boost::bind(&on_update_PickupTargetState));
    //fsm_.set_exit_function(PickupTargetState_, boost::bind(&on_exit_PickupTargetState));
 
+   fsm_.set_entry_function(PhaseOneHomeState_, boost::bind(&on_enter_PhaseOneHomeState));
+   fsm_.set_update_function(PhaseOneHomeState_, boost::bind(&on_update_PhaseOneHomeState));
+   //fsm_.set_exit_function(PhaseOneHomeState_, boost::bind(&on_exit_PhaseOneHomeState));
+   
    fsm_.set_entry_function(CheckHomeState_, boost::bind(&on_enter_CheckHomeState));
    fsm_.set_update_function(CheckHomeState_, boost::bind(&on_update_CheckHomeState));
    //fsm_.set_exit_function(CheckHomeState_, boost::bind(&on_exit_CheckHomeState));
@@ -2126,6 +2157,7 @@ int main(int argc, char* argv[])
    webcam_pub_ = nh.advertise<outdoor_bot::webcams_custom>("webcam_cmd", 25);
    digcam_pub_ = nh.advertise<outdoor_bot::digcams_custom>("digcam_cmd", 25);
    servo_pub_ = nh.advertise<outdoor_bot::servo_msg>("servo_cmd", 5);
+   dirAnt_pub_ = nh.advertise<outdoor_bot::dirAnt_msg>("dirAnt_cmd", 5);   
    //pmotor_pub_ = nh.advertise<outdoor_bot::pmotor_msg>("pmotor_cmd", 5);
    movement_pub_ = nh.advertise<outdoor_bot::movement_msg>("movement_command", 2);
    mainTargetsCommand_pub_ = nh.advertise<outdoor_bot::mainTargetsCommand_msg>("mainTargets_cmd", 25);

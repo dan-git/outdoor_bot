@@ -12,6 +12,7 @@ from ._webcams_custom import *
 from ._radar_msg import *
 from ._servo_msg import *
 from ._FibonacciGoal import *
+from ._dirAnt_msg import *
 from ._pmotor_msg import *
 from ._test import *
 from ._digital_cams_custom import *
