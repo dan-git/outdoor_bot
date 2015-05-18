@@ -452,10 +452,10 @@ void parseNavData(std::string data)
   battery = atof(navDataBuffer[9].c_str());
   pauseState = atof(navDataBuffer[10].c_str());
   dirAntMaxDir = atof(navDataBuffer[11].c_str());
-  dirAntMaxTilt = atof(navDataBuffer[12].c_str());
-  dirAntLevel = atof(navDataBuffer[13].c_str());
-  arduinoCycleTime = atof(navDataBuffer[14].c_str());
-  arduinoDataCounter = atof(navDataBuffer[15].c_str());
+  //dirAntMaxTilt = atof(navDataBuffer[12].c_str());
+  dirAntLevel = atof(navDataBuffer[12].c_str());
+  arduinoCycleTime = atof(navDataBuffer[13].c_str());
+  arduinoDataCounter = atof(navDataBuffer[14].c_str());
   // use this to check the timing of arduino data
   /*  ros::Time current_time = ros::Time::now();
     double dtROS_ = current_time.toSec() - local_last_time.toSec();
