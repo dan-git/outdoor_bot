@@ -6,16 +6,16 @@ import struct
 
 
 class servo_msg(genpy.Message):
-  _md5sum = "bbbb846674e63d4fa88390c9bab76dd6"
+  _md5sum = "efbd3e71de80753d8c1f88fb3e1c3c04"
   _type = "outdoor_bot/servo_msg"
   _has_header = False #flag to mark the presence of a Header object
   _full_text = """int32 servoNumber
-int32 servoPan
-int32 servoTilt
+int32 servoDegrees
+
 
 """
-  __slots__ = ['servoNumber','servoPan','servoTilt']
-  _slot_types = ['int32','int32','int32']
+  __slots__ = ['servoNumber','servoDegrees']
+  _slot_types = ['int32','int32']
 
   def __init__(self, *args, **kwds):
     """
@@ -25,7 +25,7 @@ int32 servoTilt
     changes.  You cannot mix in-order arguments and keyword arguments.
 
     The available fields are:
-       servoNumber,servoPan,servoTilt
+       servoNumber,servoDegrees
 
     :param args: complete set of field values, in .msg order
     :param kwds: use keyword arguments corresponding to message field names
@@ -36,14 +36,11 @@ int32 servoTilt
       #message fields cannot be None, assign default values for those that are
       if self.servoNumber is None:
         self.servoNumber = 0
-      if self.servoPan is None:
-        self.servoPan = 0
-      if self.servoTilt is None:
-        self.servoTilt = 0
+      if self.servoDegrees is None:
+        self.servoDegrees = 0
     else:
       self.servoNumber = 0
-      self.servoPan = 0
-      self.servoTilt = 0
+      self.servoDegrees = 0
 
   def _get_types(self):
     """
@@ -58,7 +55,7 @@ int32 servoTilt
     """
     try:
       _x = self
-      buff.write(_struct_3i.pack(_x.servoNumber, _x.servoPan, _x.servoTilt))
+      buff.write(_struct_2i.pack(_x.servoNumber, _x.servoDegrees))
     except struct.error as se: self._check_types(struct.error("%s: '%s' when writing '%s'" % (type(se), str(se), str(_x))))
     except TypeError as te: self._check_types(ValueError("%s: '%s' when writing '%s'" % (type(te), str(te), str(_x))))
 
@@ -71,8 +68,8 @@ int32 servoTilt
       end = 0
       _x = self
       start = end
-      end += 12
-      (_x.servoNumber, _x.servoPan, _x.servoTilt,) = _struct_3i.unpack(str[start:end])
+      end += 8
+      (_x.servoNumber, _x.servoDegrees,) = _struct_2i.unpack(str[start:end])
       return self
     except struct.error as e:
       raise genpy.DeserializationError(e) #most likely buffer underfill
@@ -86,7 +83,7 @@ int32 servoTilt
     """
     try:
       _x = self
-      buff.write(_struct_3i.pack(_x.servoNumber, _x.servoPan, _x.servoTilt))
+      buff.write(_struct_2i.pack(_x.servoNumber, _x.servoDegrees))
     except struct.error as se: self._check_types(struct.error("%s: '%s' when writing '%s'" % (type(se), str(se), str(_x))))
     except TypeError as te: self._check_types(ValueError("%s: '%s' when writing '%s'" % (type(te), str(te), str(_x))))
 
@@ -100,11 +97,11 @@ int32 servoTilt
       end = 0
       _x = self
       start = end
-      end += 12
-      (_x.servoNumber, _x.servoPan, _x.servoTilt,) = _struct_3i.unpack(str[start:end])
+      end += 8
+      (_x.servoNumber, _x.servoDegrees,) = _struct_2i.unpack(str[start:end])
       return self
     except struct.error as e:
       raise genpy.DeserializationError(e) #most likely buffer underfill
 
 _struct_I = genpy.struct_I
-_struct_3i = struct.Struct("<3i")
+_struct_2i = struct.Struct("<2i")

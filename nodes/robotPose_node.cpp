@@ -17,7 +17,7 @@
 #include <sstream>
 
 
-#define OUTDOOR_TICKS_PER_METER 50
+#define OUTDOOR_TICKS_PER_METER 18
 /*
 #define SMOOTH_POINTS 0 // roger has low resolution encoders and sometimes needs points smoothed
                         // for now we are smoothing on the arduino side to help the pid calcs
@@ -403,7 +403,7 @@ void sendOutNavData()
 
 	 yaw += delta_Yaw;
 	 // compare yaw from gyro to yaw from radar
-	 cout << "yaw from gyro, yaw from radar = " << yaw << ", " << orientationToHomeRadar_ << endl;
+//	 cout << "yaw from gyro, yaw from radar = " << yaw << ", " << orientationToHomeRadar_ << endl;
 	 publishPose(x, y, yaw, vYaw, currentVelocity_);
 }
  

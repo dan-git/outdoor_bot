@@ -150,6 +150,8 @@ FILE *serialInit(char * port, int baud)
 void ucCommandCallback(const std_msgs::String::ConstPtr& msg)
 {
   ROS_DEBUG("uc%dCommand: %s", ucIndex, msg->data.c_str());
+  std::cout << "serial command received:  " << msg->data.c_str() << std::endl;
+  
   fprintf(fpSerial, "%s", msg->data.c_str()); //appends newline
 } //ucCommandCallback
 

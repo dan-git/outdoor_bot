@@ -1,26 +1,29 @@
 <launch>
+<!--
   <node pkg="outdoor_bot" type="serialComm_node" name="serialComm0" args="0 /dev/ttyArduinoMega 115200" output="screen" >
   <remap from="ucCommand" to="uc0Command" />
   <remap from="ucResponse" to="uc0Response" />
   </node>
+ -->
 
   <node pkg="outdoor_bot" type="serialComm_node" name="serialComm1" args="1 /dev/ttyUSB_FTDI_A703BXBL 115200" output="screen" >
   <remap from="ucCommand" to="uc1Command" />
   <remap from="ucResponse" to="uc1Response" />
   </node>
 
+<!--
   <node pkg="outdoor_bot" type="serialComm_node" name="serialComm2" args="2 /dev/ttyRadar_100 115200" output="screen" >
   <remap from="ucCommand" to="radarCommand_100" />
   <remap from="ucResponse" to="radarResponse_100" />
   </node>
   
-  <node pkg="outdoor_bot" type="serialComm_node" name="serialComm3" args="2 /dev/ttyRadar_103 115200" output="screen" >
+  <node pkg="outdoor_bot" type="serialComm_node" name="serialComm3" args="3 /dev/ttyRadar_103 115200" output="screen" >
   <remap from="ucCommand" to="radarCommand_103" />
   <remap from="ucResponse" to="radarResponse_103" />
   </node>
 
 
-<!--  <node pkg="outdoor_bot" type="serialComm_node" name="serialComm4" args="1 /dev/ttyUSB_FTDI_A703BX39 2400" output="screen" >
+  <node pkg="outdoor_bot" type="serialComm_node" name="serialComm4" args="1 /dev/ttyUSB_FTDI_A703BX39 2400" output="screen" >
   <remap from="ucCommand" to="batteryCommand" />
   <remap from="ucResponse" to="batteryResponse" />
   </node>

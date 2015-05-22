@@ -362,9 +362,10 @@ int main(int argc, char** argv)
 		}
 
 		radar_pub_.publish(radarData);
+		
 		std::cout << "ranges from Bot Left to home left, right = " << myRadar.getDistanceFromLeftToLeft() << ", " << myRadar.getDistanceFromLeftToRight() << std::endl;
 		std::cout << "ranges from Bot Right to home left, right = " << myRadar.getDistanceFromRightToLeft() << ", " << myRadar.getDistanceFromRightToRight() << std::endl;
-
+	   
 	}
 	return EXIT_SUCCESS;
 }

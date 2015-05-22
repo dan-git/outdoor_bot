@@ -6,4 +6,4 @@ global_costmap:
    static_map: true
    rolling_window: false
    resolution: 0.0943
-   transform_tolerance: 2.0
+   transform_tolerance: 3.0

@@ -20,8 +20,8 @@ private:
 public:
   // ROS node initialization
   userCommands(ros::NodeHandle &nh)
+  : nh_(nh)
   {
-    nh_ = nh;
     //set up the publisher for keyboard commands
     userCmd_pub_ = nh_.advertise<std_msgs::String>("user_commands", 2);
     for (int i=0; i < 32; i++)

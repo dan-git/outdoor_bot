@@ -465,7 +465,7 @@ void movementCommandCallback(const outdoor_bot::movement_msg msg)
 		autoMoveMsg.speed = msg.speed;	// mm/sec or deg/sec
 		autoMove_pub_.publish(autoMoveMsg);  // send to the arduino
 		last_time = ros::Time::now(); 
-	   while ( current_time.toSec() - last_time.toSec() < 5.0) current_time = ros::Time::now();	// give the arduino 5 secs to complete the task
+	   while ( current_time.toSec() - last_time.toSec() < 5.0 + (fabs(msg.distance) / 1000.) ) current_time = ros::Time::now();	// give the arduino 5 secs to complete the task
 		// apply solenoid brakes
 		autoMoveMsg.distance = 0;
 		autoMoveMsg.angle = 0;
@@ -478,7 +478,7 @@ void movementCommandCallback(const outdoor_bot::movement_msg msg)
 	 }
 		
 		
-   if (!command.compare("move"))	// command bot to enter pause mode
+   else if (!command.compare("move"))	// command bot to enter pause mode
 	{
 		cout << "moving in movement node " << endl;
 		double distance = msg.distance;
@@ -496,7 +496,7 @@ void movementCommandCallback(const outdoor_bot::movement_msg msg)
       return;
    }
    
-   if (!command.compare("turn"))	// command bot to enter pause mode
+   else if (!command.compare("turn"))	// command bot to enter pause mode
    {
       double angle = msg.angle;		
 		if (movementAngular(angle))
@@ -513,7 +513,7 @@ void movementCommandCallback(const outdoor_bot::movement_msg msg)
       return;
    }
    
-   if (!command.compare("pose"))	// command bot to enter pause mode 
+   else if (!command.compare("pose"))	// command bot to enter pause mode 
    {
    	double poseX = msg.poseX;
    	double poseY = msg.poseY;
@@ -532,7 +532,7 @@ void movementCommandCallback(const outdoor_bot::movement_msg msg)
       return;  
     }
     
-    if (!command.compare("platform"))	// time for final approach
+    else if (!command.compare("platform"))	// time for final approach
     {
       cout << "final approach phase in movement node" << endl;
       range_ = -1.;
@@ -604,7 +604,7 @@ void movementCommandCallback(const outdoor_bot::movement_msg msg)
       return;
     }
 
-   if (!command.compare("all_done"))	// command bot to enter pause mode
+   else if (!command.compare("all_done"))	// command bot to enter pause mode
    {
    	cout << "all done phase in movement node" << endl;
    	outdoor_bot::pmotor_msg pmotorMsg;
@@ -620,7 +620,7 @@ void movementCommandCallback(const outdoor_bot::movement_msg msg)
 	//drop bar full movement = 3313 with -1 direction being deploy and 1 direction retrieve
 	//bin shade first window is at 106, second window is 1044, last window is 1804
 	//pickerupper 1 direction is scoop up, -1 is scoop down  
-   if (!command.compare("PDmotor"))
+   else if (!command.compare("PDmotor"))
    {
    	/*
    	if (!callEncodersService())
@@ -714,7 +714,9 @@ void movementCommandCallback(const outdoor_bot::movement_msg msg)
    	}
    	complete_pub_.publish(msgResult);
    	return;
-   }       
+   }  
+   
+   else cout << "unknown command sent to movement node: " << command << endl;   
 }
 };
 

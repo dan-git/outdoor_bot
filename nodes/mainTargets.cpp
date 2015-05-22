@@ -6,10 +6,11 @@
 #include <opencv2/features2d/features2d.hpp>
 #include <string>
 #include <vector>
+#include "std_msgs/String.h"
+#include "std_msgs/Int32.h"
 #include "outdoor_bot/mainTargets_service.h"
 #include "outdoor_bot/mainTargets_msg.h"
 #include "outdoor_bot/mainTargetsCommand_msg.h"
-#include "outdoor_bot/mainTargets_imageReceived_msg.h"
 #include "outdoor_bot_defines.h"
 //#include <opencv2/features2d/features2d.hpp>
 //#include <opencv2/nonfree/features2d.hpp>
@@ -108,7 +109,7 @@ mainTargets(ros::NodeHandle &nh)
 {
       analyzeImage_sub_ = nh.subscribe("mainTargets_cmd", 10, &mainTargets::commandCallback, this);
       target_center_pub_ = nh_.advertise<outdoor_bot::mainTargets_msg>("target_center", 50);
-      image_received_pub_ = nh_.advertise<outdoor_bot::mainTargets_imageReceived_msg>("target_image_received", 5);
+      image_received_pub_ = nh_.advertise<std_msgs::Int32>("main_target_image_received", 5);
       subDigcam_ = it_.subscribe("digcam_image", 1, &mainTargets::digcamImageCallback, this);
       subWebcam_ = it_.subscribe("webcam_image", 1, &mainTargets::webcamImageCallback, this);
 
@@ -180,9 +181,14 @@ mainTargets(ros::NodeHandle &nh)
        //cv::waitKey(30);
        newDigcamImage_ = cv_bridge::toCvCopy(msg, "bgr8")->image;
        newDigcamImageReceived_ = true;
-       outdoor_bot::mainTargets_imageReceived_msg imMsg;
-       imMsg.cameraName = REGULAR_DIGCAM;
-       image_received_pub_.publish(imMsg);   // publish that we received a digcam image
+      // outdoor_bot::mainTargets_msg output_msg;
+       std_msgs::Int32 imMsg;
+       imMsg.data = REGULAR_DIGCAM;
+       //output_msg.centerX = -99;
+       //output_msg.cameraName = REGULAR_DIGCAM;
+       //target_center_pub_.publish(output_msg);
+       cout << "published that we received a digcam image" << endl;
+       image_received_pub_.publish(imMsg); 
      }
      catch (cv_bridge::Exception& e)
      {
@@ -198,10 +204,15 @@ mainTargets(ros::NodeHandle &nh)
        //cv::waitKey(30);
        newWebcamImage_ = cv_bridge::toCvCopy(msg, "bgr8")->image;
        newWebcamImageReceived_ = true;
-       outdoor_bot::mainTargets_imageReceived_msg imMsg;
-       imMsg.cameraName = WEBCAM;
+       outdoor_bot::mainTargets_msg output_msg;
+       std_msgs::Int32 imMsg;
+       imMsg.data = WEBCAM;
+       //output_msg.centerX = -99;
+       //output_msg.cameraName = WEBCAM;
+       //target_center_pub_.publish(output_msg);
        cout << "webcam image received in MainTargets, cameraName = " << WEBCAM << endl;
        image_received_pub_.publish(imMsg);   // publish that we received a webcam image
+        cout << "published that we received a digcam image" << endl;
      }
      catch (cv_bridge::Exception& e)
      {

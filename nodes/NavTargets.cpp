@@ -1,8 +1,8 @@
 #include <ros/ros.h>
 #include "std_msgs/String.h"
+#include "std_msgs/Int32.h"
 #include "outdoor_bot/NavTargets_service.h"
 #include "outdoor_bot/NavTargets_msg.h"
-#include "outdoor_bot/mainTargets_imageReceived_msg.h"
 #include "outdoor_bot_defines.h"
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
@@ -65,7 +65,7 @@ NavTargets(ros::NodeHandle &nh)
    	analyzeImage_sub_ = nh.subscribe("NavTargets_cmd", 10, &NavTargets::commandCallback, this);
       home_image_sub_ = it_.subscribe("home_target_image", 1, &NavTargets::homeImageCallback, this);
    	home_center_pub_ = nh_.advertise<outdoor_bot::NavTargets_msg>("Home_target_center", 50);
-      image_received_pub_ = nh_.advertise<outdoor_bot::mainTargets_imageReceived_msg>("target_image_received", 5);
+      image_received_pub_ = nh_.advertise<std_msgs::Int32>("nav_target_image_received", 5);
       
       range_ = 0.;
       //newHomeImageReceived_ = false;
@@ -108,8 +108,8 @@ void homeImageCallback(const sensor_msgs::ImageConstPtr& msg)
     //cv::waitKey(30);
     newHomeImage_ = cv_bridge::toCvCopy(msg, "bgr8")->image;
     newHomeImageReceived_ = true;
-    outdoor_bot::mainTargets_imageReceived_msg imMsg;
-    imMsg.cameraName = HOMECAM;
+    std_msgs::Int32 imMsg;
+    imMsg.data = HOMECAM;
     image_received_pub_.publish(imMsg);   // publish that we received a home image
   }
   catch (cv_bridge::Exception& e)

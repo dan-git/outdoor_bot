@@ -105,7 +105,7 @@ void servoCommandCallback(const outdoor_bot::servo_msg msg)
    sprintf(intStr,"%d", msg.servoNumber);
    commandString.append(intStr);
    commandString.append(",");
-   sprintf(intStr,"%d", msg.servoPan);
+   sprintf(intStr,"%d", msg.servoDegrees);
    commandString.append(intStr);
    //commandString.append(",");
    //sprintf(intStr,"%d", msg.servoTilt);

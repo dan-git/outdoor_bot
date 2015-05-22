@@ -8,7 +8,6 @@
 #include "outdoor_bot/mainTargets_service.h"
 #include "outdoor_bot/mainTargets_msg.h"
 #include "outdoor_bot/mainTargetsCommand_msg.h"
-#include "outdoor_bot/mainTargets_imageReceived_msg.h"
 #include "outdoor_bot/radar_msg.h"
 #include "outdoor_bot/dirAnt_msg.h"
 #include "outdoor_bot/accelerometers_service.h"
@@ -56,20 +55,25 @@ using namespace std;
 #define DEGREES_PER_PAN_STEP 0.64
 #define PAN_CAMERA_DELTA 20
 #define PAN_CAMERA_SEARCH_MAX 20
-#define TILT_CAMERA_DELTA 5
+#define TILT_CAMERA_DELTA 10
 #define TILT_CAMERA_SEARCH_MAX 20
+
+#define WEBCAM_DISTANCE_LIMIT 2.
+#define TARGET_DISTANCE_FOR_WEBCAM_TILT_DOWN 2.
+#define WEBCAM_TILT_DOWN -30.	// degrees to point webcam down when the target is close
+#define WEBCAM_TILT_LEVEL 0.
 
 ros::ServiceClient NavTargets_client_, accelerometers_client_; //, encoders_client_; //, mainTargets_client_, mainTargetsCheckImage_client_;
 ros::ServiceClient setPose_client_; //digcams_client_, 
 ros::Publisher digcam_pub_, movement_pub_, webcam_pub_, mainTargetsCommand_pub_, NavTargetsCommand_pub_, servo_pub_, dirAnt_pub_; //, pmotor_pub_;
-ros::Subscriber home_center_sub_, targetImageReceived_sub_, target_center_sub_, move_complete_sub_, radar_sub_;
+ros::Subscriber home_center_sub_, mainTargetImageReceived_sub_, navTargetImageReceived_sub_, target_center_sub_, move_complete_sub_, radar_sub_;
 ros::Subscriber userDesignatedTargets_sub_, pause_sub_;
 outdoor_bot::webcams_custom webcam_command_;
 outdoor_bot::digcams_custom digcam_command_; 
 int centerX_, centerY_, totalX_, moving_, turning_, picking_, totalMoveToFirstTarget_ = 0;
 int home_image_height_, home_image_width_;
-bool homeCenterUpdated_, movementComplete_, triedWebcamAlready_, triedZoomDigcamAlready_;
-double range_, approxRangeToTarget_, targetRange_, homeCameraRange_, offsetX_;
+bool homeCenterUpdated_, movementComplete_, triedWebcamAlready_, triedZoomDigcamAlready_, triedRegularDigcamAlready_;
+double range_, approxRangeToTarget_, targetRange_, homeCameraRange_, offsetX_, webcamTilt_;
 double accelX_, accelY_, accelZ_;
 bool zoomResult_, writeFileResult_, newMainTargetDigcamImageReceived_, newMainTargetWebcamImageReceived_, rangeUnknown_;
 bool targetCenterUpdated_, newNavTargetImageReceived_;
@@ -81,7 +85,7 @@ int platformYPose_[3], platPoseY_;
 int platformYawPose_[3], platPoseYaw_;
 int targetXPose_, targetYPose_;
 bool phase1_, pauseNewCommand_, pauseCommanded_, previousState_, recoverTurnedAlready_, firstMoveToFirstTarget_;
-int deltaPan_ = PAN_CAMERA_DELTA, deltaTilt_ = TILT_CAMERA_DELTA, searchCounter_ = 0, currentPan_ = 0; 
+int deltaServoDegrees_ = PAN_CAMERA_DELTA, deltaTilt_ = TILT_CAMERA_DELTA, searchCounter_ = 0, currentServoDegrees_ = 0; 
 int maxSearchPan_ = PAN_CAMERA_SEARCH_MAX, maxSearchTilt_ = TILT_CAMERA_SEARCH_MAX;
 int lastCamName_ = WEBCAM, camName_ = WEBCAM;
 std::string movementResult_;
@@ -120,7 +124,7 @@ class targetAquireFSM
       string camCommand_;
       int servoNumber_;
       bool firstTarget_, homeTarget_, fileWrite_;
-      int acquireCamName_, pan_, tilt_; // servo full range goes from 0 to 256
+      int acquireCamName_, servoDegrees_; // servo position in degrees (ccw is positive)
       ros::Time servoTimer_;
 
       void on_enter_MoveCamera()
@@ -128,8 +132,8 @@ class targetAquireFSM
          if (pauseCommanded_) return;
          outdoor_bot::servo_msg msg;
          msg.servoNumber = servoNumber_;
-         msg.servoPan = pan_;
-         msg.servoTilt = tilt_;
+         msg.servoDegrees = servoDegrees_;
+         //msg.servoTilt = tilt_;
          servo_pub_.publish(msg);
          servoTimer_ = ros::Time::now(); // record time that the command was sent
       }
@@ -153,6 +157,7 @@ class targetAquireFSM
          else if (acquireCamName_ == REGULAR_DIGCAM || acquireCamName_ == ZOOM_DIGCAM) newMainTargetDigcamImageReceived_ = false;
          else newMainTargetWebcamImageReceived_ = false;
          imageCapture(camCommand_, acquireCamName_, fileWrite_);  // command an image capture
+         //cout << "image capture commanded for camera " << acquireCamName_ << ", fileWrite_ =" << fileWrite_ << endl;
       }
 
       int on_update_CaptureImage()
@@ -163,6 +168,7 @@ class targetAquireFSM
             		|| (newMainTargetWebcamImageReceived_ && acquireCamName_ == WEBCAM) ) return analyzeImageState_; // image received by mainTargets
             }
             else if (newNavTargetImageReceived_) return analyzeImageState_; // image analyzed by NavTargets
+            ros::spinOnce();
             return captureImageState_;
       }
 
@@ -204,6 +210,7 @@ class targetAquireFSM
             targetCenterUpdated_ = false;
             return acquireDoneState_;
          }
+         ros::spinOnce();
          return analyzeImageState_;
       }
 
@@ -283,8 +290,8 @@ class targetAquireFSM
          homeTarget_ = false;
          camCommand_ = "capture";
          servoNumber_ = DIGCAM_PAN;
-         pan_ = 0;
-         tilt_ = 0;
+         servoDegrees_ = 0;
+         //tilt_ = 0;
          fileWrite_ = false;
          setupFSM();
       }
@@ -296,12 +303,13 @@ class targetAquireFSM
       void update() { tAfsm_.update(); }
       void set_state(int value) { tAfsm_.set_state(value); }
       void set_acquireCamName(int value) { acquireCamName_ = value; }
+      int get_acquireCamName() { return acquireCamName_; }
       void set_camCommand(string value) { camCommand_ = value; }
       void set_firstTarget(int value) { firstTarget_ = value; }
       void set_homeTarget(int value) { homeTarget_ = value; }
       void set_servoNumber(int value) { servoNumber_ = value; }
-      void set_pan(int value) { pan_ = value; }
-      void set_tilt(int value) { tilt_ = value; }
+      void set_servoDegrees(int value) { servoDegrees_ = value; }
+      //void set_tilt(int value) { tilt_ = value; }
       void set_fileWrite(int value) { fileWrite_ = value; }
    
 };
@@ -386,7 +394,10 @@ void imageCapture(string command, int camName, bool writeFile)
    }
    else if (camName == ZOOM_DIGCAM || camName == REGULAR_DIGCAM)
    {
-      cout << "publishing command for digcam or zoom digcam capture" << endl;
+      cout << "publishing command to capture image from  ";
+      if (camName == ZOOM_DIGCAM) cout << "ZOOM_DIGCAM" << endl;
+      else if (camName == REGULAR_DIGCAM) cout << "REGULAR_DIGCAM" << endl;
+      else cout << "unknown camera" << endl;
       digcam_command_.command = command;
       digcam_command_.cameraName = camName;
       if (writeFile) digcam_command_.write_file = true;
@@ -565,7 +576,7 @@ void homeCenterCallback(const outdoor_bot::NavTargets_msg::ConstPtr &msg)
    centerY_ = msg->centerY;
    totalX_ = msg->totalX;
    homeCameraRange_ = msg->range;
-   camName_ = msg->cameraName;
+   camName_ = tAF_.get_acquireCamName(); //msg->cameraName;
    homeCenterUpdated_ = true;
    if (homeCameraRange_ > 0)
    {
@@ -577,35 +588,59 @@ void homeCenterCallback(const outdoor_bot::NavTargets_msg::ConstPtr &msg)
 
 void targetCenterCallback(const outdoor_bot::mainTargets_msg::ConstPtr &msg)
 {
+   /*if (msg->centerX == -99)
+   {
+      int cameraName = msg->cameraName;
+      if (cameraName == REGULAR_DIGCAM || cameraName == ZOOM_DIGCAM) 
+      {
+   		newMainTargetDigcamImageReceived_ = true;
+   		cout << "digcam image was received by mainTargets, cameraName = " << cameraName << endl;
+   	}
+   	else if (cameraName == WEBCAM) 
+   	{
+   		newMainTargetWebcamImageReceived_ = true;
+   		cout << "webcam image was received by mainTargets, cameraName = " << cameraName << endl;
+   	}
+   	return;
+   }
+   */
    centerX_ = msg->centerX;
    centerY_ = msg->centerY;
    totalX_ = msg->totalX;
    targetRange_ = msg->range;
-   camName_ = msg->cameraName;
+   camName_ = tAF_.get_acquireCamName();
+   //camName_ = msg->cameraName;
    targetCenterUpdated_ = true;
    ROS_INFO("target center updated in control: center, range = (%d, %d), %f", centerX_, centerY_, targetRange_);
    cout << "target center callback received data" << endl;  
 }
 
-void targetImageReceivedCallback(const outdoor_bot::mainTargets_imageReceived_msg msg)
+void mainTargetImageReceivedCallback(const std_msgs::Int32::ConstPtr& msg)
 {
-   int cameraName = msg.cameraName;
+   int cameraName = msg->data;
    if (cameraName == REGULAR_DIGCAM || cameraName == ZOOM_DIGCAM) 
    {
    	newMainTargetDigcamImageReceived_ = true;
-   	cout << "digcam image was received by mainTargets, cameraName = " << cameraName << endl;
+   	cout << "digcam image was received by mainTargets" << endl;
    }
    else if (cameraName == WEBCAM) 
    {
    	newMainTargetWebcamImageReceived_ = true;
    	cout << "webcam image was received by mainTargets, cameraName = " << cameraName << endl;
    }
-   else if (cameraName == HOMECAM)
+   else cout << "image was received but unknown camera" << endl;
+}
+
+void navTargetImageReceivedCallback(const std_msgs::Int32::ConstPtr& msg)
+{
+	int cameraName = msg->data;
+	if (cameraName == HOMECAM)
    {
    	newNavTargetImageReceived_ = true;
    	cout << "image was received by NavTargets, cameraName = " << cameraName << endl;
    }
-}
+   else cout << "image was received from NavTargets but unknown camera" << endl;
+ }
 
 /*
 void imageSentCallback(const std_msgs::String::ConstPtr& msg)
@@ -779,11 +814,12 @@ bool callEncodersService()
 void on_enter_BootupState()
 {
 	currentSection_ = BOOTUP;
-	approxRangeToTarget_ = 15.; // change to 70 for real ops *****************************************
-   targetRange_ = 15.; // change to 70 for real ops *************************************************
+	approxRangeToTarget_ = 5; //15.; // change to 70 for real ops *****************************************
+   targetRange_ = 5.; //15.; // change to 70 for real ops *************************************************
    homeCameraRange_ = 10.;
-   range_ = 15;	// change to 70 for real ops ******************************************************
+   range_ = 5.; //15;	// change to 70 for real ops ******************************************************
    rangeUnknown_ = false;
+   webcamTilt_ = WEBCAM_TILT_LEVEL;
    retCapToMemory_ = -1;
    centerX_ = -1; // indicator for when target centers are updated
    offsetX_ = 0.;
@@ -801,6 +837,7 @@ void on_enter_BootupState()
    movementResult_ = "";
    triedWebcamAlready_ = false;
    triedZoomDigcamAlready_ = false;
+   triedRegularDigcamAlready_ = false;
    recoverTurnedAlready_ = false;
    firstMoveToFirstTarget_ = true;
    distanceToHomeRadar_ = 0.;
@@ -847,7 +884,7 @@ int on_update_BootupState()
    cout << "Do you want to move on to autonomous ops or go through bootstate stuff?" << endl;
    if (askUser()) 
    {
-   	if (pauseCommanded_) return PauseState_;
+	   if (pauseCommanded_) return PauseState_;
    	return CheckLinedUpState_;;
    }
    if (pauseCommanded_) return PauseState_;
@@ -890,7 +927,7 @@ int on_update_BootupState()
  	int inputNum = 0;
    while (inputNum == 0)
    {
-   	imageCapture("capture", REGULAR_DIGCAM);	// ********************** change to zoom cam for real ops
+   	imageCapture("capture", ZOOM_DIGCAM);	// ********************** change to zoom cam for real ops
    	
    	cout << "check image and center the robot on the target.  Do you want to move on or retry?" << endl;
    	if (askUser()) inputNum = 1;
@@ -926,8 +963,8 @@ void on_exit_BootupState()
 void on_enter_CheckLinedUpState()
 {
    // start by capturing an image using fsm
-   tAF_.set_acquireCamName(REGULAR_DIGCAM);
-   //tAF_.set_acquireCamName(ZOOM_DIGCAM);		//********************  use this for real ops
+   //tAF_.set_acquireCamName(WEBCAM);
+   tAF_.set_acquireCamName(ZOOM_DIGCAM);		//********************  use this for real ops
    tAF_.set_camCommand("capture");
    tAF_.set_firstTarget(true);
    tAF_.set_homeTarget(false);
@@ -937,18 +974,14 @@ void on_enter_CheckLinedUpState()
 int on_update_CheckLinedUpState()
 {    
    tAF_.update();
-   if (tAF_.current_state() != tAF_.getAcquireDoneState()) return CheckLinedUpState_;  // check to see if the image got analyzed 
-          
-   bool targetFound = false;
-   if (centerX_ > 0)
+   if (tAF_.current_state() != tAF_.getAcquireDoneState())
    {
-      cout << "possible target found: x, y, range = " << centerX_ << ", " << centerY_ << ", " << targetRange_ << endl;
-      targetFound= true;
+   	//ros::spinOnce();
+   	return CheckLinedUpState_;  // check to see if the image got analyzed 
    }
-   else
-   {
-      cout << "no target found yet" << endl;
-   }  
+          
+   if (centerX_ > 0) cout << "possible target found: x, y, range = " << centerX_ << ", " << centerY_ << ", " << targetRange_ << endl;
+   else cout << "no target found yet" << endl; 
    
    cout << "Do you want to move on to autonomous ops or retry LineUp?" << endl;
    if (askUser())
@@ -956,19 +989,20 @@ int on_update_CheckLinedUpState()
      	currentSection_ = FIRST_TARGET;
      	centerX_ = totalX_ / 2; // we have manually centered the robot, we do not want it to turn!
      	
-     	//return MoveToFirstTargetState_; //********************  use this for real ops
+     	return MoveToFirstTargetState_; //********************  use this for real ops
      	// comment out the section below for real  ops *************************************
-     	if (targetFound) return MoveToFirstTargetState_;
-   	else
-   	{
+     	
+/*
    		centerX_ = -1;
-   		return SearchForFirstTargetState_;  
-   	}
+   		triedZoomDigcamAlready_ = true;
+   		approxRangeToTarget_ = 1.9;
+   		return SearchForFirstTargetState_; 
+*/ 
    }
    
    // decided to try again, so we will capture an image using fsm
-   tAF_.set_acquireCamName(REGULAR_DIGCAM);
-   //tAF_.set_acquireCamName(ZOOM_DIGCAM);			//********************  use this for real ops
+   //tAF_.set_acquireCamName(WEBCAM);
+   tAF_.set_acquireCamName(ZOOM_DIGCAM);			//********************  use this for real ops?
    tAF_.set_camCommand("capture");
    tAF_.set_firstTarget(true);
    tAF_.set_homeTarget(false);
@@ -991,14 +1025,14 @@ void on_enter_PhaseTwoFirstState()
 	
 	if (fabs(targetAngle) > 5. && fabs(targetAngle) < 60.)
 	{
-		tAF_.set_pan(targetAngle);
-		currentPan_ = targetAngle;
-		tAF_.set_tilt(0);
+		tAF_.set_servoDegrees(targetAngle);
+		currentServoDegrees_ = targetAngle;
+		//tAF_.set_tilt(0);
 		tAF_.set_state(tAF_.getMoveCameraState());         		   
 		while (tAF_.current_state() != tAF_.getAcquireDoneState()) 
 		{
 		tAF_.update();
-		ros::spinOnce();
+		//ros::spinOnce();
 		}
 	}
 	// capture an image
@@ -1018,11 +1052,15 @@ int on_update_PhaseTwoFirstState()
 {
    tAF_.update();
    //cout << "current acquire target state = " << tAF_.current_state() << endl;
-   if (tAF_.current_state() != tAF_.getAcquireDoneState()) return PhaseTwoFirstState_;  // check to see if the image got analyzed 
+   if (tAF_.current_state() != tAF_.getAcquireDoneState())
+   {
+   	//ros::spinOnce();
+   	return PhaseTwoFirstState_;  // check to see if the image got analyzed 
+   }
 
    searchCounter_ = 0;
-   tAF_.set_pan(0);
-	tAF_.set_tilt(0);
+   tAF_.set_servoDegrees(0);
+	//tAF_.set_tilt(0);
 	tAF_.set_state(tAF_.getMoveCameraState());
 	while (tAF_.current_state() != tAF_.getAcquireDoneState()) 
 	{
@@ -1034,10 +1072,11 @@ int on_update_PhaseTwoFirstState()
    {
       cout << "possible target found: x, y, range = " << centerX_ << ", " << centerY_ << ", " << targetRange_ << endl;
       triedZoomDigcamAlready_ = false;
+      triedRegularDigcamAlready_ = false;
       return MoveToFirstTargetState_;
    }
    // did not see a target, so go to the usual procedure
-   currentPan_ = 0.;
+   currentServoDegrees_ = 0.;
 	return CheckFirstTargetState_;
 }
 
@@ -1055,7 +1094,7 @@ void on_enter_CheckFirstTargetState()
 		tAF_.set_state(tAF_.getCaptureImageState());
 		
    }
-   else if (approxRangeToTarget_ > 10.)  // too far for webcam
+   else if (!triedRegularDigcamAlready_) //approxRangeToTarget_ > WEBCAM_DISTANCE_LIMIT)  // too far for webcam
    {
    	tAF_.set_acquireCamName(REGULAR_DIGCAM);
    	lastCamName_ = REGULAR_DIGCAM;
@@ -1082,11 +1121,12 @@ int on_update_CheckFirstTargetState()
    {
       cout << "possible target found: x, y, range = " << centerX_ << ", " << centerY_ << ", " << targetRange_ << endl;
       triedZoomDigcamAlready_ = false;
+      triedRegularDigcamAlready_ = false;
       searchCounter_ = 0;
-      if (fabs(currentPan_) > 0)
+      if (fabs(currentServoDegrees_) > 0)
       {
-		   tAF_.set_pan(0);
-			tAF_.set_tilt(0);
+		   tAF_.set_servoDegrees(0);
+			//tAF_.set_tilt(0);
 			tAF_.set_state(tAF_.getMoveCameraState());
 			while (tAF_.current_state() != tAF_.getAcquireDoneState()) 
 			{
@@ -1106,12 +1146,20 @@ int on_update_CheckFirstTargetState()
 // we did not see the target in the camera image, so we need to move the camera and look again
 void on_enter_SearchForFirstTargetState()
 {
-      deltaPan_ = -deltaPan_; // switch directions each time
-		currentPan_ += deltaPan_ * searchCounter_;
-		if (abs(currentPan_) > PAN_CAMERA_SEARCH_MAX)
+/*
+   		centerX_ = -1;
+   		triedZoomDigcamAlready_ = true;
+   		approxRangeToTarget_ = 1.9; //WEBCAM_DISTANCE_LIMIT - 0.3;
+ */  		
+//**********************************************************just for webcam tests  ******************************************************************** 		
+   		
+   		
+      deltaServoDegrees_ = -deltaServoDegrees_; // switch directions each time
+		currentServoDegrees_ += deltaServoDegrees_ * searchCounter_;
+		if (abs(currentServoDegrees_) > PAN_CAMERA_SEARCH_MAX)
 		{
-		   tAF_.set_pan(0);
-		   tAF_.set_tilt(0);
+		   tAF_.set_servoDegrees(0);
+		   //tAF_.set_tilt(0);
 		   tAF_.set_state(tAF_.getMoveCameraState());         		   
 		   while (tAF_.current_state() != tAF_.getAcquireDoneState()) 
 		   {
@@ -1119,17 +1167,20 @@ void on_enter_SearchForFirstTargetState()
    			ros::spinOnce();
 		   }
 		   
-		   if (triedZoomDigcamAlready_) return; // no camera sees the target, so center the camera and then move ahead a bit
+		   if (triedZoomDigcamAlready_ && triedRegularDigcamAlready_)
+			{
+				cout << "no camera sees a target in SeachForFirstTargetState" << endl;		   
+				return; // no camera sees the target, so center the camera and then move ahead a bit
+			
+			}
 		   
 		   // move on to the next camera
+		   if (triedZoomDigcamAlready_) triedRegularDigcamAlready_ = true;
 		   triedZoomDigcamAlready_ = true;
 		   searchCounter_ = 0;
-		   currentPan_ = 0;
+		   currentServoDegrees_ = 0;
 		}
 		
-		searchCounter_++;
-		tAF_.set_pan(currentPan_);
-		tAF_.set_tilt(0);
 		
 		if (!triedZoomDigcamAlready_)
 		{		
@@ -1137,25 +1188,64 @@ void on_enter_SearchForFirstTargetState()
 			tAF_.set_acquireCamName(ZOOM_DIGCAM);
 		}
 		
-		else if (approxRangeToTarget_ > 15.)	// too far for webcam
+		else if (!triedRegularDigcamAlready_) //approxRangeToTarget_ > WEBCAM_DISTANCE_LIMIT)	// too far for webcam
 		{
 			tAF_.set_servoNumber(DIGCAM_PAN);
 			tAF_.set_acquireCamName(REGULAR_DIGCAM);	
 		}	
-		else
+		else		// we will use the webcam
 		{
-			tAF_.set_servoNumber(FRONT_WEBCAM_PAN);
+			cout << "using webcam in SearchForFirstTarge, approximateRangeToTarget = " << approxRangeToTarget_ << endl;
 			tAF_.set_acquireCamName(WEBCAM);
+			// first set tilt
+			if (approxRangeToTarget_ > TARGET_DISTANCE_FOR_WEBCAM_TILT_DOWN)
+			{
+				if (webcamTilt_ == WEBCAM_TILT_DOWN)
+				{
+					cout << "tilting webcam up to be level" << endl;
+					tAF_.set_servoNumber(FRONT_WEBCAM_TILT);
+					webcamTilt_ = WEBCAM_TILT_LEVEL;
+					tAF_.set_servoDegrees(WEBCAM_TILT_LEVEL);
+					tAF_.set_state(tAF_.getMoveCameraState());
+					while (tAF_.current_state() != tAF_.getAcquireDoneState())
+   				{
+      				tAF_.update();
+      				ros::spinOnce();
+					}
+				}
+			}
+			else
+			{
+				if (webcamTilt_ == WEBCAM_TILT_LEVEL)
+				{
+					cout << "tilting webcam down" << endl;
+					tAF_.set_servoNumber(FRONT_WEBCAM_TILT);
+					webcamTilt_ = WEBCAM_TILT_DOWN;
+					tAF_.set_servoDegrees(WEBCAM_TILT_DOWN);
+					tAF_.set_state(tAF_.getMoveCameraState());
+					while (tAF_.current_state() != tAF_.getAcquireDoneState())
+   				{
+      				tAF_.update();
+      				ros::spinOnce();
+					}
+				}
+			}												
+			tAF_.set_servoNumber(FRONT_WEBCAM_PAN);			
 		}
+		
+		//proceed with pan
+		searchCounter_++;
+		tAF_.set_servoDegrees(currentServoDegrees_);
 		tAF_.set_state(tAF_.getMoveCameraState());		
 }
 
 int on_update_SearchForFirstTargetState()
 {
-   if (abs(currentPan_) > PAN_CAMERA_SEARCH_MAX)
+   if (abs(currentServoDegrees_) > PAN_CAMERA_SEARCH_MAX)
    {
-      currentPan_ = 0;
-      return MoveToFirstTargetState_; // can't find the target, so move ahead a bit 
+      currentServoDegrees_ = 0;
+      //return PauseState_;
+      return MoveToFirstTargetState_; // can't find the target, so move ahead a bit //*************************************
    }
    tAF_.update();
    if (tAF_.current_state() != tAF_.getAcquireDoneState()) return SearchForFirstTargetState_; // waiting for servo delay
@@ -1164,9 +1254,9 @@ int on_update_SearchForFirstTargetState()
 
 void on_enter_MoveToFirstTargetState()
 {
-   triedZoomDigcamAlready_ = false;
-   searchCounter_ = 0;
-   movementComplete_ = true;
+   triedZoomDigcamAlready_ = false; 
+   triedRegularDigcamAlready_ = false;
+   movementComplete_ = false;
    moving_ = false;
    turning_ = false;
 }
@@ -1188,7 +1278,8 @@ int on_update_MoveToFirstTargetState()
    
    if (moving_)	//  move is complete
    {	      	      
-		
+		moving_ = false;
+		movementComplete_ = false;
 		if (centerX_ < 0)	// we did not have a target, just moved forward with hope
 		{
 		   if (movementResult_.find("done") != string::npos)
@@ -1204,8 +1295,12 @@ int on_update_MoveToFirstTargetState()
 		   	{
 		   		totalMoveToFirstTarget_ += INCREMENTAL_MOVE_TO_TARGET;	
 		   		if (approxRangeToTarget_ > INCREMENTAL_MOVE_TO_TARGET) approxRangeToTarget_ -= INCREMENTAL_MOVE_TO_TARGET;	
-		   		else approxRangeToTarget_ = 0.;
-		   		ROS_INFO("blind incremental move completed in MoveToFirstTargetState");
+		   		else
+		   		{
+		   			cout << "approxRangeToTarget is negative, it = " << approxRangeToTarget_ << ", so we are setting it to = 10. " << endl;
+		   			approxRangeToTarget_ = 10.;
+		   		}
+		   		ROS_INFO("blind incremental move completed in MoveToFirstTargetState, approxRangeToTarget ");
 		   	}
 		   	return CheckFirstTargetState_; // move succeeded, see if we can image the target
 		   }
@@ -1213,7 +1308,7 @@ int on_update_MoveToFirstTargetState()
 		   {
 		      firstMoveToFirstTarget_ = false;
 		      previousState_ = MoveToFirstTargetState_; // come back to here when we have recovered movement
-		      ROS_INFO("blind move failed in MoveToFirstTargetState, going to recover state");
+		      ROS_INFO("move failed in MoveToFirstTargetState, going to recover state");
 		      return MoveToRecoverState_;   // the move failed for some reason, so we have to see what's up
 		   }
 		}
@@ -1229,15 +1324,16 @@ int on_update_MoveToFirstTargetState()
    if (centerX_ < 0) // we don't have a target in view yet, so we will just move forward a bit
    {    
       // if this is the very first move, it should be a long one
-      //if (firstMoveToFirstTarget_)
-     // {
-     // 	firstMoveToFirstTarget_ = false;
-     // 	msg.distance = approxRangeToTarget_ - FIRST_MOVE_REMAINING_DISTANCE;
-     // }
-      //else
-      msg.distance = INCREMENTAL_MOVE_TO_TARGET;
-      msg.command = "move";      
+      if (firstMoveToFirstTarget_)
+      {
+      	firstMoveToFirstTarget_ = false;
+      	msg.distance = approxRangeToTarget_ - FIRST_MOVE_REMAINING_DISTANCE;
+      }
+      else msg.distance = INCREMENTAL_MOVE_TO_TARGET;
+//		msg.command = "move";      // think about which one to use for real ops **************************
+      msg.command = "autoMove";
       msg.angle = 0.;
+      msg.distance = 1000.;	//*********************************************delete
       moving_ = true;
       movement_pub_.publish(msg);
       movementComplete_ = false;
@@ -1255,8 +1351,8 @@ int on_update_MoveToFirstTargetState()
 		else if (lastCamName_ == ZOOM_DIGCAM) offsetX_ *= ZOOM_DIGCAM_FOV;
 		else offsetX_ = 0.;
 		cout << "center offset degrees = " << offsetX_ << endl;
-		double servoOffset = currentPan_;
-		currentPan_ = 0.;	// the servos were centered earlier, but we waited to reset currentPan_ so we could use it here
+		double servoOffset = currentServoDegrees_;
+		currentServoDegrees_ = 0.;	// the servos were centered earlier, but we waited to reset currentServoDegrees_ so we could use it here
 		cout << "servo offset degrees = " << servoOffset << endl;
 		//double offsetY = ((double) (totalY_ - centerY_)) / ((double) totalY_);
 		offsetX_ += servoOffset;
@@ -1308,19 +1404,23 @@ int on_update_MoveToFirstTargetState()
 	   //msg.poseThetaDegrees = 0.; //plat1_Yaw * (3.14/180.);
 
 	 }
+	 	
 
-	else if (range_ > 20.)
+	else	*/
+	 if (range_ > 20.)
 	{
-	   msg.command = "move";
-	   msg.distance = 10.;
+	   msg.command = "autoMove";
+	   msg.distance = 10000.;
+	   msg.speed = 200; 
 	   approxRangeToTarget_ -= 10.;
 	   ROS_INFO("moving forward 10m");
 	}
 		
 	else if (range_ > 10.)
 	{
-	   msg.command = "move";
-	   msg.distance = 5.0;
+	   msg.command = "autoMove";
+	   msg.distance = 5000.;
+	   msg.speed = 200; 
 	   approxRangeToTarget_ -= 5.;
 	   ROS_INFO("moving forward 5m");
 	}
@@ -1334,9 +1434,7 @@ int on_update_MoveToFirstTargetState()
 	   ROS_INFO("auto moving forward 3m");
 	}     
 	
-	else 
-	*/
-	if (range_ > 3.)
+	else if (range_ > 3.)
 	{	   
 	   msg.command = "autoMove";
 		msg.distance = 1000;	// mm
@@ -1360,10 +1458,10 @@ int on_update_MoveToFirstTargetState()
 	
    
    msg.angle = 0.;
-   movement_pub_.publish(msg);
+	movement_pub_.publish(msg);
    moving_ = true;
    movementComplete_ = false;   
-   return MoveToFirstTargetState_;
+   return PauseState_; //MoveToFirstTargetState_;
 }
 
 /*
@@ -1583,7 +1681,7 @@ int on_update_PhaseOneHomeState()
 	// now look at radar and dirAnt data
 	outdoor_bot::dirAnt_msg dirAntMsg;
 	dirAntMsg.antennaCommand = 1;		// sweep antenna to find max direction.  Note that this takes the arduino about a second
-	dirAntMsg.antennaPan = 127;
+	dirAntMsg.antennaPan = 0;
 	dirAnt_pub_.publish(dirAntMsg);
 	// now, after a while, the directional antenna data should show up and we can get it from Robot Pose's service
 	return CheckHomeState_;
@@ -1638,12 +1736,12 @@ int on_update_CheckHomeState()
 // we did not see the target in the camera image, so we need to move the camera and look again
 void on_enter_SearchForHomeState()
 {
-   	deltaPan_ = -deltaPan_; // switch directions each time
-		currentPan_ += deltaPan_ * searchCounter_;
-		if (abs(currentPan_) > PAN_CAMERA_SEARCH_MAX) return; // can't find the target, so center the camera and then move ahead a bit
+   	deltaServoDegrees_ = -deltaServoDegrees_; // switch directions each time
+		currentServoDegrees_ += deltaServoDegrees_ * searchCounter_;
+		if (abs(currentServoDegrees_) > PAN_CAMERA_SEARCH_MAX) return; // can't find the target, so center the camera and then move ahead a bit
 		searchCounter_++;
-		tAF_.set_pan(currentPan_);
-		tAF_.set_tilt(0);
+		tAF_.set_servoDegrees(currentServoDegrees_);
+		//tAF_.set_tilt(0);
 		
 		tAF_.set_servoNumber(DIGCAM_PAN);
 		tAF_.set_acquireCamName(REGULAR_DIGCAM);
@@ -1652,7 +1750,7 @@ void on_enter_SearchForHomeState()
 
 int on_update_SearchForHomeState()
 {
-   if (abs(currentPan_) > PAN_CAMERA_SEARCH_MAX)
+   if (abs(currentServoDegrees_) > PAN_CAMERA_SEARCH_MAX)
    {
       return HeadForHomeState_; // can't find the target, so move ahead a bit 
    }
@@ -1663,13 +1761,13 @@ int on_update_SearchForHomeState()
 
 void on_enter_HeadForHomeState()
 {
-   if ((lastCamName_ == REGULAR_DIGCAM || lastCamName_ == ZOOM_DIGCAM ) && abs(currentPan_) > 0.1) // need to put digcam servo back to the center
+   if ((lastCamName_ == REGULAR_DIGCAM || lastCamName_ == ZOOM_DIGCAM ) && abs(currentServoDegrees_) > 0.1) // need to put digcam servo back to the center
    {
 	   searchCounter_ = 0;
-	   tAF_.set_pan(0);
-	   tAF_.set_tilt(0);
+	   tAF_.set_servoDegrees(0);
+	   //tAF_.set_tilt(0);
 	   tAF_.set_state(tAF_.getMoveCameraState());	
-	   if (abs(currentPan_) > PAN_CAMERA_SEARCH_MAX) currentPan_ = 0;	// we don't want to center on this servo pan setting   
+	   if (abs(currentServoDegrees_) > PAN_CAMERA_SEARCH_MAX) currentServoDegrees_ = 0;	// we don't want to center on this servo pan setting   
 	} 
 	triedWebcamAlready_ = false;
 	moving_ = false;
@@ -1711,8 +1809,8 @@ int on_update_HeadForHomeState()
    	else if (lastCamName_ == ZOOM_DIGCAM) offsetX_ *= ZOOM_DIGCAM_FOV;
    	else offsetX_ = 0.;
    	cout << "center offset degrees = " << offsetX_ << endl;
-   	double servoOffset = currentPan_;
-   	currentPan_ = 0.;	// the servos were centered earlier, but we waited to reset currentPan_ so we could use it here
+   	double servoOffset = currentServoDegrees_;
+   	currentServoDegrees_ = 0.;	// the servos were centered earlier, but we waited to reset currentServoDegrees_ so we could use it here
    	cout << "servo offset degrees = " << servoOffset << endl;
    	//double offsetY = ((double) (totalY_ - centerY_)) / ((double) totalY_);
    	offsetX_ += servoOffset;
@@ -2167,7 +2265,8 @@ int main(int argc, char* argv[])
    move_complete_sub_ = nh.subscribe("movement_complete", 4, moveCompleteCallback);
    pause_sub_ = nh.subscribe("pause_state", 4, pauseCallback);
    //image_sent_ = nh.subscribe("digcam_file", 50, imageSentCallback);
-   targetImageReceived_sub_ = nh.subscribe("target_image_received", 5, targetImageReceivedCallback);
+   mainTargetImageReceived_sub_ = nh.subscribe("main_target_image_received", 5, mainTargetImageReceivedCallback);
+   navTargetImageReceived_sub_ = nh.subscribe("nav_target_image_received", 5, navTargetImageReceivedCallback);
    radar_sub_ = nh.subscribe("radar", 5, radarCallback);
    userDesignatedTargets_sub_ = nh.subscribe("user_commands", 2, userDesignatedTargetsCallback);
 
@@ -2191,7 +2290,7 @@ int main(int argc, char* argv[])
 
    while (nh.ok())
    {
-      //ros::spinOnce();
+      ros::spinOnce();
       struct timespec ts;
       ts.tv_sec = 0;
       ts.tv_nsec = 10000000;
@@ -2204,8 +2303,6 @@ int main(int argc, char* argv[])
    }
 
    cout << "all done" << endl;
-
-   ros::spin();
    return EXIT_SUCCESS;
 }
 
