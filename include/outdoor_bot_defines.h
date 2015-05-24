@@ -64,6 +64,7 @@
 #define LEFT_RADAR_HOME_DISTANCE 1.47	// when at home, distances in meters for radar rangers
 #define RIGHT_RADAR_HOME_DISTANCE 2.17
 #define CENTER_RADAR_HOME_DISTANCE 0.5
+#define RADAR_STAGING_POINT_DISTANCE 5.
 //#define MAP 0
 #define BOT 1
 //#define FINAL_RANGE 2.0  // now defined in just movement node
