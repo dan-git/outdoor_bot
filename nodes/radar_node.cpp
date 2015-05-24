@@ -5,7 +5,7 @@
 
 #define RADAR_WAIT_TIME 0.2
 #define HOME_RADAR_SEPARATION 1900. // distance between radars on home platform, in mm
-#define BOT_RADAR_SEPARATION 1092.
+#define BOT_RADAR_SEPARATION 1900. // 1092. //*****************************************change for real ops, this is just to do some sim tests********************************
 
 #define STAGING_POINT_DISTANCE 5000. // in mm
 using namespace std;
@@ -266,13 +266,13 @@ void testDataRadarRanges()
    ros::Time current_time = ros::Time::now();
    
    // radar data sim
-	double leftHomeRadarLocation_X =  0., leftHomeRadarLocation_Y =  0., rightHomeRadarLocation_X =  0., rightHomeRadarLocation_Y =  1.900;
+	double leftHomeRadarLocation_X =  0., leftHomeRadarLocation_Y =  0., rightHomeRadarLocation_X =  0., rightHomeRadarLocation_Y = leftHomeRadarLocation_Y + HOME_RADAR_SEPARATION;
 
 	// 10 meters away, centered, facing
-	double leftBotRadarLocation_X =  20.;
-	double leftBotRadarLocation_Y =  0.; //0.405;
-	double rightBotRadarLocation_X =  20.;
-	double rightBotRadarLocation_Y =  1.9; //1.495;
+	double leftBotRadarLocation_X =  20000.;
+	double leftBotRadarLocation_Y =  (HOME_RADAR_SEPARATION - BOT_RADAR_SEPARATION) / 2.;
+	double rightBotRadarLocation_X =  20000.;
+	double rightBotRadarLocation_Y =  leftBotRadarLocation_Y + BOT_RADAR_SEPARATION;
 
 	distanceFromLeftToLeft_ = 
 		sqrt((leftBotRadarLocation_X - leftHomeRadarLocation_X) * (leftBotRadarLocation_X - leftHomeRadarLocation_X)
@@ -291,16 +291,7 @@ void testDataRadarRanges()
 		+ (rightBotRadarLocation_Y - rightHomeRadarLocation_Y) * (rightBotRadarLocation_Y - rightHomeRadarLocation_Y));  
 		
 	cout << "distanceFromLeftToLeft_, distanceFromLeftToRight_ = " << distanceFromLeftToLeft_ << ", " << distanceFromLeftToRight_ << endl;
-	cout << "distanceFromRightToLeft_, distanceFromRightToRight_ = " << distanceFromRightToLeft_ << ", " << distanceFromRightToRight_ << endl;
-	
-	/*
-	// 20 meters away, facing the robot, with actual radar seps (1900 base and 1092 bot)
-   distanceFromLeftToLeft_ = 20.024.;
-	distanceFromLeftToRight_ = 20.100.;
-	distanceFromRightToLeft_ = 20.100.;
-	distanceFromRightToRight_ = 20.024.;
-	*/
-	
+	cout << "distanceFromRightToLeft_, distanceFromRightToRight_ = " << distanceFromRightToLeft_ << ", " << distanceFromRightToRight_ << endl;	
 	
 	last_time = ros::Time::now();
 	while ( current_time.toSec() - last_time.toSec() < RADAR_WAIT_TIME) current_time = ros::Time::now();
