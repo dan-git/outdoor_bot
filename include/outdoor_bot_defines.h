@@ -26,6 +26,7 @@
 #define FRONT_WEBCAM_TILT_LEVEL 127 // this is where the camera points level
 #define SERVO_MIN 0
 #define SERVO_MAX 254
+#define PAN_SWEEP_FAIL -1000.	// if a max direction is not found, then it returns with this value
 //#define SERVO_UNITS_TO_DEGREES_RATIO 1.27 // about 200 degrees coverage with a 0 - 254 range of units
 
 

@@ -1,6 +1,6 @@
 
 ---
-int32 dirAntMaxDir
-int32 dirAntMaxTilt
+int32 dirAntMaxAngle
+int32 dirAntSweepNumber
 int32 dirAntLevel
 

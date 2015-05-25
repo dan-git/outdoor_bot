@@ -10,6 +10,7 @@
 #include "outdoor_bot/mainTargetsCommand_msg.h"
 #include "outdoor_bot/radar_msg.h"
 #include "outdoor_bot/dirAnt_msg.h"
+#include "outdoor_bot/dirAnt_service.h"
 #include "outdoor_bot/accelerometers_service.h"
 #include "outdoor_bot/setPose_service.h"
 //#include "outdoor_bot/encoders_service.h"
@@ -63,7 +64,7 @@ using namespace std;
 #define WEBCAM_TILT_DOWN -30.	// degrees to point webcam down when the target is close
 #define WEBCAM_TILT_LEVEL 0.
 
-ros::ServiceClient NavTargets_client_, accelerometers_client_; //, encoders_client_; //, mainTargets_client_, mainTargetsCheckImage_client_;
+ros::ServiceClient NavTargets_client_, accelerometers_client_, dirAnt_client_; //, encoders_client_; //, mainTargets_client_, mainTargetsCheckImage_client_;
 ros::ServiceClient setPose_client_; //digcams_client_, 
 ros::Publisher digcam_pub_, movement_pub_, webcam_pub_, mainTargetsCommand_pub_, NavTargetsCommand_pub_, servo_pub_, dirAnt_pub_; //, pmotor_pub_;
 ros::Subscriber home_center_sub_, mainTargetImageReceived_sub_, navTargetImageReceived_sub_, target_center_sub_, move_complete_sub_, radar_sub_;
@@ -98,6 +99,7 @@ double startTime_, totalTime_, secondsRemaining_;
 double userCmdDistance_[32], userCmdTurn_[32], userCmdSpeed_[32], userCmdPickup_[32];
 int userCmdNumDataValues_, currentUserCommandNumber_, userCmdReturnSection_;
 bool userCommandReceived_;
+int dirAntMaxAngle_, dirAntSweepNumber_, dirAntLevel_, usingDirAnt_;
 bool currentSection_;
 
 
@@ -862,6 +864,7 @@ void on_enter_BootupState()
    radarGoodAngle_ = false;
    pastStagingPoint_ = false;  
 	usingRadar_ = false;
+	usingDirAnt_ = false;
    platformXPose_[0] = plat1_X;
    platformXPose_[1] = plat2_X;
    platformXPose_[2] = plat3_X;
@@ -905,6 +908,7 @@ int on_update_BootupState()
 	   if (pauseCommanded_) return PauseState_;
 	   
 	   usingRadar_ = true;			//***************************************** delete for real ops **************************8
+	   usingDirAnt_ = true;			// ************************************************************************
    	return HeadForHomeState_; //CheckLinedUpState_; //***********************************************8
    }
    if (pauseCommanded_) return PauseState_;
@@ -1695,6 +1699,46 @@ int on_update_PickupTargetState()
    return PickupTargetState_;
 }		
 
+bool updateDirectionalAntenna()
+{      	
+	outdoor_bot::dirAnt_msg dirAntMsg;
+	dirAntMsg.antennaCommand = 1;		// sweep antenna to find max direction.  Note that this takes the arduino about a second
+	dirAntMsg.antennaPan = 0;
+	dirAnt_pub_.publish(dirAntMsg);
+	
+	// we have to wait because the sweeping occupies the arduino and we don't want to send servo or move commands while that is going on
+	outdoor_bot::dirAnt_service::Request req;
+   outdoor_bot::dirAnt_service::Response resp;
+   int timeOut = 0;
+   int previousDirAntSweepNumber = dirAntSweepNumber_;
+   while (dirAntSweepNumber_ == previousDirAntSweepNumber && timeOut < 500 ) // wait until sweepNumber updates or we timeout at 5 seconds
+   {
+		bool success = dirAnt_client_.call(req,resp);
+		if (success)
+		{
+			dirAntMaxAngle_ = resp.dirAntMaxAngle;
+			dirAntSweepNumber_ = resp.dirAntSweepNumber;
+			dirAntLevel_ = resp.dirAntLevel; 
+		}
+		else
+		{
+			cout << "directional antenna service failed" << endl;
+			return false;
+		}
+		// no reason to check more frequently than the arduino sends data, so we can wait a bit
+		ros::Time last_time = ros::Time::now(), current_time = ros::Time::now();
+		while ( current_time.toSec() - last_time.toSec() < 0.02) 
+		{
+			ros::spinOnce();
+			current_time = ros::Time::now(); // delay a bit
+		}
+		timeOut++;
+	}	
+	if (timeOut >= 500) return false;
+	cout << "directional antenna: maxDir, level, sweep number = " << dirAntMaxAngle_ << ", " << dirAntLevel_ << ", " << dirAntSweepNumber_ << endl;
+	return true;
+}	
+   
 void on_enter_PhaseOneHomeState()
 {
 //	movementComplete_ = true;	**************************************** real ops
@@ -1711,11 +1755,7 @@ int on_update_PhaseOneHomeState()
 {
 	if (!movementComplete_) return PhaseOneHomeState_;
 	// now look at radar and dirAnt data
-	outdoor_bot::dirAnt_msg dirAntMsg;
-	dirAntMsg.antennaCommand = 1;		// sweep antenna to find max direction.  Note that this takes the arduino about a second
-	dirAntMsg.antennaPan = 0;
-	dirAnt_pub_.publish(dirAntMsg);
-	// now, after a while, the directional antenna data should show up and we can get it from Robot Pose's service
+	usingDirAnt_ = updateDirectionalAntenna();
 	return CheckHomeState_;
 }
 
@@ -1862,6 +1902,12 @@ int on_update_HeadForHomeState()
    	if ((!turning_) && (!alreadyTurned_) && (!pastStagingPoint_))
    	{
    		// send turn command to center the target
+   		if (usingDirAnt_) usingDirAnt_ = updateDirectionalAntenna();
+   		if (usingDirAnt_)
+   		{
+   			cout << "compare directional antenna angle = " <<  dirAntMaxAngle_ << " to radar angle = " <<  angleToHomeRadar_ << endl;
+   		}
+				
    		alreadyTurned_ = true;
    		if (distanceToHomeRadar_ > RADAR_STAGING_POINT_DISTANCE * 2 && (!pastStagingPoint_)) msg.angle = angleToRadarStagingPoint_;
    		else msg.angle = angleToHomeRadar_;
@@ -2436,7 +2482,8 @@ int main(int argc, char* argv[])
    webcam_pub_ = nh.advertise<outdoor_bot::webcams_custom>("webcam_cmd", 25);
    digcam_pub_ = nh.advertise<outdoor_bot::digcams_custom>("digcam_cmd", 25);
    servo_pub_ = nh.advertise<outdoor_bot::servo_msg>("servo_cmd", 5);
-   dirAnt_pub_ = nh.advertise<outdoor_bot::dirAnt_msg>("dirAnt_cmd", 5);   
+   dirAnt_pub_ = nh.advertise<outdoor_bot::dirAnt_msg>("dirAnt_cmd", 5);  
+   dirAnt_client_ = nh.serviceClient<outdoor_bot::dirAnt_service>("dirAnt_service"); 
    //pmotor_pub_ = nh.advertise<outdoor_bot::pmotor_msg>("pmotor_cmd", 5);
    movement_pub_ = nh.advertise<outdoor_bot::movement_msg>("movement_command", 2);
    mainTargetsCommand_pub_ = nh.advertise<outdoor_bot::mainTargetsCommand_msg>("mainTargets_cmd", 25);

@@ -92,17 +92,17 @@ import struct
 
 
 class dirAnt_serviceResponse(genpy.Message):
-  _md5sum = "aa916373c3c94d1c574bd57c0663864d"
+  _md5sum = "2de9c58725992ad43998b79cf0d27640"
   _type = "outdoor_bot/dirAnt_serviceResponse"
   _has_header = False #flag to mark the presence of a Header object
-  _full_text = """int32 dirAntMaxDir
-int32 dirAntMaxTilt
+  _full_text = """int32 dirAntMaxAngle
+int32 dirAntSweepNumber
 int32 dirAntLevel
 
 
 
 """
-  __slots__ = ['dirAntMaxDir','dirAntMaxTilt','dirAntLevel']
+  __slots__ = ['dirAntMaxAngle','dirAntSweepNumber','dirAntLevel']
   _slot_types = ['int32','int32','int32']
 
   def __init__(self, *args, **kwds):
@@ -113,7 +113,7 @@ int32 dirAntLevel
     changes.  You cannot mix in-order arguments and keyword arguments.
 
     The available fields are:
-       dirAntMaxDir,dirAntMaxTilt,dirAntLevel
+       dirAntMaxAngle,dirAntSweepNumber,dirAntLevel
 
     :param args: complete set of field values, in .msg order
     :param kwds: use keyword arguments corresponding to message field names
@@ -122,15 +122,15 @@ int32 dirAntLevel
     if args or kwds:
       super(dirAnt_serviceResponse, self).__init__(*args, **kwds)
       #message fields cannot be None, assign default values for those that are
-      if self.dirAntMaxDir is None:
-        self.dirAntMaxDir = 0
-      if self.dirAntMaxTilt is None:
-        self.dirAntMaxTilt = 0
+      if self.dirAntMaxAngle is None:
+        self.dirAntMaxAngle = 0
+      if self.dirAntSweepNumber is None:
+        self.dirAntSweepNumber = 0
       if self.dirAntLevel is None:
         self.dirAntLevel = 0
     else:
-      self.dirAntMaxDir = 0
-      self.dirAntMaxTilt = 0
+      self.dirAntMaxAngle = 0
+      self.dirAntSweepNumber = 0
       self.dirAntLevel = 0
 
   def _get_types(self):
@@ -146,7 +146,7 @@ int32 dirAntLevel
     """
     try:
       _x = self
-      buff.write(_struct_3i.pack(_x.dirAntMaxDir, _x.dirAntMaxTilt, _x.dirAntLevel))
+      buff.write(_struct_3i.pack(_x.dirAntMaxAngle, _x.dirAntSweepNumber, _x.dirAntLevel))
     except struct.error as se: self._check_types(struct.error("%s: '%s' when writing '%s'" % (type(se), str(se), str(_x))))
     except TypeError as te: self._check_types(ValueError("%s: '%s' when writing '%s'" % (type(te), str(te), str(_x))))
 
@@ -160,7 +160,7 @@ int32 dirAntLevel
       _x = self
       start = end
       end += 12
-      (_x.dirAntMaxDir, _x.dirAntMaxTilt, _x.dirAntLevel,) = _struct_3i.unpack(str[start:end])
+      (_x.dirAntMaxAngle, _x.dirAntSweepNumber, _x.dirAntLevel,) = _struct_3i.unpack(str[start:end])
       return self
     except struct.error as e:
       raise genpy.DeserializationError(e) #most likely buffer underfill
@@ -174,7 +174,7 @@ int32 dirAntLevel
     """
     try:
       _x = self
-      buff.write(_struct_3i.pack(_x.dirAntMaxDir, _x.dirAntMaxTilt, _x.dirAntLevel))
+      buff.write(_struct_3i.pack(_x.dirAntMaxAngle, _x.dirAntSweepNumber, _x.dirAntLevel))
     except struct.error as se: self._check_types(struct.error("%s: '%s' when writing '%s'" % (type(se), str(se), str(_x))))
     except TypeError as te: self._check_types(ValueError("%s: '%s' when writing '%s'" % (type(te), str(te), str(_x))))
 
@@ -189,7 +189,7 @@ int32 dirAntLevel
       _x = self
       start = end
       end += 12
-      (_x.dirAntMaxDir, _x.dirAntMaxTilt, _x.dirAntLevel,) = _struct_3i.unpack(str[start:end])
+      (_x.dirAntMaxAngle, _x.dirAntSweepNumber, _x.dirAntLevel,) = _struct_3i.unpack(str[start:end])
       return self
     except struct.error as e:
       raise genpy.DeserializationError(e) #most likely buffer underfill
@@ -198,6 +198,6 @@ _struct_I = genpy.struct_I
 _struct_3i = struct.Struct("<3i")
 class dirAnt_service(object):
   _type          = 'outdoor_bot/dirAnt_service'
-  _md5sum = 'aa916373c3c94d1c574bd57c0663864d'
+  _md5sum = '2de9c58725992ad43998b79cf0d27640'
   _request_class  = dirAnt_serviceRequest
   _response_class = dirAnt_serviceResponse

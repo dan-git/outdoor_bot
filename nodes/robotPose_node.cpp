@@ -87,7 +87,7 @@ double accelX, accelY, accelZ;
 double velocityLeft, velocityRight, dtROS_ = 0.02;
 long EncoderTicksRight = 0, EncoderTicksLeft = 0, previousEncoderTicksRight = 0, previousEncoderTicksLeft = 0;
 long EncoderPickerUpper = 0, EncoderBinShade = 0, EncoderDropBar = 0, EncoderExtra = 0;
-int battery, pauseState = 0, dirAntMaxDir = 0, dirAntMaxTilt = 0,  dirAntLevel = 0;
+int battery, pauseState = 0, dirAntMaxAngle = 0, dirAntSweepNumber = 0,  dirAntLevel = 0;
 unsigned long arduinoCycleTime, arduinoDataCounter;
 bool firstTime = true, radarDataEnabled_ = true;
 bool pauseStateSent_ = false, releaseStateSent_ = false;
@@ -451,11 +451,11 @@ void parseNavData(std::string data)
   accelZ = atof(navDataBuffer[8].c_str());
   battery = atof(navDataBuffer[9].c_str());
   pauseState = atof(navDataBuffer[10].c_str());
-  dirAntMaxDir = atof(navDataBuffer[11].c_str());
-  //dirAntMaxTilt = atof(navDataBuffer[12].c_str());
-  dirAntLevel = atof(navDataBuffer[12].c_str());
-  arduinoCycleTime = atof(navDataBuffer[13].c_str());
-  arduinoDataCounter = atof(navDataBuffer[14].c_str());
+  dirAntMaxAngle = atof(navDataBuffer[11].c_str());
+  dirAntSweepNumber = atof(navDataBuffer[12].c_str());
+  dirAntLevel = atof(navDataBuffer[13].c_str());
+  arduinoCycleTime = atof(navDataBuffer[14].c_str());
+  arduinoDataCounter = atof(navDataBuffer[15].c_str());
   // use this to check the timing of arduino data
   /*  ros::Time current_time = ros::Time::now();
     double dtROS_ = current_time.toSec() - local_last_time.toSec();
@@ -576,8 +576,8 @@ bool encoders_service_send(outdoor_bot::encoders_service::Request  &req, outdoor
 
 bool dirAnt_service_send(outdoor_bot::dirAnt_service::Request  &req, outdoor_bot::dirAnt_service::Response &res)
 {
-   res.dirAntMaxDir = dirAntMaxDir;
-   res.dirAntMaxTilt = dirAntMaxTilt;
+   res.dirAntMaxAngle = dirAntMaxAngle;
+   res.dirAntSweepNumber = dirAntSweepNumber;
    res.dirAntLevel = dirAntLevel;   
    return true;
 }
@@ -675,7 +675,11 @@ while(n.ok())
    //ts.tv_nsec = 1000000000;
    //nanosleep(&ts, NULL); // update every 1000 ms
 	current_time = ros::Time::now();
-	while ( current_time.toSec() - last_time.toSec() < 0.1) current_time = ros::Time::now(); // delay a bit
+	while ( current_time.toSec() - last_time.toSec() < 0.1) 
+	{
+		spinOnce();
+		current_time = ros::Time::now(); // delay a bit
+	}
 	last_time = ros::Time::now();
    sendOutNavData();
    //publishPose(x, y, yaw, vYaw, currentVelocity_);
