@@ -15,15 +15,15 @@ class radar
 
 private:
 
-	radarRanger leftRanger_, rightRanger_;
+	radarRanger leftRanger_, rightRanger_; 
 	double distanceFromLeftToLeft_, distanceFromLeftToRight_, distanceFromRightToLeft_, distanceFromRightToRight_;
 	double distanceToHome_, angleToHome_, botOrientation_;
 	double distanceToStagingPoint_, angleToStagingPoint_;
 
 public:
 	radar()
-		: leftRanger_("/dev/ttyRadar_103"),
-		  rightRanger_("/dev/ttyRadar_100"),
+		: leftRanger_("/dev/ttyRadar_100"),
+		  rightRanger_("/dev/ttyRadar_103"),
 		  distanceFromLeftToLeft_(0), distanceFromLeftToRight_(0.), distanceFromRightToLeft_(0.), distanceFromRightToRight_(0),
 		  distanceToHome_(0.),
 		  angleToHome_(0.),
