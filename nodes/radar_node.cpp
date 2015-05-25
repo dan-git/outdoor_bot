@@ -5,7 +5,7 @@
 
 #define RADAR_WAIT_TIME 0.2
 #define HOME_RADAR_SEPARATION 1900. // distance between radars on home platform, in mm
-#define BOT_RADAR_SEPARATION 1900. // 1092. //*****************************************change for real ops, this is just to do some sim tests********************************
+#define BOT_RADAR_SEPARATION 1092.
 
 #define STAGING_POINT_DISTANCE 5000. // in mm
 using namespace std;
@@ -264,15 +264,83 @@ void testDataRadarRanges()
 {  
 	ros::Time last_time;
    ros::Time current_time = ros::Time::now();
-   
-   // radar data sim
-	double leftHomeRadarLocation_X =  0., leftHomeRadarLocation_Y =  0., rightHomeRadarLocation_X =  0., rightHomeRadarLocation_Y = leftHomeRadarLocation_Y + HOME_RADAR_SEPARATION;
+	double leftHomeRadarLocation_X =  0., leftHomeRadarLocation_Y =  -HOME_RADAR_SEPARATION / 2.;
+	double rightHomeRadarLocation_X =  0., rightHomeRadarLocation_Y = leftHomeRadarLocation_Y + HOME_RADAR_SEPARATION;
+	double leftBotRadarLocation_X, leftBotRadarLocation_Y, rightBotRadarLocation_X, rightBotRadarLocation_Y;
+	
+	// calculated inputs
+	// convention is that x axis is perpendicular platform, Y axis is parallel to platform, consistent with ROS directions (X to move forward)
+	// ccw angles are positive, the angle being formed by the location of the platform as seen by the robot, so that
+	// the eventual angular output is the angle the robot has to turn to face the platform.
+	
+	double botDistance, botAngle, botOrientation;	
+	
+	// 20 meters away, centered, facing
+		//botDistance = 20000.;
+	
+	
+	// these come out correct
+	
+		//botAngle = 0.;
+		//botOrientation = 0.;
+	
+		//botAngle = 90.;
+		//botOrientation = 0.;
 
-	// 10 meters away, centered, facing
-	double leftBotRadarLocation_X =  20000.;
-	double leftBotRadarLocation_Y =  (HOME_RADAR_SEPARATION - BOT_RADAR_SEPARATION) / 2.;
-	double rightBotRadarLocation_X =  20000.;
-	double rightBotRadarLocation_Y =  leftBotRadarLocation_Y + BOT_RADAR_SEPARATION;
+		//botAngle = 0.;
+		//botOrientation = 90.;
+		
+		//botAngle = 45.;
+		//botOrientation = 0.;
+		
+		//botAngle = 0.;
+		//botOrientation = 45.;
+		
+		//botAngle = -90.;
+		//botOrientation = 0.;
+		
+		// this one has some round off error, about 3 degrees off
+		//botAngle = 0.;
+		//botOrientation = -90.;
+		
+		//botAngle = 0.;
+		//botOrientation = -45.;
+		
+		botAngle = -10.;
+		botOrientation = -45.;
+		
+	// we will try to sim some of the real-life failures
+	// from about 4 meters, angle of -10 degrees, orientation of about -45 degrees
+		botDistance = 3759.;
+		botAngle = -20.;
+		botOrientation = -30.;
+	
+	double angularPart_Y = cos(botOrientation / 57.3) * (BOT_RADAR_SEPARATION / 2.);
+	double angularPart_X = sin(botOrientation / 57.3) * (BOT_RADAR_SEPARATION / 2.);
+	
+	leftBotRadarLocation_X = (botDistance * cos(botAngle / 57.3)) - angularPart_X;
+	rightBotRadarLocation_X = (botDistance * cos(botAngle / 57.3)) + angularPart_X;
+	
+	leftBotRadarLocation_Y = (botDistance * sin(botAngle / 57.3)) - angularPart_Y;
+	rightBotRadarLocation_Y = (botDistance * sin(botAngle / 57.3)) + angularPart_Y;
+	
+	cout << "bot distance, angle, orientation = " << botDistance << ", " << botAngle << ", " << botOrientation << endl;
+
+	/*
+	// direct inputs
+	
+	// 20 meters away, centered, facing
+	leftBotRadarLocation_X =  20000.;
+	leftBotRadarLocation_Y =  (HOME_RADAR_SEPARATION - BOT_RADAR_SEPARATION) / 2.;
+	rightBotRadarLocation_X =  20000.;
+	rightBotRadarLocation_Y =  leftBotRadarLocation_Y + BOT_RADAR_SEPARATION;
+	
+	// 10 meters away, shifted the bot 10 meters left, facing
+	leftBotRadarLocation_X =  10000.;
+	leftBotRadarLocation_Y =  ((HOME_RADAR_SEPARATION - BOT_RADAR_SEPARATION) / 2.) - 10000.;
+	rightBotRadarLocation_X = 10000.;
+	rightBotRadarLocation_Y =  leftBotRadarLocation_Y + BOT_RADAR_SEPARATION;
+	*/
 
 	distanceFromLeftToLeft_ = 
 		sqrt((leftBotRadarLocation_X - leftHomeRadarLocation_X) * (leftBotRadarLocation_X - leftHomeRadarLocation_X)
@@ -289,9 +357,42 @@ void testDataRadarRanges()
 	distanceFromRightToRight_ = 
 		sqrt((rightBotRadarLocation_X - rightHomeRadarLocation_X) * (rightBotRadarLocation_X - rightHomeRadarLocation_X)
 		+ (rightBotRadarLocation_Y - rightHomeRadarLocation_Y) * (rightBotRadarLocation_Y - rightHomeRadarLocation_Y));  
-		
+
+	cout << "leftBotRadarLocation_X, leftBotRadarLocation_Y = " << leftBotRadarLocation_X << ", " << leftBotRadarLocation_Y << endl;
+	cout << "rightBotRadarLocation_X, rightBotRadarLocation_Y = " << rightBotRadarLocation_X << ", " << rightBotRadarLocation_Y << endl;		
 	cout << "distanceFromLeftToLeft_, distanceFromLeftToRight_ = " << distanceFromLeftToLeft_ << ", " << distanceFromLeftToRight_ << endl;
 	cout << "distanceFromRightToLeft_, distanceFromRightToRight_ = " << distanceFromRightToLeft_ << ", " << distanceFromRightToRight_ << endl;	
+	
+	// inputs from data
+	// robot distance, angle, orientation were approx 12m, -20, 0
+	//distanceFromLeftToLeft_ = 12391.;
+	//distanceFromLeftToRight_ = 11849.;
+	//distanceFromRightToLeft_ = 11813.;
+	//distanceFromRightToRight_ = 11378.;
+	//distanceToHome, angleToHome, Orientation = 11.8781 meters, -21.1842 degrees, -40.0866 degrees, with respect to the platform
+	//distanceToStagingPoint, angleToStagingPoint = 7.32894 meters, -8.41565 degrees
+
+
+	// from about 4 meters, angle of -10 degrees, orientation of about -45 degrees
+		
+	//distanceFromLeftToLeft_ = 3647.;
+	//distanceFromLeftToRight_ = 3381.;
+	//distanceFromRightToLeft_ = 4410.;
+	//distanceFromRightToRight_ = 3872.;	
+	// results:
+	// distanceToHome, angleToHome, Orientation = 3.75909 meters, 29.945 degrees, 7.66036 degrees, with respect to the platform
+	// distanceToStagingPoint, angleToStagingPoint = 2.08496 meters, 144.541 degrees
+
+	// from about 2 meters, turning the wrong way.  There is a video of this one
+	//distanceFromLeftToLeft_ = 1900.;
+	//distanceFromLeftToRight_ = 1460.;
+	//distanceFromRightToLeft_ = 2690.;
+	//distanceFromRightToRight_ = 1620.;	
+	// results:
+	//distanceToHome, angleToHome, Orientation = 1.7142 meters, 42.6093 degrees, 10.0115 degrees, with respect to the platform
+	//distanceToStagingPoint, angleToStagingPoint = 3.67375 meters, 175.466 degrees
+
+
 	
 	last_time = ros::Time::now();
 	while ( current_time.toSec() - last_time.toSec() < RADAR_WAIT_TIME) current_time = ros::Time::now();
