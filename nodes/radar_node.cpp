@@ -3,11 +3,20 @@
 #include "rcmRadar/radar.h"
 #include "outdoor_bot_defines.h"
 
+#define NUM_RADARS 3
+#define LEFT_RADAR_NUMBER 101
+#define RIGHT_RADAR_NUMBER 102
+#define CENTER_RADAR_NUMBER 100
+#define LEFT_RADAR_INDEX 0
+#define RIGHT_RADAR_INDEX 1
+#define CENTER_RADAR_INDEX 2
+#define LEFT_RADAR_HOME_DISTANCE 1.47	// when at home, distances in meters for radar rangers
+#define RIGHT_RADAR_HOME_DISTANCE 2.17
+
 #define RADAR_WAIT_TIME 0.2
 #define HOME_RADAR_SEPARATION 1900. // distance between radars on home platform, in mm
 #define BOT_RADAR_SEPARATION 1092.
 
-#define STAGING_POINT_DISTANCE 5000. // in mm
 using namespace std;
 
 class radar
@@ -119,9 +128,9 @@ void getLocation()
 	double angleN = 3.14 - (acos(cosAngleI) + botOrientation_);
 	double angleO = angleN - 1.57;
 	double distanceToStagingPointSquared = 
-		(STAGING_POINT_DISTANCE * STAGING_POINT_DISTANCE)
+		(RADAR_STAGING_POINT_DISTANCE * RADAR_STAGING_POINT_DISTANCE * 1000000.)
 		+ distanceFromCenterToCenterSquared
-		- (2.* cos(angleO) * STAGING_POINT_DISTANCE * distanceToHome_);
+		- (2.* cos(angleO) * RADAR_STAGING_POINT_DISTANCE * 1000. * distanceToHome_);
 		
 	double cosAngleToStagingPoint;
 	if (distanceToStagingPointSquared > 0.1)
@@ -130,7 +139,7 @@ void getLocation()
 		
 		cosAngleToStagingPoint = 
 		( (distanceToStagingPointSquared + distanceFromCenterToCenterSquared )
-		- (STAGING_POINT_DISTANCE * STAGING_POINT_DISTANCE) )
+		- (RADAR_STAGING_POINT_DISTANCE * RADAR_STAGING_POINT_DISTANCE * 1000000.) )
 		/ (2. * distanceToStagingPoint_ * distanceToHome_);
 		
 		angleToStagingPoint_ = (acos(cosAngleToStagingPoint) * 57.3) + angleToHome_;	// convert to degrees
@@ -306,14 +315,46 @@ void testDataRadarRanges()
 		//botAngle = 0.;
 		//botOrientation = -45.;
 		
-		botAngle = -10.;
-		botOrientation = -45.;
+		//botAngle = -10.;
+		//botOrientation = -45.;
 		
 	// we will try to sim some of the real-life failures
 	// from about 4 meters, angle of -10 degrees, orientation of about -45 degrees
-		botDistance = 3759.;
-		botAngle = -20.;
-		botOrientation = -30.;
+		//botDistance = 3759.;
+		//botAngle = -20.;
+		//botOrientation = -30.;
+		
+		// from about 2 meters, angle of -40 degrees, orientation of about -10 degrees
+		//botDistance = 1800.;
+		//botAngle = -40.;
+		//botOrientation = -10;
+		//results:
+		//distanceToHome, angleToHome, Orientation = 1.8 meters, -50.0456 degrees, -9.90874 degrees, with respect to the platform
+		//distanceToStagingPoint, angleToStagingPoint = 3.80503 meters, 72.076 degrees
+		//runningAverageDistanceToHome, runningAverageAngleToHome = 1.8 meters, -50.0456 degrees
+		//ranges from Bot Left to home left, right = 1651.19, 3027.56
+		//ranges from Bot Right to home left, right = 1326.05, 2027.69
+
+		//
+		// ranges recorded on the bot:
+		// ranges from Bot Left to home left, right = 1610, 2811
+		// ranges from Bot Right to home left, right = 1339, 2065
+		// distanceToHome, angleToHome, Orientation = 1.80594 meters, -23.5007 degrees, 4.82885 degrees, with respect to the platform
+		// distanceToStagingPoint, angleToStagingPoint = 3.51634 meters, 114.077 degrees
+		
+		// from about 2 meters, angle of -23 degrees, orientation of about 4 degrees (which is what the code reported)
+		botDistance = 1800.;
+		botAngle = -23.;
+		botOrientation = 4.8;
+		//results:
+		//distanceToHome, angleToHome, Orientation = 1.8 meters, -18.2456 degrees, 4.89126 degrees, with respect to the platform
+		//distanceToStagingPoint, angleToStagingPoint = 3.41871 meters, 126.691 degrees
+		//runningAverageDistanceToHome, runningAverageAngleToHome = 1.8 meters, -18.2456 degrees
+		//ranges from Bot Left to home left, right = 1638.45, 2724.79
+		//ranges from Bot Right to home left, right = 1877.31, 2032.04
+		
+
+		
 	
 	double angularPart_Y = cos(botOrientation / 57.3) * (BOT_RADAR_SEPARATION / 2.);
 	double angularPart_X = sin(botOrientation / 57.3) * (BOT_RADAR_SEPARATION / 2.);
@@ -419,8 +460,8 @@ int main(int argc, char** argv)
    
 	while(nh.ok())
 	{
-		//myRadar.getRadarRanges();  
-		myRadar.testDataRadarRanges();
+		myRadar.getRadarRanges();  
+		//myRadar.testDataRadarRanges();
 		
 		double maxDistance1 = fmax(myRadar.getDistanceFromLeftToLeft(), myRadar.getDistanceFromLeftToRight());
 		double maxDistance2 = fmax(myRadar.getDistanceFromRightToLeft(), myRadar.getDistanceFromRightToRight());

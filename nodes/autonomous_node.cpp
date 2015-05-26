@@ -51,7 +51,7 @@ using namespace std;
 //#define METERS_PER_PIXEL 0.0943	use this value for resolution: in global and local_costmap_params.yaml and in field_map.yaml
 #define INCREMENTAL_MOVE_TO_TARGET 10.0
 #define FIRST_MOVE_REMAINING_DISTANCE 10.0
-#define PARKING_DISTANCE 1.5
+#define PARKING_DISTANCE 1.7
 #define SERVO_WAIT_SECONDS 5.0  // time from servo command until we are sure servo is in position
 #define DEGREES_PER_PAN_STEP 0.64
 #define PAN_CAMERA_DELTA 20
@@ -320,6 +320,10 @@ class targetAquireFSM
 
 targetAquireFSM tAF_;
 
+template <typename T> int sgn(T val) {
+    return (T(0) < val) - (val < T(0));
+}
+
 bool askUser()
 {
 	string input = "";
@@ -384,6 +388,7 @@ bool getUserInput()
    cout << "Failed to get an input competition phase number" << endl;
    return false;
 }
+
 
 void imageCapture(string command, int camName, bool writeFile)
 {
@@ -1367,6 +1372,7 @@ int on_update_MoveToFirstTargetState()
       msg.command = "autoMove";
       msg.angle = 0.;
       msg.distance = 1000.;	//*********************************************delete
+      // **********but remeber move is in meters autoMove in mm************************************
       moving_ = true;
       movement_pub_.publish(msg);
       movementComplete_ = false;
@@ -1397,8 +1403,7 @@ int on_update_MoveToFirstTargetState()
 			msg.command = "autoMove";
 			msg.angle = offsetX_;	// sign here does not matter, direction is set by the speed
 			// positive offset means turn to the left (ccw), negative to the right.
-			if (offsetX_ > 0) msg.speed = 20.;	// degrees per second
-			else msg.speed = -20.
+			msg.speed = 20. * sgn(offsetX_);	// degrees per second
 			msg.distance = 0.;
 			movement_pub_.publish(msg);
 		   turning_ = true;
@@ -1747,7 +1752,7 @@ void on_enter_PhaseOneHomeState()
    msg.command = "autoMove";
    msg.distance = 0;
    msg.angle = 180; 
-   msg.speed = 20;  	  
+   msg.speed = 20 * sgn(msg.angle);	  
 //	movement_pub_.publish(msg); **************************************** real ops
 }
 
@@ -1786,7 +1791,7 @@ void on_enter_CheckHomeState()
 
 int on_update_CheckHomeState()
 {  
-   if (radarGoodData_  && radarGoodAngle_)
+   if (radarGoodData_ && radarGoodAngle_)
    {
    	usingRadar_ = true;
    	return HeadForHomeState_;
@@ -1872,25 +1877,34 @@ int on_update_HeadForHomeState()
    	if (moving_)
    	{
    		moving_ = false;
-			if (usingRadar_) cout << "radar move finished, range = " << distanceToHomeRadar_ << endl;
+			if (usingRadar_) cout << "radar move finished, range to staging = " << distanceToRadarStagingPoint_ << endl;
 		}
 		else if (turning_)
 		{
 			turning_ = false;
-    		cout << "turn finished" << endl;
+    		cout << "turn finished, angle to staging = " << angleToRadarStagingPoint_ << endl;
     	}
     	
     	else if (orienting_)
     	{
     		orienting_ = false;
-    		cout << "orientation turn finished" << endl;
+    		cout << "orientation turn finished, ";
+    		if (radarGoodAngle_) cout << "angle to home = " << angleToHomeRadar_ << endl;
+    		else cout << "but not getting radar localizations right now " << endl;
     	}
     	
     	else if (parking_)
     	{
     		parking_ = false;
-    		cout << "parking move finished" << endl;
+    		cout << "parking move finished, ";
+    		if (radarGoodData_) cout << "range to home = " << distanceToHomeRadar_ << endl;
+    		else cout << "but not getting radar range right now " << endl;
     	}
+    	if (radarGoodData_ && distanceToHomeRadar_ < PARKING_DISTANCE) 
+		{
+			cout << " we are in parking position, shut it down at a distance  = " << distanceToHomeRadar_ << " meters" << endl;
+			return AllDoneState_;
+		}
    }
    if (moving_ || turning_ || orienting_ || parking_) return HeadForHomeState_;
   
@@ -1902,6 +1916,9 @@ int on_update_HeadForHomeState()
    	if ((!turning_) && (!alreadyTurned_) && (!pastStagingPoint_))
    	{
    		// send turn command to center the target
+   		
+   		usingDirAnt_ = false;	// real ops change *******************************
+   		
    		if (usingDirAnt_) usingDirAnt_ = updateDirectionalAntenna();
    		if (usingDirAnt_)
    		{
@@ -1909,79 +1926,105 @@ int on_update_HeadForHomeState()
    		}
 				
    		alreadyTurned_ = true;
-   		if (distanceToHomeRadar_ > RADAR_STAGING_POINT_DISTANCE * 2 && (!pastStagingPoint_)) msg.angle = angleToRadarStagingPoint_;
-   		else msg.angle = angleToHomeRadar_;
-   		if (fabs(msg.angle) < 8.) // no need to turn
+   		//if (distanceToHomeRadar_ > RADAR_STAGING_POINT_DISTANCE + 1 && (!pastStagingPoint_)) 
+   			
+   		msg.angle = angleToRadarStagingPoint_;
+   		//else msg.angle = angleToHomeRadar_;
+   		if (fabs(msg.angle) < 5.  || (!radarGoodAngle_)) // no need to turn
    		{
 		      turning_ = true;
 		      movementComplete_ = true;
-		      cout << " turn toward home was small enough to skip, it was = " << msg.angle << endl;
+		      if (radarGoodAngle_) cout << " turn toward home was small enough to skip, it was = " << msg.angle << endl;
+		      else cout << "missed a radar data point when about to turn, wait for another one" << endl;
 		      return HeadForHomeState_;
          }            			 
       	msg.command = "autoMove";
       	msg.distance = 0.;
-      	msg.speed = 20.;
-   			// positive offset means turn to the left, negative to the right.
+      	msg.speed = 20. * sgn(msg.angle);
+   			// positive offset means turn to the left (ccw), negative to the right.
    		movement_pub_.publish(msg);
          turning_ = true;
          movementComplete_ = false;
    		cout << "using radar to turn toward ";
-   		if (distanceToHomeRadar_ > RADAR_STAGING_POINT_DISTANCE * 2) cout << "staging point, turning " << angleToRadarStagingPoint_;
-   		else cout << "home, angle = " << angleToHomeRadar_;
+   		//if (distanceToHomeRadar_ > RADAR_STAGING_POINT_DISTANCE + 1. && (!pastStagingPoint_)) 
+   		cout << "staging point, turning " << angleToRadarStagingPoint_;
+   		//else cout << "home, angle = " << angleToHomeRadar_;
    		cout << " degrees" << endl;
    		return HeadForHomeState_;
    	}	
 	   // send move command to go to staging  point
-   	else if ((!moving_) && distanceToRadarStagingPoint_ > 3 && (!pastStagingPoint_))
+   	else if ((!moving_) && distanceToRadarStagingPoint_ > 1. && (!pastStagingPoint_))
    	{
 			alreadyTurned_ = false;
-			msg.command = "autoMove";
+   		if (!radarGoodData_)
+   		{
+		      moving_ = true;
+		      movementComplete_ = true;
+		      cout << "missed a radar data point when about to move to stage point, wait for another one" << endl;
+		      return HeadForHomeState_;
+		   }
+		   	
+  			msg.command = "autoMove";
 			msg.angle = 0;
-			msg.speed = 1000.;
-			if (distanceToHomeRadar_ > RADAR_STAGING_POINT_DISTANCE * 2) msg.distance = (distanceToRadarStagingPoint_ * 1000.)/ 2.;
+			if (distanceToHomeRadar_ > RADAR_STAGING_POINT_DISTANCE * 2)
+			{
+				if (!radarGoodAngle_) msg.distance = (distanceToRadarStagingPoint_ * 1000.)/ 2.;
+				else msg.distance = ((distanceToHomeRadar_ - RADAR_STAGING_POINT_DISTANCE) * 1000.)/ 2.;
+				if (msg.distance > 15000.) msg.distance = 15000.;	// we dont want to go too far in one move
+				else if (msg.distance < -1000.) msg.distance = -1000.; // and no more than a meter in reverse
+				msg.speed = 1000. * sgn(msg.distance);
+			}
 			else
 			{
-				msg.distance = 500.; //distanceToRadarStagingPoint_ * 1000.;
+				if (!radarGoodAngle_) msg.distance = distanceToRadarStagingPoint_ * 1000.;
+				else msg.distance = (distanceToHomeRadar_ - RADAR_STAGING_POINT_DISTANCE) * 1000.;
+				if (msg.distance < -1000.) msg.distance = -1000.; // don't move more than a meter in reverse
+				msg.speed = 1000.  * sgn(msg.distance);
 				pastStagingPoint_ = true;
 			}
-			if (msg.distance < 1500) //we do not want to go short or negative distances
+			/*if (msg.distance < 500) //we do not want to go short or negative distances
 			{
 				moving_ = true;
 				movementComplete_ = true;
 				cout << " move toward home was small enough to skip, it was = " << msg.distance << " mm" << endl;
 				return HeadForHomeState_;
-			}				
+			}	
+			*/			
 			movement_pub_.publish(msg);
 			moving_ = true;
 			movementComplete_ = false;
-			cout << "using radar to move toward home, moving " << msg.distance << " mm" << endl;
+			cout << "using radar to move toward staging point, moving " << msg.distance << " mm" << endl;
+			if (pastStagingPoint_) cout << "this is the last move to the staging point" << endl;
 			return HeadForHomeState_;
 		}
-		//else cout << "moving, distance to staging, past point = " << moving_ << ", " << distanceToRadarStagingPoint_ << ", " << pastStagingPoint_ << endl;
-		else if ((!orienting_) && (!alreadyOriented_)) // we are now close, so time to orient to the platform
+		
+		else if ((!orienting_) && (!alreadyOriented_) && radarGoodAngle_)
+		// we are now close and have good radar data, so time to orient to the platform
 		{
 			// send turn command to orient the bot to the platform
-   		msg.angle = orientationToHomeRadar_;
-   		if (fabs(msg.angle) < 3.) // no need to turn
+   		msg.angle = (int) angleToHomeRadar_; 
+   		if (fabs(msg.angle) < 3. || distanceToHomeRadar_ < PARKING_DISTANCE + 2. ) // don't turn
    		{
 		      orienting_ = true;
 		      alreadyOriented_ = true;
 		      movementComplete_ = true;
-		      cout << " orienting to home was small enough to skip, it was = " << msg.angle << endl;
+		      if (distanceToHomeRadar_ < PARKING_DISTANCE + 2.) cout << "too close to parking to turn, but we would have turned an angle = ";
+		      else cout << " orienting to home was small enough to skip, it was = ";
+		      cout << msg.angle << endl;
 		      return HeadForHomeState_;
          }  
          else
          {
 		   	msg.command = "autoMove";
 		   	msg.distance = 0.;
-		   	msg.speed = 20.;
+		   	msg.speed = 20. * sgn(msg.angle);
 					// positive offset means turn to the left, negative to the right.
 				movement_pub_.publish(msg);
 		      orienting_ = true;
 		      alreadyOriented_ = true;
 				pastStagingPoint_ = true;
 		      movementComplete_ = false;
-				cout << "using radar to orient to home platform, turning " << orientationToHomeRadar_;
+				cout << "using radar to orient to home platform, turning " << angleToHomeRadar_;
 				cout << " degrees" << endl;
 				return HeadForHomeState_;
 			}
@@ -1991,11 +2034,14 @@ int on_update_HeadForHomeState()
 			alreadyOriented_ = false;
 			msg.command = "autoMove";
 			msg.angle = 0;
-			msg.speed = 1000.;
-			if (distanceToHomeRadar_ > PARKING_DISTANCE) msg.distance = 500.;
+			if (distanceToHomeRadar_ > PARKING_DISTANCE)
+			{
+				msg.distance = 500.;
+				msg.speed = 1000. * sgn(msg.distance);
+			}
 			else
 			{
-				if (distanceToHomeRadar_ > 0.1) 
+				if (radarGoodData_) 
 				{
 					cout << " we are in parking position, shut it down at a distance  = " << distanceToHomeRadar_ << " meters" << endl;
 					return AllDoneState_;
@@ -2004,7 +2050,8 @@ int on_update_HeadForHomeState()
 				{
 					cout << "missed a radar data point, wait for the next one" << endl;
 					parking_ = true;
-					movementComplete_ = false;
+					movementComplete_ = true;
+					return HeadForHomeState_;
 				}					
 			}				
 			movement_pub_.publish(msg);
@@ -2098,7 +2145,7 @@ int on_update_HeadForHomeState()
       
       cout << "moving forward 1m, range_ = " << range_ << endl;
       msg.command = "move";
-      msg.distance = 1.0;
+      msg.distance = 1.0;	// ******move in meters, autoMove im mm **************
       msg.angle = 0.;
       
       /*
@@ -2297,7 +2344,7 @@ int on_update_MoveToRecoverState()
 	msg.command = "autoMove";
 	msg.distance = 0;	// mm
 	msg.angle = 20;
-	msg.speed = 20;   	// mm/sec or deg/sec 
+	msg.speed = 20. * sgn(msg.angle); 	// mm/sec or deg/sec 
 	ROS_INFO("auto turning clockwise 20 degrees");
 	recoverTurnedAlready_ = true;		 
    return MoveToRecoverState_;  // move has not completed yet
