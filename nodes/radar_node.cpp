@@ -172,7 +172,7 @@ void getLocation()
 	cout << "distanceToStagingPoint (distance t) = " << distanceToStagingPoint_ << " meters" << endl;
 		
 	cout << "Home is " << distanceToHome_ << " meters away at an angle = " << angleToHome_ << " degrees" << endl;
-	cout << "Bot's orientation with respect to the platform = " << botOrientation_ * 57.3 << " degrees " << endl;
+	cout << "Bot's orientation (angle c) with respect to the platform = " << botOrientation_ * 57.3 << " degrees " << endl;
 	cout << "Staging point is " << distanceToStagingPoint_ << " meters away at an angle = " <<
 		 angleToStagingPoint_  << " degrees" << endl << endl << endl;
 
@@ -317,6 +317,9 @@ void testDataRadarRanges()
 		
 		//botAngle = -10.;
 		//botOrientation = -45.;
+		botDistance = 10000.;
+		botAngle = 20.;
+		botOrientation = 0;
 		
 	// we will try to sim some of the real-life failures
 	// from about 4 meters, angle of -10 degrees, orientation of about -45 degrees
@@ -343,9 +346,9 @@ void testDataRadarRanges()
 		// distanceToStagingPoint, angleToStagingPoint = 3.51634 meters, 114.077 degrees
 		
 		// from about 2 meters, angle of -23 degrees, orientation of about 4 degrees (which is what the code reported)
-		botDistance = 1800.;
-		botAngle = -23.;
-		botOrientation = 4.8;
+		//botDistance = 1800.;
+		//botAngle = -23.;
+		//botOrientation = 4.8;
 		//results:
 		//distanceToHome, angleToHome, Orientation = 1.8 meters, -18.2456 degrees, 4.89126 degrees, with respect to the platform
 		//distanceToStagingPoint, angleToStagingPoint = 3.41871 meters, 126.691 degrees

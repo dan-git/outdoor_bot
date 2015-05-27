@@ -55,17 +55,7 @@
 //#define REAR 0
 //#define DIGCAM 0
 
-#define NUM_RADARS 3
-#define LEFT_RADAR_NUMBER 101
-#define RIGHT_RADAR_NUMBER 102
-#define CENTER_RADAR_NUMBER 100
-#define LEFT_RADAR_INDEX 0
-#define RIGHT_RADAR_INDEX 1
-#define CENTER_RADAR_INDEX 2
-#define LEFT_RADAR_HOME_DISTANCE 1.47	// when at home, distances in meters for radar rangers
-#define RIGHT_RADAR_HOME_DISTANCE 2.17
-#define CENTER_RADAR_HOME_DISTANCE 0.5
-#define RADAR_STAGING_POINT_DISTANCE 5.
+#define RADAR_STAGING_POINT_DISTANCE 7.0
 //#define MAP 0
 #define BOT 1
 //#define FINAL_RANGE 2.0  // now defined in just movement node

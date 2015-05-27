@@ -391,7 +391,7 @@ void sendOutNavData()
 			ratioHomeDistances = ((double) distanceToHomeRadar_) / odomDistanceToHome;
 			x = ((x - homeX_) * ratioHomeDistances) + homeX_;
 			y = ((y - homeY_) * ratioHomeDistances) + homeY_;
-			//if (ratioHomeDistances > 1.5 || ratioHomeDistances < 0.5) // let the user know we corrected by more than a bit
+			if (ratioHomeDistances > 1.5 || ratioHomeDistances < 0.5) // let the user know we corrected by more than a bit
 			{
 				cout << "ratio of home distances = " <<  ratioHomeDistances << endl;
 				cout << "distanceToHomeRadar = " <<  distanceToHomeRadar_ << endl;
