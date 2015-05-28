@@ -53,6 +53,14 @@ using namespace cv;
 #define MAX_HOME_AREA_WEBCAM 20000.
 #define MIN_HOME_AREA_WEBCAM 100.
 
+#define WEBCAM_Y_MIN 200
+#define WEBCAM_Y_MID 300
+#define WEBCAM_Y_MID_MAX_AREA 2000
+#define WEBCAM_Y_MID_MIN_AREA 400
+#define WEBCAM_Y_LOW 400
+#define WEBCAM_Y_LOW_MAX_AREA 5000
+#define WEBCAM_Y_LOW_MIN_AREA 1500
+
 int getUserInputInteger()
 {
    int myNumber = 0;
@@ -98,7 +106,8 @@ private:
    image_transport::Subscriber subWebcam_, subDigcam_;
    std::string filename_;
    float rangeSquared_, approxRange_;
-	int centerX_, centerY_, numTargetsDetected_, cameraName_;
+	int centerX_, centerY_, numTargetsDetected_, cameraName_, webcamTilt_;
+	int zoomDigcamZoom_, regularDigcamZoom_;
    bool newDigcamImageReceived_, newWebcamImageReceived_;
    Mat image_, gray_, newDigcamImage_, newWebcamImage_, showImg_;
    CvSize sz_;
@@ -120,6 +129,9 @@ mainTargets(ros::NodeHandle &nh)
       numTargetsDetected_ = 0;
       newDigcamImageReceived_ = false;
       newWebcamImageReceived_ = false;
+      zoomDigcamZoom_ = 0;	// ******************real ops, set a default in defines.h
+      regularDigcamZoom_ = 0; // ****************************************************
+      webcamTilt_ = WEBCAM_TILT_LEVEL;
 }
    // commanded to analyze image
 
@@ -182,8 +194,22 @@ mainTargets(ros::NodeHandle &nh)
        newDigcamImage_ = cv_bridge::toCvCopy(msg, "bgr8")->image;
        newDigcamImageReceived_ = true;
       // outdoor_bot::mainTargets_msg output_msg;
+       std_msgs::Header imgHeader;
+       imgHeader = msg->header;
+       std::string camStringName = imgHeader.frame_id;
+       if (!camStringName.compare("zoomDigcam"))	// the not result means the strings are the same 
+       {
+       	cameraName_ = ZOOM_DIGCAM;
+       	zoomDigcamZoom_ = (int) imgHeader.seq;
+       }
+       else if (!camStringName.compare("regularDigcam")) 
+       {
+       	cameraName_ = REGULAR_DIGCAM;      
+       	regularDigcamZoom_ = (int) imgHeader.seq;
+       }
+       else cout << "digcams received an image from an unknown camera: " << cameraName_<< endl;
        std_msgs::Int32 imMsg;
-       imMsg.data = REGULAR_DIGCAM;
+       imMsg.data = cameraName_;
        //output_msg.centerX = -99;
        //output_msg.cameraName = REGULAR_DIGCAM;
        //target_center_pub_.publish(output_msg);
@@ -202,6 +228,9 @@ mainTargets(ros::NodeHandle &nh)
      {
        //cv::imshow("keypoints", cv_bridge::toCvShare(msg, "bgr8")->image);
        //cv::waitKey(30);
+       std_msgs::Header imgHeader;
+       imgHeader = msg->header;
+       webcamTilt_ = (int) imgHeader.seq;
        newWebcamImage_ = cv_bridge::toCvCopy(msg, "bgr8")->image;
        newWebcamImageReceived_ = true;
        outdoor_bot::mainTargets_msg output_msg;
@@ -576,7 +605,7 @@ bool detectBlobs(Mat im_original, bool firstTarget)
 	      //params.minArea = 7327; // 7327 corresponds to a size value (~radius?) of 47.8009 for the keypoint
                               // if that was a radius, it would correspond to an area of 7178.3
                               // even a radius of 48 corresponds to an area of only 7238.2
-         if (cameraName_ == WEBCAM)	params.minArea = 800; //totalArea / 500;
+         if (cameraName_ == WEBCAM)	params.minArea = 400; //800; //totalArea / 500;//******************************************untested change
          if (cameraName_ == REGULAR_DIGCAM) params.minArea = 7000;
          else if (cameraName_ == ZOOM_DIGCAM) params.minArea = 7000;
          params.maxArea = totalArea / 4;
@@ -637,7 +666,15 @@ bool detectBlobs(Mat im_original, bool firstTarget)
          //cout << "keypoint angle: " << keypoints[i].angle << endl;
          //cout << "keypoint class_id: " << keypoints[i].class_id << endl;
          //cout << "keypoint octave: " << keypoints[i].octave << endl;
+         
+         if (cameraName_ == WEBCAM && webcamTilt_ == WEBCAM_TILT_LEVEL)
+         {
+         	if (keypoints[i].pt.y > WEBCAM_Y_MIN) continue; // this is too high in the image to be a valid target (higher numbers are closer to the top)
+         	if (keypoints[i].pt.y > WEBCAM_Y_MID && ( keypointArea > WEBCAM_Y_MID_MAX_AREA || keypointArea < WEBCAM_Y_MID_MIN_AREA)) continue;
+         	if (keypoints[i].pt.y > WEBCAM_Y_LOW && ( keypointArea > WEBCAM_Y_LOW_MAX_AREA || keypointArea < WEBCAM_Y_LOW_MIN_AREA)) continue;
+         }	
 
+         // pick out the one with largest area that fits the criteria
          if (keypointArea > maxKeypointArea  && keypointArea <= maxAllowedArea && keypointArea >= minAllowedArea)
          {
             maxKeypointArea = keypointArea;
@@ -646,7 +683,7 @@ bool detectBlobs(Mat im_original, bool firstTarget)
        }
 
        Point keyCenter(0,0);
-       if (maxKeypointArea > maxArea) // &&  maxKeypointArea >= minArea)
+       if (maxKeypointArea > maxArea) // &&  maxKeypointArea >= minArea)  // find the one with the largest area across thresholds and colors
        {
          //cout << "Analyzing filename: " << filename_ << endl;
          cout << "Analysing image with rows, cols, area = " << im_original.rows << ", " << im_original.cols << ", "
@@ -664,7 +701,23 @@ bool detectBlobs(Mat im_original, bool firstTarget)
          centerY_ = (int) keypoints[maxIndex].pt.y;
          if (cameraName_ == ZOOM_DIGCAM) rangeSquared_ = (ZOOM_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER * ZOOM_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER) / (maxKeypointArea * maxKeypointArea);
          else if (cameraName_ == REGULAR_DIGCAM) rangeSquared_ = (REGULAR_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER * REGULAR_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER) / (maxKeypointArea * maxKeypointArea);
-         else if (cameraName_ == WEBCAM) rangeSquared_ = (WEBCAM_FIRST_TARGET_RANGE_PARAMETER * WEBCAM_FIRST_TARGET_RANGE_PARAMETER) / (maxKeypointArea * maxKeypointArea);
+         
+         
+         else if (cameraName_ == WEBCAM)
+         {
+         	double rangeByArea = WEBCAM_FIRST_TARGET_RANGE_PARAMETER / maxKeypointArea;
+         	double rangeByVerticalCoordinate = 0;
+         	if (webcamTilt_ == WEBCAM_TILT_LEVEL)
+         	{
+          		if (centerY_ > WEBCAM_Y_LOW) rangeByVerticalCoordinate = 1.3;
+          		else if (centerY_ > WEBCAM_Y_MID) rangeByVerticalCoordinate = 2.0;
+          	}
+          	cout << "analyzed webcam image and found range by area = " << rangeByArea << " and range by coordinates = "
+          		<< rangeByVerticalCoordinate << endl;     		
+         	
+         	if (rangeByVerticalCoordinate > rangeByArea) rangeSquared_ = rangeByVerticalCoordinate * rangeByVerticalCoordinate;
+         	else rangeSquared_ = rangeByArea * rangeByArea;
+         }
 			else
 			{
 				rangeSquared_ = 0.;

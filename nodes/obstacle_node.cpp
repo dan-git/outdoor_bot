@@ -19,8 +19,8 @@ class obstacle_detect
 		void laserCallback(const sensor_msgs::LaserScan msg)
 		{
 			scanNum_++;
-			std_msgs::Header header_;
-			// = msg.Header.frame_id;
+			std_msgs::Header header_ = msg.header;
+			std::string headerFrameID = header_.frame_id;
 			angle_min_ = msg.angle_min;
 			angle_max_ = msg.angle_max;
 			angle_increment_ = msg.angle_increment;
@@ -100,8 +100,8 @@ int main(int argc, char** argv)
 	double closestObstacle = *std::min_element(goodRanges.begin(), goodRanges.end());
 	double farthestObstacle = *std::max_element(goodRanges.begin(), goodRanges.end());
 	std::cout << "Got a total of " << goodRanges.size() << " good ranges out of " << localRanges.size() << " total values reported., Stats on those are: " << std::endl;
-	std::cout << "min, max angles = " << goodAngles[0] << ", " << goodAngles[goodAngles.size() - 1] << std::endl;
-	std::cout << "min, max distances = " << closestObstacle << ", " << farthestObstacle << std::endl;    
+	std::cout << "min, max angles = " << goodAngles[0] * 57.3 << ", " << goodAngles[goodAngles.size() - 1] * 57.3 << " degrees" << std::endl;
+	std::cout << "min, max distances = " << closestObstacle << ", " << farthestObstacle << " meters" << std::endl;    
 	std::cout << "average distance to laser line, slope of the line = " << averageDistance << ", " << obstacleSlope << std::endl;	
 
 	//ros::spin();

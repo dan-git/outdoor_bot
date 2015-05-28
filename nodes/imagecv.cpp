@@ -4,6 +4,7 @@
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/image_encodings.h>
+#include "std_msgs/Header.h"
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include "outdoor_bot/mainTargetsCommand_msg.h"
@@ -85,6 +86,8 @@ public:
    {
      ROS_INFO("webcam image received by image_cvproc");
      string windowName = "webcam";
+     std_msgs::Header imgHeader = msg->header;
+     int webcamTilt_ = (int) imgHeader.seq;
      /*
      if (webcamImageNumber_ == 1)
      {

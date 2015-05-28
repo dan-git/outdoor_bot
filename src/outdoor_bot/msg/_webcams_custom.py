@@ -6,18 +6,19 @@ import struct
 
 
 class webcams_custom(genpy.Message):
-  _md5sum = "d94a3588f15ecffb4269318526318c44"
+  _md5sum = "6d3e54f33efe3895990854fdf52841df"
   _type = "outdoor_bot/webcams_custom"
   _has_header = False #flag to mark the presence of a Header object
   _full_text = """string command
 string filename
 int32 camera_number
+uint32 tilt
 bool write_file
 
 
 """
-  __slots__ = ['command','filename','camera_number','write_file']
-  _slot_types = ['string','string','int32','bool']
+  __slots__ = ['command','filename','camera_number','tilt','write_file']
+  _slot_types = ['string','string','int32','uint32','bool']
 
   def __init__(self, *args, **kwds):
     """
@@ -27,7 +28,7 @@ bool write_file
     changes.  You cannot mix in-order arguments and keyword arguments.
 
     The available fields are:
-       command,filename,camera_number,write_file
+       command,filename,camera_number,tilt,write_file
 
     :param args: complete set of field values, in .msg order
     :param kwds: use keyword arguments corresponding to message field names
@@ -42,12 +43,15 @@ bool write_file
         self.filename = ''
       if self.camera_number is None:
         self.camera_number = 0
+      if self.tilt is None:
+        self.tilt = 0
       if self.write_file is None:
         self.write_file = False
     else:
       self.command = ''
       self.filename = ''
       self.camera_number = 0
+      self.tilt = 0
       self.write_file = False
 
   def _get_types(self):
@@ -81,7 +85,7 @@ bool write_file
       else:
         buff.write(struct.pack('<I%ss'%length, length, _x))
       _x = self
-      buff.write(_struct_iB.pack(_x.camera_number, _x.write_file))
+      buff.write(_struct_iIB.pack(_x.camera_number, _x.tilt, _x.write_file))
     except struct.error as se: self._check_types(struct.error("%s: '%s' when writing '%s'" % (type(se), str(se), str(_x))))
     except TypeError as te: self._check_types(ValueError("%s: '%s' when writing '%s'" % (type(te), str(te), str(_x))))
 
@@ -112,8 +116,8 @@ bool write_file
         self.filename = str[start:end]
       _x = self
       start = end
-      end += 5
-      (_x.camera_number, _x.write_file,) = _struct_iB.unpack(str[start:end])
+      end += 9
+      (_x.camera_number, _x.tilt, _x.write_file,) = _struct_iIB.unpack(str[start:end])
       self.write_file = bool(self.write_file)
       return self
     except struct.error as e:
@@ -146,7 +150,7 @@ bool write_file
       else:
         buff.write(struct.pack('<I%ss'%length, length, _x))
       _x = self
-      buff.write(_struct_iB.pack(_x.camera_number, _x.write_file))
+      buff.write(_struct_iIB.pack(_x.camera_number, _x.tilt, _x.write_file))
     except struct.error as se: self._check_types(struct.error("%s: '%s' when writing '%s'" % (type(se), str(se), str(_x))))
     except TypeError as te: self._check_types(ValueError("%s: '%s' when writing '%s'" % (type(te), str(te), str(_x))))
 
@@ -178,12 +182,12 @@ bool write_file
         self.filename = str[start:end]
       _x = self
       start = end
-      end += 5
-      (_x.camera_number, _x.write_file,) = _struct_iB.unpack(str[start:end])
+      end += 9
+      (_x.camera_number, _x.tilt, _x.write_file,) = _struct_iIB.unpack(str[start:end])
       self.write_file = bool(self.write_file)
       return self
     except struct.error as e:
       raise genpy.DeserializationError(e) #most likely buffer underfill
 
 _struct_I = genpy.struct_I
-_struct_iB = struct.Struct("<iB")
+_struct_iIB = struct.Struct("<iIB")

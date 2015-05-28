@@ -141,6 +141,7 @@ class webcamControl
       ros::Publisher filename_pub_;
       image_transport::ImageTransport it_;
       image_transport::Publisher image_pub_, home_image_pub_;
+      unsigned int webcamTilt_;
       int numWebcams_;
       int numImages_[MAX_NUM_WEBCAMS];
       webcam camera_[MAX_NUM_WEBCAMS];
@@ -214,8 +215,14 @@ class webcamControl
          Mat image;
          if (camera_[camNumber].capture(&image))
          {
-            sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", image).toImageMsg();
-				if (cap_home_)
+            std::string camType = "webcam";
+            std_msgs::Header imgHeader;
+            imgHeader.seq = webcamTilt_;
+            imgHeader.frame_id = camType;
+            imgHeader.stamp = ros::Time::now();
+            sensor_msgs::ImagePtr msg = cv_bridge::CvImage(imgHeader, "bgr8", image).toImageMsg();
+            //sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", image).toImageMsg();
+            if (cap_home_)
 		   	{
 		   		home_image_pub_.publish(msg);  // home target image
 		   		ROS_INFO("webcams published a home image");
@@ -269,6 +276,7 @@ class webcamControl
          {
             if (!cameraCommand.compare("cap_home")) cap_home_ = true;
             else cap_home_ = false;
+            webcamTilt_ = msg->tilt;
             capture(camNum);
             if (msg->write_file)
             {

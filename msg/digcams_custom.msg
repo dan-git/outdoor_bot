@@ -1,5 +1,6 @@
 string command
 string filename
 int32 cameraName
-float32 zoom
+uint32 zoom
+float32 zoomSet
 bool write_file

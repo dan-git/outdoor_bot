@@ -7,6 +7,7 @@
 #include "std_msgs/Int32.h"
 #include "geometry_msgs/PoseWithCovarianceStamped.h"
 #include "outdoor_bot/encoders_service.h"
+#include "outdoor_bot/autoMove_service.h"
 #include "outdoor_bot/accelerometers_service.h"
 #include "outdoor_bot/dirAnt_service.h"
 //#include "outdoor_bot/radar_service.h"
@@ -77,8 +78,8 @@ boost::array<double, 9> ORIENTATION_COVARIANCE = {
 using namespace std;
 
 ros::Subscriber ucResponseMsg, assignedPose, poseWithCovariance_, moveCmd, radar_sub_;
-ros::Publisher odom_pub, imu_pub, sensors_pub, pause_pub;
-ros::ServiceServer encoders_serv, dirAnt_serv, setPose_serv, accelerometers_serv;
+ros::Publisher odom_pub, imu_pub, sensors_pub, pause_pub, autoMove_pub;
+ros::ServiceServer encoders_serv, dirAnt_serv, setPose_serv, accelerometers_serv, autoMove_serv;
 tf::TransformBroadcaster *odom_broadcaster;	// have to use a pointer because declaring this before running
 						// ros:init causes a run-time error
 
@@ -87,7 +88,7 @@ double accelX, accelY, accelZ;
 double velocityLeft, velocityRight, dtROS_ = 0.02;
 long EncoderTicksRight = 0, EncoderTicksLeft = 0, previousEncoderTicksRight = 0, previousEncoderTicksLeft = 0;
 long EncoderPickerUpper = 0, EncoderBinShade = 0, EncoderDropBar = 0, EncoderExtra = 0;
-int battery, pauseState = 0, dirAntMaxAngle = 0, dirAntSweepNumber = 0,  dirAntLevel = 0;
+int battery, pauseState = 0, dirAntMaxAngle = 0, dirAntSweepNumber = 0,  dirAntLevel = 0, autoMoveStatus = 0, previousAutoMoveStatus = 0;
 unsigned long arduinoCycleTime, arduinoDataCounter;
 bool firstTime = true, radarDataEnabled_ = true;
 bool pauseStateSent_ = false, releaseStateSent_ = false;
@@ -269,6 +270,17 @@ void sendOutNavData()
     static unsigned long previousArduinoDataCounter = 0;
     // if this is the first time odometry data has come in, then we have no previous time reference
     // and no initial number of odometer ticks, so we need to set those
+    
+   if (autoMoveStatus != previousAutoMoveStatus)
+   {
+   	if (autoMoveStatus == 0) cout << "autoMove finished" << endl;
+   	else if (autoMoveStatus == 1) cout << "autoMove started" << endl;
+   	else cout << "unknown AutoMove status" << endl;
+   	std_msgs::Int32 msg;
+   	msg.data = autoMoveStatus;
+   	autoMove_pub.publish(msg);
+   }
+   previousAutoMoveStatus = autoMoveStatus;
 
    if (pauseState && (!pauseStateSent_))
    {
@@ -429,7 +441,8 @@ void parseNavData(std::string data)
   for (int i = 0; i < numDataValues; i++)
   {
     ROS_INFO(navDataBuffer[i].c_str());
-  }
+  }              if (DEBUG)
+              {
   
   ROS_INFO("converted nav data to numbers: ");
   double navDataValues[256];
@@ -454,8 +467,9 @@ void parseNavData(std::string data)
   dirAntMaxAngle = atof(navDataBuffer[11].c_str());
   dirAntSweepNumber = atof(navDataBuffer[12].c_str());
   dirAntLevel = atof(navDataBuffer[13].c_str());
-  arduinoCycleTime = atof(navDataBuffer[14].c_str());
-  arduinoDataCounter = atof(navDataBuffer[15].c_str());
+  autoMoveStatus = atof(navDataBuffer[14].c_str());
+  arduinoCycleTime = atof(navDataBuffer[15].c_str());
+  arduinoDataCounter = atof(navDataBuffer[16].c_str());
   // use this to check the timing of arduino data
   /*  ros::Time current_time = ros::Time::now();
     double dtROS_ = current_time.toSec() - local_last_time.toSec();
@@ -505,15 +519,17 @@ void assignedPoseCallback(const geometry_msgs::PoseWithCovarianceStampedConstPtr
 
   //publishPose(x, y, yaw, vYaw, currentVelocity_);
   ROS_INFO("Pose set by user as the following: x = %f, y = %f, yaw = %f",x, y, yaw);
-  ROS_INFO("When pose set by user, EncoderTicksLeft = %ld, EncoderTicksRight = %ld, Battery = %d", EncoderTicksLeft, EncoderTicksRight, battery);
+  ROS_INFO("When pose set by user, EncoderTicksLeft = %ld, EncoderTicksRight = %ld", EncoderTicksLeft, EncoderTicksRight);
 
   // don't want to be constantly publishing battery value
   // seems reasonable to publish it when the user enters a new pose.
+  /*
   char str[256];
   sprintf(str, "battery=%d", battery);
   std_msgs::String batteryStr;
   batteryStr.data = str;
   sensors_pub.publish(batteryStr);  
+  */
 }
 
 void poseCommandCallback(const geometry_msgs::PoseWithCovarianceStampedConstPtr& msg) 
@@ -541,11 +557,12 @@ void poseCommandCallback(const geometry_msgs::PoseWithCovarianceStampedConstPtr&
 
   // don't want to be constantly publishing battery value
   // seems reasonable to publish it when amcl sends out a new pose.
-  char str[256];
+  /*char str[256];
   sprintf(str, "battery=%d", battery);
   std_msgs::String batteryStr;
   batteryStr.data = str;
   sensors_pub.publish(batteryStr); 
+  */
 }
 
 bool setPose_service_send(outdoor_bot::setPose_service::Request  &req, outdoor_bot::setPose_service::Response &res)
@@ -572,6 +589,12 @@ bool encoders_service_send(outdoor_bot::encoders_service::Request  &req, outdoor
    res.encoderDropBar = EncoderDropBar;
    res.encoderBinShade = EncoderBinShade;   
    return true;
+}
+
+bool autoMove_service_send(outdoor_bot::autoMove_service::Request  &req, outdoor_bot::autoMove_service::Response &res)
+{
+	res.autoMoveStatus = autoMoveStatus;
+	return true;
 }
 
 bool dirAnt_service_send(outdoor_bot::dirAnt_service::Request  &req, outdoor_bot::dirAnt_service::Response &res)
@@ -640,6 +663,8 @@ int main(int argc, char** argv){
   sensors_pub = n.advertise<std_msgs::String>("sensor_readings", 50);
   pause_pub = n.advertise<std_msgs::Int32>("pause_state", 50);
   encoders_serv = n.advertiseService("encoders_service", encoders_service_send);
+  autoMove_serv = n.advertiseService("automove_service", autoMove_service_send);
+  autoMove_pub = n.advertise<std_msgs::Int32>("autoMove_status", 2);
   accelerometers_serv = n.advertiseService("accelerometers_service", accelerometers_service_send);
   dirAnt_serv = n.advertiseService("dirAnt_service", dirAnt_service_send);
   setPose_serv = n.advertiseService("setPose_service", setPose_service_send);

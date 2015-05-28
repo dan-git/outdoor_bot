@@ -30,7 +30,7 @@ private:
 	int numCams_;
 	const char	*name_, *value_;
    bool cap_home_, zoomResult_, writeFileResult_;
-   int retCapToMemory_;
+   int retCapToMemory_, zoomCurrentZoom_, regularCurrentZoom_;
    
 public:
   digcamControl(ros::NodeHandle &nh)
@@ -42,6 +42,8 @@ public:
       image_pub_ = it_.advertise("digcam_image", 1);
       cam_cmd_ = nh_.subscribe("digcam_cmd", 50, &digcamControl::cameraCommandCallback, this); 
       retCapToMemory_ = -1;
+      zoomCurrentZoom_ = 0;
+      regularCurrentZoom_ = 0;
       zoomResult_ = false;
       writeFileResult_ = false;
    }
@@ -167,21 +169,32 @@ public:
 	   char* data;
       unsigned long size;
       int camNum;
-      if (camName == ZOOM_DIGCAM) camNum = ZOOM_DIGCAM_NUMBER;
-      else if (camName == REGULAR_DIGCAM) camNum = REGULAR_DIGCAM_NUMBER;
+      std_msgs::Header imgHeader;
+      if (camName == ZOOM_DIGCAM)
+      {
+      	camNum = ZOOM_DIGCAM_NUMBER;
+      	imgHeader.seq = zoomCurrentZoom_;
+      	imgHeader.frame_id = "zoomDigcam";
+      }
+      else if (camName == REGULAR_DIGCAM)
+      {
+      	camNum = REGULAR_DIGCAM_NUMBER;
+      	imgHeader.seq = regularCurrentZoom_;
+      	imgHeader.frame_id = "regularDigcam";
+      }
       else
       {
       	cout << "invalid digital camera requested in digcams capture.  camera number = " << camName << endl;
       	return;
       }
-
+	   imgHeader.stamp = ros::Time::now();
       //capture_to_file(cams_[camNum], context_, filename);	  
       capture_to_memory(cams_[camNum], context_, (const char**)&data, &size);
       //waitForCameraEvent(camNum);
       cv::Mat imgbuf(cv::Size(1920, 1080), CV_8UC3, data);
       //cv::Mat imgbuf(cv::Size(640,480), CV_8UC3, data);
       cv::Mat img = cv::imdecode(imgbuf, CV_LOAD_IMAGE_COLOR);
-      sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img).toImageMsg();
+      sensor_msgs::ImagePtr msg = cv_bridge::CvImage(imgHeader, "bgr8", img).toImageMsg();
       if (cap_home_)
       {
       	home_image_pub_.publish(msg);  // home target image
@@ -462,9 +475,13 @@ bool setZoom(int camName, float value)
       else if (!cameraCommand.compare("setZoom"))
       {
          int cameraName = msg->cameraName;
-         float zoom = msg->zoom;
+         float zoom = msg->zoomSet;
          cout << "Setting zoom on digcam" << cameraName << " to " << zoom << endl;
-         setZoom(cameraName, zoom);
+         if (setZoom(cameraName, zoom))
+         {
+         	if (cameraName == ZOOM_DIGCAM) zoomCurrentZoom_ = (int) zoom;
+         	else if (cameraName == REGULAR_DIGCAM) regularCurrentZoom_ = (int) zoom;
+         }
       } 
        
       else ROS_ERROR("unkown command sent to digcams");   

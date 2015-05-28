@@ -40,6 +40,9 @@
 #define ZOOM_DIGCAM 3
 #define HOMECAM 4
 
+#define WEBCAM_TILT_DOWN -30.	// degrees to point webcam down when the target is close
+#define WEBCAM_TILT_LEVEL 0.
+
 #define DIGCAM_PIXELS_WIDTH 2272
 #define DIGCAM_PIXELS_HEIGHT 1704
 #define WEBCAM_PIXELS_WIDTH 640
