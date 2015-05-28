@@ -536,16 +536,26 @@ bool detectBlobs(Mat im_original, bool firstTarget)
 			else if (cameraName_ == WEBCAM) 
          {
          	cout << "WEBCAM ";
-         	if (approxRange_ > 0.5) predictedArea = WEBCAM_FIRST_TARGET_RANGE_PARAMETER / approxRange_;
-         	if (predictedArea / 2. < MIN_FIRST_TARGET_AREA_WEBCAM || predictedArea * 5 > MAX_FIRST_TARGET_AREA_WEBCAM)
+         	if (webcamTilt_ == WEBCAM_TILT_LEVEL)
          	{
-         		params.minArea = MIN_FIRST_TARGET_AREA_WEBCAM;
-         		params.maxArea = MAX_FIRST_TARGET_AREA_WEBCAM;
-         	}
-         	else
-         	{
-					params.minArea = predictedArea / 2.;
-					params.maxArea = predictedArea * 5;   
+		      	cout << "with tilt level ";
+		      	if (approxRange_ > 0.5) predictedArea = WEBCAM_FIRST_TARGET_RANGE_PARAMETER / approxRange_;
+		      	if (predictedArea / 2. < MIN_FIRST_TARGET_AREA_WEBCAM || predictedArea * 5 > MAX_FIRST_TARGET_AREA_WEBCAM)
+		      	{
+		      		params.minArea = MIN_FIRST_TARGET_AREA_WEBCAM;
+		      		params.maxArea = MAX_FIRST_TARGET_AREA_WEBCAM;
+		      	}
+		      	else
+		      	{
+						params.minArea = predictedArea / 2.;
+						params.maxArea = predictedArea * 5;   
+					}
+				}
+				else
+				{
+					cout << "with tilt down ";
+					params.minArea = 700;
+					params.maxArea = 10000;
 				}
 			} 
          cout << "mainTargets predicted Area = " << predictedArea << " using an approximate range of " << approxRange_ << " meters " << endl; 
@@ -667,11 +677,18 @@ bool detectBlobs(Mat im_original, bool firstTarget)
          //cout << "keypoint class_id: " << keypoints[i].class_id << endl;
          //cout << "keypoint octave: " << keypoints[i].octave << endl;
          
-         if (cameraName_ == WEBCAM && webcamTilt_ == WEBCAM_TILT_LEVEL)
+         if (cameraName_ == WEBCAM)
          {
-         	if (keypoints[i].pt.y > WEBCAM_Y_MIN) continue; // this is too high in the image to be a valid target (higher numbers are closer to the top)
-         	if (keypoints[i].pt.y > WEBCAM_Y_MID && ( keypointArea > WEBCAM_Y_MID_MAX_AREA || keypointArea < WEBCAM_Y_MID_MIN_AREA)) continue;
-         	if (keypoints[i].pt.y > WEBCAM_Y_LOW && ( keypointArea > WEBCAM_Y_LOW_MAX_AREA || keypointArea < WEBCAM_Y_LOW_MIN_AREA)) continue;
+         	if (webcamTilt_ == WEBCAM_TILT_LEVEL)
+         	{
+         		if (keypoints[i].pt.y > WEBCAM_Y_MIN) continue; // this is too high in the image to be a valid target (higher numbers are closer to the top)
+         		if (keypoints[i].pt.y > WEBCAM_Y_MID && ( keypointArea > WEBCAM_Y_MID_MAX_AREA || keypointArea < WEBCAM_Y_MID_MIN_AREA)) continue;
+         		if (keypoints[i].pt.y > WEBCAM_Y_LOW && ( keypointArea > WEBCAM_Y_LOW_MAX_AREA || keypointArea < WEBCAM_Y_LOW_MIN_AREA)) continue;
+         	}
+         	//else //if (webcamTilt_ == WEBCAM_TILT_DOWN) // no areas to exclude from tilted down camera
+         	//{
+         	//	
+         	//}	
          }	
 
          // pick out the one with largest area that fits the criteria
@@ -706,16 +723,25 @@ bool detectBlobs(Mat im_original, bool firstTarget)
          else if (cameraName_ == WEBCAM)
          {
          	double rangeByArea = WEBCAM_FIRST_TARGET_RANGE_PARAMETER / maxKeypointArea;
+         	cout << "webcam range by area = " << rangeByArea;
          	double rangeByVerticalCoordinate = 0;
+         	double rangeByLookDownArea = 0;
          	if (webcamTilt_ == WEBCAM_TILT_LEVEL)
          	{
           		if (centerY_ > WEBCAM_Y_LOW) rangeByVerticalCoordinate = 1.3;
           		else if (centerY_ > WEBCAM_Y_MID) rangeByVerticalCoordinate = 2.0;
           	}
+          	else
+          	{
+          		rangeByVerticalCoordinate = ((480. - centerY_)/3.5) + 40;
+          		rangeByLookDownArea = ((7000. - maxKeypointArea)/41.) + 40.;
+          		cout << "webcam is looking down, rangeByVerticalCoordinate, rangeByLookDownArea = " << rangeByVerticalCoordinate << ", " << rangeByLookDownArea << endl;
+          	}
           	cout << "analyzed webcam image and found range by area = " << rangeByArea << " and range by coordinates = "
           		<< rangeByVerticalCoordinate << endl;     		
          	
-         	if (rangeByVerticalCoordinate > rangeByArea) rangeSquared_ = rangeByVerticalCoordinate * rangeByVerticalCoordinate;
+         	if (rangeByVerticalCoordinate > 0.01 &&  rangeByVerticalCoordinate < rangeByArea) rangeSquared_ = rangeByVerticalCoordinate * rangeByVerticalCoordinate;
+         	else if (rangeByLookDownArea > 0.01) rangeSquared_ = rangeByLookDownArea * rangeByLookDownArea;
          	else rangeSquared_ = rangeByArea * rangeByArea;
          }
 			else

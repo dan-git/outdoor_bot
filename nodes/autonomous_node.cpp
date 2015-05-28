@@ -82,7 +82,7 @@ int centerX_, centerY_, totalX_, moving_, turning_, alreadyTurned_, picking_, or
 int home_image_height_, home_image_width_;
 bool homeCenterUpdated_, movementComplete_, triedWebcamAlready_, triedZoomDigcamAlready_, triedRegularDigcamAlready_;
 double range_, approxRangeToTarget_, targetRange_, homeCameraRange_, offsetX_, webcamTilt_, regularDigcamZoom_, zoomDigcamZoom_; 
-double accelX_, accelY_, accelZ_;
+double accelX_, accelY_, accelZ_, x_, y_, yaw_, odomDistanceToHome_;
 bool zoomResult_, writeFileResult_, newMainTargetDigcamImageReceived_, newMainTargetWebcamImageReceived_, rangeUnknown_;
 bool targetCenterUpdated_, newNavTargetImageReceived_;
 int retCapToMemory_;
@@ -145,6 +145,7 @@ class targetAquireFSM
          msg.servoNumber = servoNumber_;
          msg.servoDegrees = servoDegrees_;
          //msg.servoTilt = tilt_;
+         cout << "servo command sent, servoNumber, degrees: " << servoNumber_ << ", " << servoDegrees_ << endl;
          servo_pub_.publish(msg);
          servoTimer_ = ros::Time::now(); // record time that the command was sent
       }
@@ -800,7 +801,7 @@ bool callAccelerometersService()
 {
 	outdoor_bot::accelerometers_service::Request req;
 	outdoor_bot::accelerometers_service::Response resp;
-	double aX = 0., aY = 0., aZ = 0.;
+	//double aX = 0., aY = 0., aZ = 0.;
 	cout << "calling accelerometers service"  << endl;
 	/* this would just yield 10 of the same number, as the accels updat at only 50 Hz
 	for (int i=0; i < 10; i++)
@@ -823,10 +824,16 @@ bool callAccelerometersService()
 	{
 		accelX_ = resp.accelX;
 		accelY_ = resp.accelY;
-		accelZ_ = resp.accelZ;			
+		accelZ_ = resp.accelZ;	
+		yaw_ = resp.yaw;
+		x_ = resp.x;
+		y_ = resp.y;	
+		odomDistanceToHome_ = sqrt((x_ * x_) + (y_ * y_));	
 	}
-	if (fabs(accelZ_) > 3.) return true;
-	return false;
+	cout << "accels, x, y, z = " << accelX_ << ", " << accelY_ << ", " << accelZ_ << endl;
+	cout << "x, y, yaw = " << x_ << ", " << y_ << ", " << yaw_ << ", " << odomDistanceToHome_ << endl;
+	//if (fabs(accelZ_) > 3.) return true;
+	return true;
 }
 
 bool callSetPoseService(double x, double y, double yaw, bool setHome)
@@ -896,6 +903,7 @@ void on_enter_BootupState()
    angleToHomeRadar_ = 0.; 
    distanceToRadarStagingPoint_ = 0.;
    angleToRadarStagingPoint_ = 0.;
+   odomDistanceToHome_ = 0.;
    radarGoodData_ = false;
    radarGoodAngle_ = false;
    pastStagingPoint_ = false;
@@ -930,6 +938,20 @@ void on_enter_BootupState()
   currentUserCommandNumber_ = 0;
   userCmdReturnSection_ = TARGETS;
   userCommandReceived_ = false;
+  
+  //********************************************just testing, not real ops**************
+  
+  		tAF_.set_servoNumber(FRONT_WEBCAM_TILT);
+  		tAF_.set_servoDegrees( WEBCAM_TILT_DOWN);
+		currentServoDegrees_ =  WEBCAM_TILT_DOWN;
+		//tAF_.set_tilt(0);
+		tAF_.set_state(tAF_.getMoveCameraState());         		   
+		while (tAF_.current_state() != tAF_.getAcquireDoneState()) 
+		{
+			tAF_.update();
+			ros::spinOnce();
+		}
+		
    
   cout << "finished enter bootupState" << endl;
 
@@ -960,16 +982,24 @@ int on_update_BootupState()
 	}
    else return BootupState_;
    
-   if (!callSetPoseService(platPoseX_, platPoseY_, platPoseYaw_, true)) // set home pose in robotPose_node
+   //******************************************use this with a blank map, decide later for real ops*************
+   // makes using odometry in autonmous node a lot easier***************
+   if (!callSetPoseService(0,0,0,true)) //platPoseX_, platPoseY_, platPoseYaw_, true)) // set home pose in robotPose_node
    {
       cout << "failed to set home pose, need to retry BootupState?" << endl;
       if (!askUser()) return BootupState_;
    }
-   if (!callSetPoseService(platPoseX_, platPoseY_, platPoseYaw_, false)) // and place us there
+   if (!callSetPoseService(0,0,0,false)) //platPoseX_, platPoseY_, platPoseYaw_, false)) // and place us there
    {
       cout << "failed to place us at home pose on the map, need to retry BootupState?" << endl;
       if (!askUser()) return BootupState_;
    }
+   //******************************************use this with a blank map, decide later for real ops*************
+   
+   
+   
+   
+   
 	
    // get radar ranges
    if (radarGoodData_) cout << "radar distance, angle, orientation = " <<
@@ -1089,7 +1119,7 @@ void on_enter_PhaseTwoFirstState()
 		targetAngle = ANGLE_FROM_DOWNHILL_TO_TARGET - downhillDirection;
 	} 
 	
-	if (fabs(targetAngle) > 5. && fabs(targetAngle) < 60.)
+	if (fabs(targetAngle) > 5. && fabs(targetAngle) < 60.) // ********check which servo is being set*********
 	{
 		tAF_.set_servoDegrees(targetAngle);
 		currentServoDegrees_ = targetAngle;
@@ -1384,31 +1414,48 @@ int on_update_MoveToFirstTargetState()
    // if this is the very first move, we hope we can use the radar to get close
    if (firstMoveToFirstTarget_)
    {
-   	// turn to zero total yaw********************************************do this
-   	if (radarGoodData_) 
+   	if (callAccelerometersService())	// do this for real ops******************************************
+		{
+			// turn to zero the yaw
+			msg.command = "autoMove";
+   	   msg.speed = 1000.;
+		   cout << "turning to zero yaw = " << msg.angle << " degrees" << endl;
+			turning_ = true;
+			//movement_pub_.publish(msg);
+			//movementComplete_ = false;
+			//return MoveToFirstTargetState_;
+		}
+		turning_ = false;
+		
+		
+		
+		double distanceToHome = -1;
+   	if (radarGoodData_) distanceToHome = distanceToHomeRadar_;
+   	else if (callAccelerometersService()) distanceToHome = odomDistanceToHome_;
+   	if (distanceToHome >= 0)
    	{
-   		if (distanceToHomeRadar_ < DISTANCE_TO_FIRST_TARGET_STAGING - INCREMENTAL_MOVE_TO_TARGET)
+   		if (distanceToHome < DISTANCE_TO_FIRST_TARGET_STAGING - INCREMENTAL_MOVE_TO_TARGET)
    		{
    			msg.distance = INCREMENTAL_MOVE_TO_TARGET * 1000.;
-   			approxRangeToTarget_ = DISTANCE_TO_FIRST_TARGET - (distanceToHomeRadar_ + INCREMENTAL_MOVE_TO_TARGET);
+   			approxRangeToTarget_ = DISTANCE_TO_FIRST_TARGET - (distanceToHome + INCREMENTAL_MOVE_TO_TARGET);
    		}
-   		else if (distanceToHomeRadar_ < DISTANCE_TO_FIRST_TARGET_STAGING)
+   		else if (distanceToHome < DISTANCE_TO_FIRST_TARGET_STAGING)
    		{
-   			msg.distance  = (DISTANCE_TO_FIRST_TARGET_STAGING - distanceToHomeRadar_) * 1000.;
+   			msg.distance  = (DISTANCE_TO_FIRST_TARGET_STAGING - distanceToHome) * 1000.;
    			approxRangeToTarget_ = DISTANCE_TO_FIRST_TARGET - DISTANCE_TO_FIRST_TARGET_STAGING;
    			firstMoveToFirstTarget_ = false;
    		}
    		else 
    		{
    			msg.distance = SHORT_MOVE_TO_TARGET * 1000.;
-   			approxRangeToTarget_ = DISTANCE_TO_FIRST_TARGET - (distanceToHomeRadar_ + SHORT_MOVE_TO_TARGET);
+   			approxRangeToTarget_ = DISTANCE_TO_FIRST_TARGET - (distanceToHome + SHORT_MOVE_TO_TARGET);
    		}
    	}
    	else
    	{
-   		// *******************************************we will need odom and yaw data here***************************88
-   		// distanceToHomeOdom............
-   		msg.distance = SHORT_MOVE_TO_TARGET * 1000.; // space holder ****************************************
+			cout << "unable to get either radar or odom data, so we have to wander a bit" << endl;
+			msg.distance = SHORT_MOVE_TO_TARGET * 1000.;
+			approxRangeToTarget_ -= SHORT_MOVE_TO_TARGET;
    	}
    	msg.command = "autoMove";
    	msg.speed = 1000.;

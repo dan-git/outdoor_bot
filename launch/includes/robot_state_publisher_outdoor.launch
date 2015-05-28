@@ -8,7 +8,7 @@
     <param name="publish_frequency" value="20.0"/>
   </node>
   
-   <node name="map_server" pkg="map_server" type="map_server" args="$(find outdoor_bot)/maps/field_map.yaml">
+   <node name="map_server" pkg="map_server" type="map_server" args="$(find outdoor_bot)/maps/platform_map_4000_2325.yaml">
      <param name="frame_id" value="map"/>
   </node>
   

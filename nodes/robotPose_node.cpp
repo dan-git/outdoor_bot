@@ -610,6 +610,9 @@ bool accelerometers_service_send(outdoor_bot::accelerometers_service::Request &r
 	res.accelX = accelX;
 	res.accelY = accelY;
 	res.accelZ = accelZ;
+	res.yaw = yaw;
+	res.x = x;
+	res.y = y;
 	return true;
 }
 

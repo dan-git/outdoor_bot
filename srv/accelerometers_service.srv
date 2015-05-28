@@ -2,3 +2,6 @@
 float32 accelX
 float32 accelY
 float32 accelZ
+float32 x
+float32 y
+float32 yaw

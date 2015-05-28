@@ -20,10 +20,10 @@
 //#define REAR_WEBCAM_PAN 9
 //#define REAR_WEBCAM_TILT 10
 
-#define ZOOM_DIGCAM_PAN_CENTER 127
-#define DIGCAM_PAN_CENTER 127
-#define FRONT_WEBCAM_PAN_CENTER 127
-#define FRONT_WEBCAM_TILT_LEVEL 127 // this is where the camera points level
+//#define ZOOM_DIGCAM_PAN_CENTER 127
+//#define DIGCAM_PAN_CENTER 127
+//#define FRONT_WEBCAM_PAN_CENTER 127
+//#define FRONT_WEBCAM_TILT_LEVEL 127 // this is where the camera points level
 #define SERVO_MIN 0
 #define SERVO_MAX 254
 #define PAN_SWEEP_FAIL -1000.	// if a max direction is not found, then it returns with this value
