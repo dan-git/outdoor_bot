@@ -520,16 +520,24 @@ bool detectBlobs(Mat im_original, bool firstTarget)
          else if (cameraName_ == REGULAR_DIGCAM) 
          {
          	cout << "REGULAR_DIGCAM ";
-         	if (approxRange_ > 0.5) predictedArea = REGULAR_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER / approxRange_;
-         	if (predictedArea / 2. < MIN_FIRST_TARGET_AREA_REGULAR_DIGCAM || predictedArea * 5 > MAX_FIRST_TARGET_AREA_REGULAR_DIGCAM)
+         	if (regularDigcamZoom_ == 5)
          	{
-         		params.minArea = MIN_FIRST_TARGET_AREA_REGULAR_DIGCAM;
-         		params.maxArea = MAX_FIRST_TARGET_AREA_REGULAR_DIGCAM;
-         	}
-         	else
-         	{
-					params.minArea = predictedArea / 2.;
-					params.maxArea = predictedArea * 5;   
+					params.minArea = 5000.;
+					params.maxArea = 40000.;
+				} 
+				else
+				{        		
+		      	if (approxRange_ > 0.5) predictedArea = REGULAR_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER / approxRange_;
+		      	if (predictedArea / 2. < MIN_FIRST_TARGET_AREA_REGULAR_DIGCAM || predictedArea * 5 > MAX_FIRST_TARGET_AREA_REGULAR_DIGCAM)
+		      	{
+		      		params.minArea = MIN_FIRST_TARGET_AREA_REGULAR_DIGCAM;
+		      		params.maxArea = MAX_FIRST_TARGET_AREA_REGULAR_DIGCAM;
+		      	}
+		      	else
+		      	{
+						params.minArea = predictedArea / 2.;
+						params.maxArea = predictedArea * 5;   
+					}
 				}
 			}  
 			
@@ -676,7 +684,16 @@ bool detectBlobs(Mat im_original, bool firstTarget)
          //cout << "keypoint angle: " << keypoints[i].angle << endl;
          //cout << "keypoint class_id: " << keypoints[i].class_id << endl;
          //cout << "keypoint octave: " << keypoints[i].octave << endl;
-         
+
+         if (cameraName_ == REGULAR_DIGCAM)
+         {
+         	if (regularDigcamZoom_ == 5) 
+         	{
+         		if (keypoints[i].pt.y > 500) continue; // this is too high in the image to be a valid target (higher numbers are closer to the top)        
+         		if (keypoints[i].pt.y > 1100 && ( keypointArea > 30000 || keypointArea < 4000)) continue;
+         		if (keypoints[i].pt.y > 1400 && ( keypointArea > 50000 || keypointArea < 20000)) continue;
+         	}
+         }
          if (cameraName_ == WEBCAM)
          {
          	if (webcamTilt_ == WEBCAM_TILT_LEVEL)
@@ -716,16 +733,24 @@ bool detectBlobs(Mat im_original, bool firstTarget)
          //cout << "Target octave: " << keypoints[maxIndex].octave << endl;
          centerX_ = (int) keypoints[maxIndex].pt.x;
          centerY_ = (int) keypoints[maxIndex].pt.y;
+         double rangeByArea = 0, rangeByVerticalCoordinate = 0, rangeByLookDownArea = 0;
          if (cameraName_ == ZOOM_DIGCAM) rangeSquared_ = (ZOOM_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER * ZOOM_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER) / (maxKeypointArea * maxKeypointArea);
-         else if (cameraName_ == REGULAR_DIGCAM) rangeSquared_ = (REGULAR_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER * REGULAR_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER) / (maxKeypointArea * maxKeypointArea);
-         
+         else if (cameraName_ == REGULAR_DIGCAM)
+        {
+        		if(regularDigcamZoom_ == 5) 
+        		{
+        			rangeByVerticalCoordinate = ((1704 - centerY_) / 220.)  + 0.7;
+        			cout << "regular digcam with zoom 5, rangeByVerticalCoordinate = " << rangeByVerticalCoordinate << endl;
+        		}
+        	
+        		
+        			rangeByArea = REGULAR_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER / maxKeypointArea;
+         }
          
          else if (cameraName_ == WEBCAM)
          {
-         	double rangeByArea = WEBCAM_FIRST_TARGET_RANGE_PARAMETER / maxKeypointArea;
-         	cout << "webcam range by area = " << rangeByArea;
-         	double rangeByVerticalCoordinate = 0;
-         	double rangeByLookDownArea = 0;
+         	rangeByArea = WEBCAM_FIRST_TARGET_RANGE_PARAMETER / maxKeypointArea;
+         	cout << "webcam range by area = " << rangeByArea << endl;
          	if (webcamTilt_ == WEBCAM_TILT_LEVEL)
          	{
           		if (centerY_ > WEBCAM_Y_LOW) rangeByVerticalCoordinate = 1.3;
@@ -733,22 +758,18 @@ bool detectBlobs(Mat im_original, bool firstTarget)
           	}
           	else
           	{
-          		rangeByVerticalCoordinate = ((480. - centerY_)/3.5) + 40;
-          		rangeByLookDownArea = ((7000. - maxKeypointArea)/41.) + 40.;
+          		rangeByVerticalCoordinate = ((480. - centerY_)/350.) + 0.40;
+          		rangeByLookDownArea = ((7000. - maxKeypointArea)/4100.) + 0.40;
           		cout << "webcam is looking down, rangeByVerticalCoordinate, rangeByLookDownArea = " << rangeByVerticalCoordinate << ", " << rangeByLookDownArea << endl;
           	}
           	cout << "analyzed webcam image and found range by area = " << rangeByArea << " and range by coordinates = "
           		<< rangeByVerticalCoordinate << endl;     		
-         	
-         	if (rangeByVerticalCoordinate > 0.01 &&  rangeByVerticalCoordinate < rangeByArea) rangeSquared_ = rangeByVerticalCoordinate * rangeByVerticalCoordinate;
-         	else if (rangeByLookDownArea > 0.01) rangeSquared_ = rangeByLookDownArea * rangeByLookDownArea;
-         	else rangeSquared_ = rangeByArea * rangeByArea;
          }
-			else
-			{
-				rangeSquared_ = 0.;
-				cout << "unknown camera type in mainTargets" << endl;
-			}
+			
+			if (rangeByVerticalCoordinate > 0.01) rangeSquared_ = rangeByVerticalCoordinate * rangeByVerticalCoordinate;
+         else if (rangeByLookDownArea > 0.01 && cameraName_ == WEBCAM) rangeSquared_ = rangeByLookDownArea * rangeByLookDownArea;
+         else rangeSquared_ = rangeByArea * rangeByArea;
+         
          keyCenter.x = centerX_;
          keyCenter.y = centerY_;
          

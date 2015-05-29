@@ -51,7 +51,7 @@ using namespace std;
 //#define METERS_PER_PIXEL 0.0943	use this value for resolution: in global and local_costmap_params.yaml and in field_map.yaml
 #define DISTANCE_TO_FIRST_TARGET_STAGING 2.0
 #define DISTANCE_TO_FIRST_TARGET 12.0
-#define INCREMENTAL_MOVE_TO_TARGET 10.0
+#define INCREMENTAL_MOVE_TO_TARGET 1.0 //10.0
 #define SHORT_MOVE_TO_TARGET 1.0
 //#define FIRST_MOVE_REMAINING_DISTANCE 10.0
 #define PARKING_DISTANCE 1.5
@@ -81,7 +81,7 @@ outdoor_bot::digcams_custom digcam_command_;
 int centerX_, centerY_, totalX_, moving_, turning_, alreadyTurned_, picking_, orienting_, alreadyOriented_, parking_, totalMoveToFirstTarget_ = 0;
 int home_image_height_, home_image_width_;
 bool homeCenterUpdated_, movementComplete_, triedWebcamAlready_, triedZoomDigcamAlready_, triedRegularDigcamAlready_;
-double range_, approxRangeToTarget_, targetRange_, homeCameraRange_, offsetX_, webcamTilt_, regularDigcamZoom_, zoomDigcamZoom_; 
+double range_, approxRangeToTarget_, targetRange_, homeCameraRange_, offsetX_, webcamTilt_, regularDigcamZoom_, zoomDigcamZoom_, regularDigcamFOV_;
 double accelX_, accelY_, accelZ_, x_, y_, yaw_, odomDistanceToHome_;
 bool zoomResult_, writeFileResult_, newMainTargetDigcamImageReceived_, newMainTargetWebcamImageReceived_, rangeUnknown_;
 bool targetCenterUpdated_, newNavTargetImageReceived_;
@@ -94,9 +94,9 @@ int platformXPose_[3], platPoseX_;
 int platformYPose_[3], platPoseY_;
 int platformYawPose_[3], platPoseYaw_;
 int targetXPose_, targetYPose_;
-bool phase1_, pauseNewCommand_, pauseCommanded_, previousState_, recoverTurnedAlready_, firstMoveToFirstTarget_;
+bool phase1_, pauseNewCommand_, pauseCommanded_, previousState_, recoverTurnedAlready_, firstMoveToFirstTarget_, finalMoveToTarget_;
 int deltaServoDegrees_ = PAN_CAMERA_DELTA, deltaTilt_ = TILT_CAMERA_DELTA, searchCounter_ = 0, currentServoDegrees_ = 0; 
-int maxSearchPan_ = PAN_CAMERA_SEARCH_MAX, maxSearchTilt_ = TILT_CAMERA_SEARCH_MAX;
+int maxSearchPan_ = PAN_CAMERA_SEARCH_MAX, maxSearchTilt_ = TILT_CAMERA_SEARCH_MAX, regularDigCamFOV_;
 int lastCamName_ = WEBCAM, camName_ = WEBCAM;
 std::string movementResult_;
 //int encoderPickerUpper_, encoderDropBar_, encoderBinShade_;
@@ -448,7 +448,7 @@ void testCameras()
    
    bool fileWrite = false;
    zoomDigcamZoom_ = ZOOM_DIGCAM_ZOOM;	// ******************check for real ops*********
-   regularDigcamZoom_ = REGULAR_DIGCAM_FAR_ZOOM;	// *********************************
+   regularDigcamZoom_ = REGULAR_DIGCAM_MEDIUM_ZOOM;	// *********************************
    /*
    cout << "capturing image on zoom digcam..." << endl;
    imageCapture("capture", ZOOM_DIGCAM);
@@ -495,6 +495,8 @@ void testCameras()
    }
    */
    cout << "setting zoom on right digital camera... " << endl;
+   regularDigcamFOV_ = REGULAR_DIGCAM_ZOOM5_FOV;	// **************************set this for real ops***************
+   regularDigcamZoom_ = REGULAR_DIGCAM_MEDIUM_ZOOM; //***********************************************************
    setZoom(REGULAR_DIGCAM, (float) regularDigcamZoom_);
    while (!askUser())
    {
@@ -831,7 +833,7 @@ bool callAccelerometersService()
 		odomDistanceToHome_ = sqrt((x_ * x_) + (y_ * y_));	
 	}
 	cout << "accels, x, y, z = " << accelX_ << ", " << accelY_ << ", " << accelZ_ << endl;
-	cout << "x, y, yaw = " << x_ << ", " << y_ << ", " << yaw_ << ", " << odomDistanceToHome_ << endl;
+	cout << "x, y, yaw, odomDistanceToHome_ = " << x_ << ", " << y_ << ", " << yaw_ << ", " << odomDistanceToHome_ << endl;
 	//if (fabs(accelZ_) > 3.) return true;
 	return true;
 }
@@ -898,6 +900,7 @@ void on_enter_BootupState()
    triedRegularDigcamAlready_ = false;
    recoverTurnedAlready_ = false;
    firstMoveToFirstTarget_ = true;
+   finalMoveToTarget_ = false;
    distanceToHomeRadar_ = 0.;
    orientationToHomeRadar_ = 0;
    angleToHomeRadar_ = 0.; 
@@ -939,7 +942,7 @@ void on_enter_BootupState()
   userCmdReturnSection_ = TARGETS;
   userCommandReceived_ = false;
   
-  //********************************************just testing, not real ops**************
+  /*
   
   		tAF_.set_servoNumber(FRONT_WEBCAM_TILT);
   		tAF_.set_servoDegrees( WEBCAM_TILT_DOWN);
@@ -951,7 +954,7 @@ void on_enter_BootupState()
 			tAF_.update();
 			ros::spinOnce();
 		}
-		
+	*/	
    
   cout << "finished enter bootupState" << endl;
 
@@ -1059,8 +1062,8 @@ void on_exit_BootupState()
 void on_enter_CheckLinedUpState()
 {
    // start by capturing an image using fsm
-   tAF_.set_acquireCamName(WEBCAM);
-  // tAF_.set_acquireCamName(REGULAR_DIGCAM);		//********************  use zoom for real ops
+   //tAF_.set_acquireCamName(WEBCAM);
+   tAF_.set_acquireCamName(REGULAR_DIGCAM);		//********************  use zoom for real ops
    tAF_.set_camCommand("capture");
    tAF_.set_firstTarget(true);
    tAF_.set_homeTarget(false);
@@ -1076,7 +1079,11 @@ int on_update_CheckLinedUpState()
    	return CheckLinedUpState_;  // check to see if the image got analyzed 
    }
           
-   if (centerX_ > 0) cout << "possible target found: x, y, range = " << centerX_ << ", " << centerY_ << ", " << targetRange_ << endl;
+   if (centerX_ > 0)
+   {
+   	 cout << "possible target found: x, y, range = " << centerX_ << ", " << centerY_ << ", " << targetRange_ << endl;
+   	cout << "we would turn an angle = " << ((320. - centerX_) / 640.) * WEBCAM_FOV << endl;
+   }
    else cout << "no target found yet" << endl; 
    
    cout << "Do you want to move on to autonomous ops or retry LineUp?" << endl;
@@ -1097,8 +1104,8 @@ int on_update_CheckLinedUpState()
    }
    
    // decided to try again, so we will capture an image using fsm
-   tAF_.set_acquireCamName(WEBCAM);
-   //tAF_.set_acquireCamName(REGULAR_DIGCAM);			//********************  use this for real ops?
+   //tAF_.set_acquireCamName(WEBCAM);
+   tAF_.set_acquireCamName(REGULAR_DIGCAM);			//********************  use this for real ops?
    tAF_.set_camCommand("capture");
    tAF_.set_firstTarget(true);
    tAF_.set_homeTarget(false);
@@ -1213,6 +1220,7 @@ int on_update_CheckFirstTargetState()
    //cout << "current acquire target state = " << tAF_.current_state() << endl;
    if (tAF_.current_state() != tAF_.getAcquireDoneState()) return CheckFirstTargetState_;  // check to see if the image got analyzed 
           
+   if (finalMoveToTarget_) return MoveToFirstTargetState_;
    if (centerX_ > 0)
    {
       cout << "possible target found: x, y, range = " << centerX_ << ", " << centerY_ << ", " << targetRange_ << endl;
@@ -1447,8 +1455,10 @@ int on_update_MoveToFirstTargetState()
    		}
    		else 
    		{
-   			msg.distance = SHORT_MOVE_TO_TARGET * 1000.;
-   			approxRangeToTarget_ = DISTANCE_TO_FIRST_TARGET - (distanceToHome + SHORT_MOVE_TO_TARGET);
+   			firstMoveToFirstTarget_ = false;
+   			ROS_INFO("move completed in MoveToFirstTargetState");
+	   		cout << "approxRangeToTarget_ = " << approxRangeToTarget_ << endl;
+   			return CheckFirstTargetState_;
    		}
    	}
    	else
@@ -1466,7 +1476,7 @@ int on_update_MoveToFirstTargetState()
 		return MoveToFirstTargetState_;
    }
       
-   if (centerX_ < 0) // we don't have a target in view yet, so we will just move forward a bit
+   if (centerX_ < 0 && (!finalMoveToTarget_)) // we don't have a target in view yet, so we will just move forward a bit
 	{    
 
 		
@@ -1483,13 +1493,13 @@ int on_update_MoveToFirstTargetState()
    }
    
    // we found a target, if we have not already centered it, do that now	
-   if (!turning_ && (!alreadyTurned_))
+   if (!turning_ && (!alreadyTurned_) && centerX_ > 0)
    {
 		offsetX_ = ((double) ((totalX_ / 2) - centerX_)) / ((double) totalX_);  // fraction that the image is off-center
 		cout << "totalX_, centerX_, center offset ratio = " << totalX_ << ", " << centerX_ << ", " << offsetX_ << endl;
 		centerX_ = totalX_/ 2; // reset centerX, assuming we turn correctly.
 		if (lastCamName_ == WEBCAM) offsetX_ *= WEBCAM_FOV;
-		else if (lastCamName_ == REGULAR_DIGCAM) offsetX_ *= REGULAR_DIGCAM_FOV;
+		else if (lastCamName_ == REGULAR_DIGCAM) offsetX_ *= regularDigcamFOV_;
 		else if (lastCamName_ == ZOOM_DIGCAM) offsetX_ *= ZOOM_DIGCAM_FOV;
 		else offsetX_ = 0.;
 		cout << "center offset degrees = " << offsetX_ << endl;
@@ -1499,8 +1509,8 @@ int on_update_MoveToFirstTargetState()
 		//double offsetY = ((double) (totalY_ - centerY_)) / ((double) totalY_);
 		offsetX_ += servoOffset;
 		cout << "total offset degrees = " << offsetX_ << endl;
-		/*
-		if (fabs(offsetX_) > 10.)
+		
+		if (fabs(offsetX_) > 3.)
 		{
 			// send turn command to center the target
 			msg.command = "autoMove";
@@ -1514,14 +1524,14 @@ int on_update_MoveToFirstTargetState()
 			ROS_INFO("centering target");
 			return MoveToFirstTargetState_;
 		}
-		*/
+		
 	}
 	
 	// we already centered the target
 	alreadyTurned_ = true;
 	turning_ = false;
 		
-	if (targetRange_ > 1.0)
+	if (targetRange_ > 0.3)
 	{
 		range_ = targetRange_;
 		approxRangeToTarget_ = targetRange_;
@@ -1529,6 +1539,8 @@ int on_update_MoveToFirstTargetState()
    }		
 	else if (approxRangeToTarget_ > INCREMENTAL_MOVE_TO_TARGET) range_ = approxRangeToTarget_;
 	else range_ = (2. * INCREMENTAL_MOVE_TO_TARGET) + 1.;	// if we just cannot figure out a range, then try this
+	
+	if (finalMoveToTarget_ && centerX_ < 0) return PickupTargetState_; // we hope to get one more centering turn in, but must have overrun
    
    cout << "Moving to target, range = " << range_ << endl; 
     
@@ -1571,33 +1583,40 @@ int on_update_MoveToFirstTargetState()
 	else if (range_ > 5.)
 	{
 	   msg.command = "autoMove";
-		msg.distance = 3000;	// mm
+		msg.distance = 2000;	// mm
 		approxRangeToTarget_ -= 3.;
 		msg.speed = 1000.;   	// mm/sec or deg/sec 
 	   ROS_INFO("auto moving forward 3m");
 	}     
 	
-	else if (range_ > 3.)
+	else if (range_ > 2.)
 	{	   
 	   msg.command = "autoMove";
-		msg.distance = 1000;	// mm
+		msg.distance = 500;	// mm
 		approxRangeToTarget_ -= 1.;
-		msg.speed = 1000.;   	// mm/sec or deg/sec 
+		msg.speed = 800.;   	// mm/sec or deg/sec 
 		ROS_INFO("auto moving forward 1m"); 
-	}    
-	   
+	}
+	
+	else if (range_ > 1.)
+	{
+	   msg.command = "autoMove";
+		msg.distance = (range_ - 0.5) * 1000.;	// mm
+		approxRangeToTarget_ -= 0.5;
+		finalMoveToTarget_ = true;
+		msg.speed = 800.;   	// mm/sec or deg/sec 
+		ROS_INFO("auto moving forward 500mm");    
+	}
+	  
 	else if (range_ > 0.01)
 	{
 	   // final approach
 	   cout << "range is very short, time to pick up the target, range_ = " << range_ << endl;
+	   
 	   moving_ = false;
 	   turning_ = false;
-	   alreadyTurned_ = false;
-	   
-	   
-	   //return PickupTargetState_;
-	   pauseCommanded_ = true;
-	   return PauseState_;
+	   alreadyTurned_ = false;	   
+	   return PickupTargetState_;
 	}
 	
 	else return CheckFirstTargetState_;
@@ -1609,35 +1628,6 @@ int on_update_MoveToFirstTargetState()
    movementComplete_ = false;   
    return MoveToFirstTargetState_;
 }
-
-/*
-void on_enter_PickupFirstTargetState()
-{
-   if (pauseCommanded_) return;
-}
-int on_update_PickupFirstTargetState()
-{
-   if (pauseCommanded_)
-   {
-      previousState_ = PickupFirstTargetState_;
-      return PauseState_;
-   }
-   // here we do final staging, which means line up with the target and drive straight to it and 
-   // proceed with picking it up
-   // center target, estimate range
-   // lower front loader
-   // move forward to target contact with loader
-   // decide if drop bar is needed, if so, drop it and move forward to engage it
-   // lift loader, move shade to next bin slot
-   // verify that target is in loader
-   // if drop bar deployed, move in reverse and wind it back up
-   // dump target into bin
-   // move forward 10m or perhaps farther to find flat ground and to get out of target area range
-   // verify that target is in bin
-   if (phase1_) return CheckHomeState_;
-   return FindTargetState_;
-}
-*/
  
 int on_update_FindTargetState()
 {
@@ -1700,6 +1690,7 @@ int on_update_MoveToTargetState()
 void on_enter_PickupTargetState()
 {
 	//callEncodersService();  // get initial locations
+	finalMoveToTarget_ = false;
 	outdoor_bot::movement_msg msg;   
    msg.command = "PDmotor";
    msg.PDmotorNumber = MOTOR_PICKER_UPPER;
@@ -1733,7 +1724,7 @@ int on_update_PickupTargetState()
 		   msg.command = "autoMove";
 		   msg.distance = 1000;	// mm
 		   msg.angle = 0;			// degrees
-		   msg.speed = 200;   	// mm/sec or deg/sec  
+		   msg.speed = 500;   	// mm/sec or deg/sec  
    		movement_pub_.publish(msg);
    		return PickupTargetState_;
    	}
@@ -1759,8 +1750,7 @@ int on_update_PickupTargetState()
    		//movement_pub_.publish(msg); 
    		return PickupTargetState_;
    	}
-   	
-   	
+   	   	
    	if (placing_) // finished placing scooper, now push target onto scooper
    	{
    		placing_ = false;
@@ -1770,7 +1760,7 @@ int on_update_PickupTargetState()
 		   msg.command = "autoMove";
 		   msg.distance = 500;
 		   msg.angle = 0; 
-		   msg.speed = 200;  	  
+		   msg.speed = 500;  	  
    		movement_pub_.publish(msg);
    		return PickupTargetState_;
    	}
@@ -2206,7 +2196,7 @@ int on_update_HeadForHomeState()
     	centerX_ = -1;   	// only want to turn once for each pass through HeadForHomeState
    	cout << "center offset ratio = " << offsetX_ << endl;
    	if (lastCamName_ == WEBCAM) offsetX_ *= WEBCAM_FOV;
-   	else if (lastCamName_ == REGULAR_DIGCAM) offsetX_ *= REGULAR_DIGCAM_FOV;
+   	else if (lastCamName_ == REGULAR_DIGCAM) offsetX_ *= regularDigcamFOV_;
    	else if (lastCamName_ == ZOOM_DIGCAM) offsetX_ *= ZOOM_DIGCAM_FOV;
    	else offsetX_ = 0.;
    	cout << "center offset degrees = " << offsetX_ << endl;
