@@ -174,12 +174,14 @@ public:
       {
       	camNum = ZOOM_DIGCAM_NUMBER;
       	imgHeader.seq = zoomCurrentZoom_;
+      	cout << "sending zoom = " << zoomCurrentZoom_ << endl;
       	imgHeader.frame_id = "zoomDigcam";
       }
       else if (camName == REGULAR_DIGCAM)
       {
       	camNum = REGULAR_DIGCAM_NUMBER;
       	imgHeader.seq = regularCurrentZoom_;
+      	cout << "sending zoom = " << regularCurrentZoom_ << endl;
       	imgHeader.frame_id = "regularDigcam";
       }
       else

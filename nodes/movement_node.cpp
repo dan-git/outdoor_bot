@@ -697,15 +697,9 @@ void movementCommandCallback(const outdoor_bot::movement_msg msg)
    	int timeoutCounter = 0;
    	bool moveFinished = false;
    	   	
-   	while ( (!moveFinished) && timeoutCounter < 6000)	// timeout after 1 min
+   	while ( (!moveFinished) && timeoutCounter < 300)	// timeout after 30 sec
    	{
-			if (!callEncodersService())
-			{    	
-		   	cout << "unable to get PD motor encoder values, returning failed from movement node" << endl;
-		   	msgResult.data = "PDmotor_failed";  	
-				complete_pub_.publish(msgResult);
-				return;
-			} 		
+			callEncodersService();	
    	
 			if (motorNumber == MOTOR_DROP_BAR)
 			{
@@ -749,7 +743,7 @@ void movementCommandCallback(const outdoor_bot::movement_msg msg)
  		pmotorMsg.pmotorSpeed = 0;	// stop the motor
    	pmotor_pub_.publish(pmotorMsg);  	
    	
-   	if (timeoutCounter < 6000)
+   	if (timeoutCounter < 600)
    	{
    		msgResult.data = "PDmotor_done"; 
    		if (motorNumber == MOTOR_BIN_SHADE) numObjectsGathered_++;
@@ -758,8 +752,13 @@ void movementCommandCallback(const outdoor_bot::movement_msg msg)
    	else
    	{
    		msgResult.data = "PDmotor_failed";
+   		if (!callEncodersService())
+   		{    	
+		   	cout << "unable to get PD motor encoder values, returning failed from movement node" << endl; 	
+			} 	
    		cout << "PD motor move timed out for motor " << motorNumber << ", speed = " << motorSpeed << endl;	
    	}
+   	cout	<< "time taken = " << timeoutCounter / 10 << " seconds " << endl;
    	complete_pub_.publish(msgResult);
    	return;
    }  

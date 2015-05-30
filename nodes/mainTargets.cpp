@@ -34,7 +34,7 @@ using namespace cv;
 // these values are for ZOOM = 7 on the digcams  
 #define MAX_FIRST_TARGET_AREA_ZOOM_DIGCAM 250000.
 #define MIN_FIRST_TARGET_AREA_ZOOM_DIGCAM 5000.
-#define MAX_FIRST_TARGET_AREA_REGULAR_DIGCAM 250000.
+#define MAX_FIRST_TARGET_AREA_REGULAR_DIGCAM 50000.
 #define MIN_FIRST_TARGET_AREA_REGULAR_DIGCAM 5000.
 #define MAX_FIRST_TARGET_AREA_WEBCAM 20000.
 #define MIN_FIRST_TARGET_AREA_WEBCAM 400.
@@ -205,7 +205,8 @@ mainTargets(ros::NodeHandle &nh)
        else if (!camStringName.compare("regularDigcam")) 
        {
        	cameraName_ = REGULAR_DIGCAM;      
-       	regularDigcamZoom_ = (int) imgHeader.seq;
+       	regularDigcamZoom_ = 5; //(int) imgHeader.seq; ************************fix this for real ops*******
+       	cout << "zoom setting = " << regularDigcamZoom_ << endl;
        }
        else cout << "digcams received an image from an unknown camera: " << cameraName_<< endl;
        std_msgs::Int32 imMsg;
@@ -522,6 +523,7 @@ bool detectBlobs(Mat im_original, bool firstTarget)
          	cout << "REGULAR_DIGCAM ";
          	if (regularDigcamZoom_ == 5)
          	{
+					predictedArea = 20000.;
 					params.minArea = 5000.;
 					params.maxArea = 40000.;
 				} 
@@ -689,18 +691,18 @@ bool detectBlobs(Mat im_original, bool firstTarget)
          {
          	if (regularDigcamZoom_ == 5) 
          	{
-         		if (keypoints[i].pt.y > 500) continue; // this is too high in the image to be a valid target (higher numbers are closer to the top)        
-         		if (keypoints[i].pt.y > 1100 && ( keypointArea > 30000 || keypointArea < 4000)) continue;
-         		if (keypoints[i].pt.y > 1400 && ( keypointArea > 50000 || keypointArea < 20000)) continue;
+         		if (keypoints[i].pt.y < 450) continue; // this is too high in the image to be a valid target (higher numbers are closer to the top)        
+         		if ( keypoints[i].pt.y >= 450 && keypoints[i].pt.y < 1100 && ( keypointArea > 30000 || keypointArea < 3000)) continue;
+         		if ( keypoints[i].pt.y >= 1100 && keypoints[i].pt.y < 1400 && ( keypointArea > 50000 || keypointArea < 10000)) continue;
          	}
          }
          if (cameraName_ == WEBCAM)
          {
          	if (webcamTilt_ == WEBCAM_TILT_LEVEL)
          	{
-         		if (keypoints[i].pt.y > WEBCAM_Y_MIN) continue; // this is too high in the image to be a valid target (higher numbers are closer to the top)
-         		if (keypoints[i].pt.y > WEBCAM_Y_MID && ( keypointArea > WEBCAM_Y_MID_MAX_AREA || keypointArea < WEBCAM_Y_MID_MIN_AREA)) continue;
-         		if (keypoints[i].pt.y > WEBCAM_Y_LOW && ( keypointArea > WEBCAM_Y_LOW_MAX_AREA || keypointArea < WEBCAM_Y_LOW_MIN_AREA)) continue;
+         		if (keypoints[i].pt.y < WEBCAM_Y_MIN) continue; // this is too high in the image to be a valid target (higher numbers are closer to the top)
+         		if  (keypoints[i].pt.y >= WEBCAM_Y_MIN && keypoints[i].pt.y < WEBCAM_Y_MID && ( keypointArea > WEBCAM_Y_MID_MAX_AREA || keypointArea < WEBCAM_Y_MID_MIN_AREA)) continue;
+         		if (keypoints[i].pt.y >= WEBCAM_Y_MID && keypoints[i].pt.y < WEBCAM_Y_LOW && ( keypointArea > WEBCAM_Y_LOW_MAX_AREA || keypointArea < WEBCAM_Y_LOW_MIN_AREA)) continue;
          	}
          	//else //if (webcamTilt_ == WEBCAM_TILT_DOWN) // no areas to exclude from tilted down camera
          	//{
