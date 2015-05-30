@@ -899,7 +899,7 @@ void on_enter_BootupState()
    triedZoomDigcamAlready_ = true;		// we are skipping the zoom camera
    triedRegularDigcamAlready_ = false;
    //***********allows us to bypass bootupstate****change for real ops
-   regularDigcamFOV_ = 25.; //REGULAR_DIGCAM_ZOOM5_FOV;	// **************************set this for real ops***************
+   regularDigcamFOV_ = 33.; //REGULAR_DIGCAM_ZOOM5_FOV;	// **************************set this for real ops***************
    regularDigcamZoom_ = REGULAR_DIGCAM_MEDIUM_ZOOM; //***********************************************************
    recoverTurnedAlready_ = false;
    firstMoveToFirstTarget_ = true;
@@ -967,17 +967,23 @@ int on_update_BootupState()
 {
    
    cout << "now in update bootupState" << endl;
-   // give some time for everyone to setup and get started, then ask what platform we are assigned
-   cout << "Do you want to move on to autonomous ops or go through bootstate stuff?" << endl;
-   if (askUser()) 
-   {
-	   if (pauseCommanded_) return PauseState_;
-	   
-	   //usingRadar_ = true;			//***************************************** delete for real ops **************************8
-	   //usingDirAnt_ = true;			// ************************************************************************
-   	return CheckLinedUpState_; //***********************************************8
-   }
+
    if (pauseCommanded_) return PauseState_;
+
+	
+   // get radar ranges
+   if (radarGoodData_)
+   {
+   	usingRadar_ = true;
+   	cout << "radar distance, angle, orientation = " <<	 distanceToHomeRadar_ << ", " << angleToHomeRadar_ << ", " << orientationToHomeRadar_ << endl;
+   }
+   else
+   {
+      cout << "radar failed, do you want to retry bootstate?" << endl;
+      if (!askUser()) return BootupState_;
+      usingRadar_ = false;
+   }
+   
    if (getUserInput())
    {
 		   platPoseX_ = platformXPose_[platformNumber_ - 1];
@@ -988,32 +994,27 @@ int on_update_BootupState()
 	}
    else return BootupState_;
    
+      
    //******************************************use this with a blank map, decide later for real ops*************
    // makes using odometry in autonmous node a lot easier***************
    if (!callSetPoseService(0,0,0,true)) //platPoseX_, platPoseY_, platPoseYaw_, true)) // set home pose in robotPose_node
    {
-      cout << "failed to set home pose, need to retry BootupState?" << endl;
-      if (!askUser()) return BootupState_;
+      cout << "failed to set home pose" << endl;
    }
    if (!callSetPoseService(0,0,0,false)) //platPoseX_, platPoseY_, platPoseYaw_, false)) // and place us there
    {
-      cout << "failed to place us at home pose on the map, need to retry BootupState?" << endl;
-      if (!askUser()) return BootupState_;
+      cout << "failed to place us at home pose on the map" << endl;
    }
    //******************************************use this with a blank map, decide later for real ops*************
    
-   
-   
-   
-   
-	
-   // get radar ranges
-   if (radarGoodData_) cout << "radar distance, angle, orientation = " <<
-   	 distanceToHomeRadar_ << ", " << angleToHomeRadar_ << ", " << orientationToHomeRadar_ << endl;
-   else
+      // give some time for everyone to setup and get started, then ask what platform we are assigned
+   cout << "Do you want to move on to autonomous ops or go through bootstate stuff?" << endl;
+   if (askUser()) 
    {
-      cout << "radar failed, do you want to retry bootstate?" << endl;
-      if (!askUser()) return BootupState_;
+	   if (pauseCommanded_) return PauseState_;
+
+	   usingDirAnt_ = false;			// ************************************************************************
+   	return CheckLinedUpState_; //***********************************************8
    }
    
    // start by setting zooms and taking a photo from each camera
@@ -1087,7 +1088,7 @@ int on_update_CheckLinedUpState()
    	 cout << "possible target found: x, y, range = " << centerX_ << ", " << centerY_ << ", " << targetRange_ << endl;
    	if (tAF_.get_acquireCamName() == WEBCAM) cout << "we would turn an angle = " << ((320. - centerX_) / 640.) * WEBCAM_FOV << endl;
    
-   	else if (tAF_.get_acquireCamName() == REGULAR_DIGCAM) 
+   	else if (tAF_.get_acquireCamName() == REGULAR_DIGCAM) // *******if we change here, change below too
    	cout << "we would turn an angle = " << ((1136. - centerX_) / 2272.) * regularDigcamFOV_ << " with zoom set to " << regularDigcamZoom_ << endl;
    }
    else cout << "no target found yet" << endl; 
@@ -1098,20 +1099,12 @@ int on_update_CheckLinedUpState()
      	currentSection_ = FIRST_TARGET;
      	centerX_ = -1; //totalX_ / 2; // we have manually centered the robot, we do not want it to turn!
      	
-     	return MoveToFirstTargetState_; //********************  use this for real ops
-     	// comment out the section below for real  ops *************************************
-     	
-/*
-   		centerX_ = -1;
-   		triedZoomDigcamAlready_ = true;
-   		approxRangeToTarget_ = 1.9;
-   		return SearchForFirstTargetState_; 
-*/ 
+     	return MoveToFirstTargetState_;
    }
    
    // decided to try again, so we will capture an image using fsm
    //tAF_.set_acquireCamName(WEBCAM);
-   tAF_.set_acquireCamName(REGULAR_DIGCAM);			//********************  use this for real ops?
+   tAF_.set_acquireCamName(REGULAR_DIGCAM);			//********************  use this for real ops? if we change here , change above too
    tAF_.set_camCommand("capture");
    tAF_.set_firstTarget(true);
    tAF_.set_homeTarget(false);
@@ -1435,7 +1428,7 @@ int on_update_MoveToFirstTargetState()
 			{
 				msg.command = "autoMove";
 			   msg.speed = 1000.;
-			   msg.angle = -yaw_;
+			   msg.angle = -yaw_ * 1.5; //+ (sgn(yaw_) * 2);  // we turn a little extra to compensate for drift away from the target.  we could calculate this better*****************
 				cout << "turning to zero yaw = " << msg.angle << " degrees" << endl;
 				turning_ = true;
 				movement_pub_.publish(msg);
@@ -1518,7 +1511,7 @@ int on_update_MoveToFirstTargetState()
 		currentServoDegrees_ = 0.;	// the servos were centered earlier, but we waited to reset currentServoDegrees_ so we could use it here
 		cout << "servo offset degrees = " << servoOffset << endl;
 		//double offsetY = ((double) (totalY_ - centerY_)) / ((double) totalY_);
-		offsetX_ += servoOffset * 0.8; //*********************************************check this***********
+		offsetX_ += servoOffset * 0.8; //*********************************************check this*****************************************************************************
 		cout << "total offset degrees = " << offsetX_ << endl;
 		
 		if (fabs(offsetX_) > 3.)
@@ -1574,8 +1567,7 @@ int on_update_MoveToFirstTargetState()
 	 }
 	 	
 
-	else	*/
-	 if (range_ > 20.)
+	else if (range_ > 20.)
 	{
 	   msg.command = "autoMove";
 	   msg.distance = 10000.;
@@ -1593,7 +1585,9 @@ int on_update_MoveToFirstTargetState()
 	   ROS_INFO("moving forward 5m");
 	}
 	
-	else if (range_ > 5.)
+	else
+	*/
+	 if (range_ > 5.)
 	{
 	   msg.command = "autoMove";
 		msg.distance = 1000;	// mm
