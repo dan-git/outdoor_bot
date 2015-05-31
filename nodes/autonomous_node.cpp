@@ -18,6 +18,7 @@
 //#include "outdoor_bot/pmotor_msg.h"
 #include "outdoor_bot/movement_msg.h"
 #include "FBFSM/FBFSM.h"
+#include "navigation/ObstacleDetector.h"
 #include "std_msgs/String.h"
 #include "std_msgs/Int32.h"
 #include "outdoor_bot_defines.h"
@@ -117,7 +118,7 @@ bool userCommandReceived_;
 int dirAntMaxAngle_, dirAntSweepNumber_, dirAntLevel_, usingDirAnt_;
 bool currentSection_;
 
-
+OutDoorBot::Navigation::ObstacleDetector OD;
 
 FBFSM fsm_;
 int BootupState_, CheckLinedUpState_, PhaseTwoFirstState_, CheckFirstTargetState_, SearchForFirstTargetState_;
