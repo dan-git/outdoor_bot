@@ -34,14 +34,8 @@ find_package(OpenCV)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
 rosbuild_add_library(rcm src/rcmRadar/rcm.c src/rcmRadar/rcmIf.c src/rcmRadar/radar.cpp)
-<<<<<<< HEAD
-rosbuild_add_library(${PROJECT_NAME} src/FBFSM/FBFSM.cpp)
-#rosbuild_add_library(${PROJECT_NAME} src/navigation/ObstacleDetector.cpp)
-rosbuild_add_library(outdoor_bot_nav src/navigation/ObstacleDetector.cpp)
-=======
 rosbuild_add_library(fbfsm src/FBFSM/FBFSM.cpp)
 rosbuild_add_library(outdoorbot_nav src/navigation/ObstacleDetector.cpp)
->>>>>>> origin
 
 rosbuild_add_executable(robotPose_node nodes/robotPose_node.cpp)
 rosbuild_add_executable(serialComm_node nodes/serialComm_node.cpp)
@@ -49,7 +43,7 @@ rosbuild_add_executable(movement_node nodes/movement_node.cpp)
 rosbuild_add_executable(keyboardController_node nodes/keyboardController_node.cpp)
 rosbuild_add_executable(baseController_node nodes/baseController_node.cpp)
 rosbuild_add_executable(pololu_motor_control nodes/pololu_motor_control.cpp)
-rosbuild_add_executable(digcams nodes/digcams.cpp)
+#rosbuild_add_executable(digcams nodes/digcams.cpp)
 rosbuild_add_executable(webcams nodes/webcams.cpp)
 rosbuild_add_executable(imagecv nodes/imagecv.cpp)
 rosbuild_add_executable(NavTargets nodes/NavTargets.cpp)
@@ -64,7 +58,7 @@ rosbuild_add_executable(obstacle_node nodes/obstacle_node.cpp)
 #rosbuild_add_executable(radar src/rcmRadar/rcm.c src/rcmRadar/rcmIf.c src/rcmRadar/rcmSampleApp.c)
 #rosbuild_add_executable(radar src/rcmRadar/rcmSampleApp.c)
 
-target_link_libraries(digcams ${OpenCV_LIBRARIES})
+#target_link_libraries(digcams ${OpenCV_LIBRARIES})
 target_link_libraries(webcams ${OpenCV_LIBRARIES})
 target_link_libraries(imagecv ${OpenCV_LIBRARIES})
 target_link_libraries(NavTargets ${OpenCV_LIBRARIES})
@@ -72,16 +66,12 @@ target_link_libraries(mainTargets ${OpenCV_LIBRARIES})
 target_link_libraries(autonomous_node ${OpenCV_LIBRARIES})
 #target_link_libraries(simple_blobs ${OpenCV_LIBRARIES})
 #target_link_libraries(blob_detector ${OpenCV_LIBRARIES})
-target_link_libraries(digcams gphoto2 gphoto2_port)
+#target_link_libraries(digcams gphoto2 gphoto2_port)
 target_link_libraries(robotPose_node rcm)
 target_link_libraries(movement_node rcm)
 target_link_libraries(radar_node rcm)
-<<<<<<< HEAD
-target_link_libraries(autonomous_node ${PROJECT_NAME} outdoor_bot_nav)
-=======
 target_link_libraries(autonomous_node fbfsm)
 target_link_libraries(autonomous_node outdoor_bot_nav)
->>>>>>> origin
 
 #rosbuild_add_executable(odomTester_node nodes/odomTester_node.cpp)
 
