@@ -87,7 +87,6 @@ public:
      ROS_INFO("webcam image received by image_cvproc");
      string windowName = "webcam";
      std_msgs::Header imgHeader = msg->header;
-     int webcamTilt_ = (int) imgHeader.seq;
      /*
      if (webcamImageNumber_ == 1)
      {
@@ -275,7 +274,7 @@ public:
 		 
 		 
 		 cout << "Return section choices are as follows: " << endl;
-		 cout << "0 = BOOT, 1 = FIRST_TARGET, 2 = TARGETS, 3 = HOME, 4 = PLATFORM" << endl;
+		 cout << "0 = BOOT, 1 = FIRST_TARGET_CHECK, 2 = FIRST_TARGET_MOVE, 3 = TARGETS, 4 = HOME, 5 = PLATFORM, 6 = ALL_DONE" << endl;
 		 cout << "Enter return section: " << endl;
 		 int sectionSelect;
 		 getline(cin, input);
@@ -283,17 +282,17 @@ public:
 		 stringstream mySectionStream(input);
 		 if (mySectionStream >> sectionSelect)
 		 {
-		 	if (sectionSelect < BOOTUP || sectionSelect > PLATFORM)
+		 	if (sectionSelect < 0 || sectionSelect > 6)
 			{
 				cout << "invalid return section, defaulting to TARGETS" << endl;
-			 	userCommand_.append("2");
+			 	userCommand_.append("3");
 			}
 			else userCommand_.append(input);
 		 }
 		 else
 		 {
 			 cout << "Failed to understand return section, defaulting to TARGETS" << endl;
-			 userCommand_.append("2");
+			 userCommand_.append("3");
 		 }
 
 		 userCommand_.append(";");

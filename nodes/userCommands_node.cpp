@@ -129,7 +129,7 @@ void getUserInput()
     }
     
     cout << "Return section choices are as follows: " << endl;
-    cout << "0 = BOOT, 1 = FIRST_TARGET, 2 = TARGETS, 3 = HOME, 4 = PLATFORM" << endl;
+    cout << "0 = BOOT, 1 = FIRST_TARGET_CHECK, 2 = FIRST_TARGET_MOVE, 3 = TARGETS, 4 = HOME, 5 = PLATFORM, 6 = ALL_DONE" << endl;
     cout << "Enter return section: " << endl;
     int sectionSelect;
 	 getline(cin, input);
@@ -140,14 +140,14 @@ void getUserInput()
 	 	if (sectionSelect < BOOTUP || sectionSelect > PLATFORM)
 		{
 		   cout << "invalid return section, defaulting to TARGETS" << endl;
-		 	userCommand_.append("2");
+		 	userCommand_.append("3");
 		}
 		else userCommand_.append(input);
 	 }
 	 else
 	 {
 		 cout << "Failed to understand return section, defaulting to TARGETS" << endl;
-		 userCommand_.append("2");
+		 userCommand_.append("3");
 	 }
 
 	 userCommand_.append(";");
@@ -167,10 +167,12 @@ void printCommands()
 	}
 	cout << "return section = " << userCmdReturnSection_ << ", corresponding to ";
 	if (userCmdReturnSection_ == BOOTUP) cout << "BOOTUP";
-	else if (userCmdReturnSection_ == FIRST_TARGET) cout << "FIRST_TARGET";
+	else if (userCmdReturnSection_ == FIRST_TARGET_CHECK) cout << "FIRST_TARGET_CHECK";
+	else if (userCmdReturnSection_ == FIRST_TARGET_MOVE) cout << "FIRST_TARGET_MOVE";
 	else if (userCmdReturnSection_ == TARGETS) cout << "TARGETS";
 	else if (userCmdReturnSection_ == HOME) cout << "HOME";
 	else if (userCmdReturnSection_ == PLATFORM) cout << "PLATFORM";
+	else if (userCmdReturnSection_ == ALL_DONE) cout << "ALL_DONE";
 	else cout << "unknown section";
 	cout << endl;
 

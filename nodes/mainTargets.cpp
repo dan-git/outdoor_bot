@@ -129,8 +129,8 @@ mainTargets(ros::NodeHandle &nh)
       numTargetsDetected_ = 0;
       newDigcamImageReceived_ = false;
       newWebcamImageReceived_ = false;
-      zoomDigcamZoom_ = 0;	// ******************real ops, set a default in defines.h
-      regularDigcamZoom_ = 0; // ****************************************************
+      zoomDigcamZoom_ = 0;	
+      regularDigcamZoom_ = 0; 
       webcamTilt_ = WEBCAM_TILT_LEVEL;
 }
    // commanded to analyze image
@@ -141,8 +141,16 @@ mainTargets(ros::NodeHandle &nh)
       cameraName_ = msg.cameraName;
       if ( (cameraName_ == REGULAR_DIGCAM || cameraName_ == ZOOM_DIGCAM) && newDigcamImageReceived_)
       {
-         if (cameraName_ == REGULAR_DIGCAM ) ROS_INFO("mainTargets is using a regular digcam image via image transport.");
-         else if (cameraName_ == ZOOM_DIGCAM ) ROS_INFO("mainTargets is using a zoom digcam image via image transport.");
+         if (cameraName_ == REGULAR_DIGCAM )
+         {
+         	regularDigcamZoom_ = msg.regularDigcamZoom;
+         	ROS_INFO("mainTargets is using a regular digcam image via image transport.");
+         }
+         else if (cameraName_ == ZOOM_DIGCAM )
+         {
+         	ROS_INFO("mainTargets is using a zoom digcam image via image transport.");
+         	zoomDigcamZoom_ = msg.zoomDigcamZoom;
+         }
          image_ = newDigcamImage_.clone();
          newDigcamImageReceived_ = false;
       }
@@ -200,12 +208,10 @@ mainTargets(ros::NodeHandle &nh)
        if (!camStringName.compare("zoomDigcam"))	// the not result means the strings are the same 
        {
        	cameraName_ = ZOOM_DIGCAM;
-       	zoomDigcamZoom_ = (int) imgHeader.seq;
        }
        else if (!camStringName.compare("regularDigcam")) 
        {
        	cameraName_ = REGULAR_DIGCAM;      
-       	regularDigcamZoom_ = 5; //(int) imgHeader.seq; ************************fix this for real ops*******
        	cout << "zoom setting = " << regularDigcamZoom_ << endl;
        }
        else cout << "digcams received an image from an unknown camera: " << cameraName_<< endl;

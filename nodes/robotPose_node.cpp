@@ -78,7 +78,7 @@ boost::array<double, 9> ORIENTATION_COVARIANCE = {
 using namespace std;
 
 ros::Subscriber ucResponseMsg, assignedPose, poseWithCovariance_, moveCmd, radar_sub_;
-ros::Publisher odom_pub, imu_pub, sensors_pub, pause_pub, autoMove_pub;
+ros::Publisher odom_pub, imu_pub, sensors_pub, pause_pub, autoMove_pub, pdMotor_pub;
 ros::ServiceServer encoders_serv, dirAnt_serv, setPose_serv, accelerometers_serv, autoMove_serv;
 tf::TransformBroadcaster *odom_broadcaster;	// have to use a pointer because declaring this before running
 						// ros:init causes a run-time error
@@ -88,7 +88,7 @@ double accelX, accelY, accelZ;
 double velocityLeft, velocityRight, dtROS_ = 0.02;
 long EncoderTicksRight = 0, EncoderTicksLeft = 0, previousEncoderTicksRight = 0, previousEncoderTicksLeft = 0;
 long EncoderPickerUpper = 0, EncoderBinShade = 0, EncoderDropBar = 0, EncoderExtra = 0;
-int battery, pauseState = 0, dirAntMaxAngle = 0, dirAntSweepNumber = 0,  dirAntLevel = 0, autoMoveStatus = 0, previousAutoMoveStatus = 0;
+int battery, pauseState = 0, dirAntMaxAngle = 0, dirAntSweepNumber = 0,  dirAntLevel = 0, autoMoveStatus = 0, previousAutoMoveStatus = 0, pdMotorStatus = 0, previouspdMotorStatus = 0;
 unsigned long arduinoCycleTime, arduinoDataCounter;
 bool firstTime = true, radarDataEnabled_ = true;
 bool pauseStateSent_ = false, releaseStateSent_ = false;
@@ -281,6 +281,17 @@ void sendOutNavData()
    	autoMove_pub.publish(msg);
    }
    previousAutoMoveStatus = autoMoveStatus;
+   
+   if (pdMotorStatus != previouspdMotorStatus)
+   {
+   	if (pdMotorStatus == 0) cout << "pdMotor finished" << endl;
+   	else if (pdMotorStatus == 1) cout << "pdMotor started" << endl;
+   	else cout << "unknown pdMotor status" << endl;
+   	std_msgs::Int32 msg;
+   	msg.data = pdMotorStatus;
+   	pdMotor_pub.publish(msg);
+   }
+   previouspdMotorStatus = pdMotorStatus;
 
    if (pauseState && (!pauseStateSent_))
    {
@@ -468,8 +479,9 @@ void parseNavData(std::string data)
   dirAntSweepNumber = atof(navDataBuffer[12].c_str());
   dirAntLevel = atof(navDataBuffer[13].c_str());
   autoMoveStatus = atof(navDataBuffer[14].c_str());
-  arduinoCycleTime = atof(navDataBuffer[15].c_str());
-  arduinoDataCounter = atof(navDataBuffer[16].c_str());
+  pdMotorStatus = atof(navDataBuffer[15].c_str());
+  arduinoCycleTime = atof(navDataBuffer[16].c_str());
+  arduinoDataCounter = atof(navDataBuffer[17].c_str());
   // use this to check the timing of arduino data
   /*  ros::Time current_time = ros::Time::now();
     double dtROS_ = current_time.toSec() - local_last_time.toSec();
@@ -610,8 +622,8 @@ bool accelerometers_service_send(outdoor_bot::accelerometers_service::Request &r
 	res.accelX = accelX;
 	res.accelY = accelY;
 	res.accelZ = accelZ;
-	res.yaw = yaw;
-	res.x = x;
+	res.yaw = yaw; // radians
+	res.x = x;		// meters
 	res.y = y;
 	return true;
 }
@@ -668,6 +680,7 @@ int main(int argc, char** argv){
   encoders_serv = n.advertiseService("encoders_service", encoders_service_send);
   autoMove_serv = n.advertiseService("automove_service", autoMove_service_send);
   autoMove_pub = n.advertise<std_msgs::Int32>("autoMove_status", 2);
+  pdMotor_pub = n.advertise<std_msgs::Int32>("pdMotor_status", 2);
   accelerometers_serv = n.advertiseService("accelerometers_service", accelerometers_service_send);
   dirAnt_serv = n.advertiseService("dirAnt_service", dirAnt_service_send);
   setPose_serv = n.advertiseService("setPose_service", setPose_service_send);

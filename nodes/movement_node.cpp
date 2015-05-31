@@ -38,7 +38,7 @@ sqrt(0.5)	0	0	-sqrt(0.5)	-90° rotation around Z axis
 #include "outdoor_bot_defines.h"
 
 #define FINAL_RANGE 1.2
-#define DROP_BAR_LOCATION -3000 
+#define DROP_BAR_LOCATION 3000 
 #define PICKER_UPPER_PREP_LOCATION 104 
 #define PICKER_UPPER_LOCATION 108
 #define BIN_SHADE_FIRST_LOCATION 106
@@ -59,7 +59,7 @@ private:
    ros::ServiceClient encoders_client_, autoMove_client_;
    ros::Publisher cmd_vel_pub_, complete_pub_, pmotor_pub_, autoMove_pub_;
    // we subscribe motion and keyboard commands publishers
-   ros::Subscriber keyboardCommandsSub_, motionCommandsSub_, movementCommandsSub_, radar_sub_, autoMoveStatus_sub_;
+   ros::Subscriber keyboardCommandsSub_, motionCommandsSub_, movementCommandsSub_, radar_sub_, autoMoveStatus_sub_, pdMotorStatus_sub_;
 
    // create the action client to send goals to move_base
    // true causes the client to spin its own thread
@@ -69,7 +69,7 @@ private:
    int encoderPickerUpper_, encoderDropBar_, encoderBinShade_;
    int quatX_, quatY_, quatZ_, quatW_;
    std::string command_;
-   int autoMoveStatus_;
+   int autoMoveStatus_, pdMotorStatus_;
    
    double distanceToHomeRadar_, angleToHomeRadar_, orientationToHomeRadar_;
    //double velocityToHome_ = 0., previousdistanceToHomeRadar_ = 0.; 
@@ -121,12 +121,14 @@ public:
    angleToHomeRadar_ = 0.;
    orientationToHomeRadar_ = 0.;
    autoMoveStatus_ = 0;
+   pdMotorStatus_ = 0;
    cmd_vel_pub_ = nh.advertise<geometry_msgs::Twist>("cmd_vel", 1);
 
    keyboardCommandsSub_ = nh.subscribe("keyboard", 1, &movementControl::keyboardCommandCallback, this);
    movementCommandsSub_ = nh.subscribe("movement_command", 2, &movementControl::movementCommandCallback, this);
    radar_sub_ = nh.subscribe("radar", 5, &movementControl::radarCallback, this);
    autoMoveStatus_sub_ = nh.subscribe("autoMove_status", 2, &movementControl::autoMoveStatusCallback, this);
+   pdMotorStatus_sub_ = nh.subscribe("pdMotor_status", 2, &movementControl::pdMotorStatusCallback, this);
    encoders_client_ = nh.serviceClient<outdoor_bot::encoders_service>("encoders_service");
    autoMove_client_ = nh.serviceClient<outdoor_bot::autoMove_service>("autoMove_service");
    complete_pub_ = nh.advertise<std_msgs::String>("movement_complete", 4);
@@ -199,6 +201,14 @@ void autoMoveStatusCallback(const std_msgs::Int32::ConstPtr& msg)
 	cout << "autoMove status changed, ";
 	if (autoMoveStatus_) cout << "autoMove in progress" << endl;
 	else cout << "autoMove finshed" << endl;
+}
+
+void pdMotorStatusCallback(const std_msgs::Int32::ConstPtr& msg)
+{
+	pdMotorStatus_ = msg->data;
+	cout << "pdMotor status changed, ";
+	if (pdMotorStatus_) cout << "pdMotor move in progress" << endl;
+	else cout << "pdMotor move finshed" << endl;
 }
 
 void sendMotionCommand(std::string motionCmd)
@@ -668,6 +678,44 @@ void movementCommandCallback(const outdoor_bot::movement_msg msg)
 	//drop bar full movement = 3313 with -1 direction being deploy and 1 direction retrieve
 	//bin shade first window is at 106, second window is 1044, last window is 1804
 	//pickerupper 1 direction is scoop up, -1 is scoop down  
+	
+	
+	
+	else if (!command.compare("PDmotorAuto"))  // use arduino to directly implement a pd motor move
+	{
+		if (pdMotorStatus_ != 0) 
+		{
+			cout << "we are already doing a pd motor move, we will overwrite it here" << endl;
+		}
+   	int motorNumber = msg.PDmotorNumber;
+   	int motorSpeed = msg.speed;
+   		
+   	outdoor_bot::pmotor_msg pmotorMsg;
+   	pmotorMsg.pmotorNumber = motorNumber;
+   	pmotorMsg.pmotorSpeed = motorSpeed;	// this actually only sets the direction, speeds are preset in the arduino
+   	pmotor_pub_.publish(pmotorMsg);
+   		
+		while (!pdMotorStatus_)	// first wait for it to acknowledge the move
+		{
+			ros::spinOnce();
+			last_time = ros::Time::now();
+			current_time = ros::Time::now();
+	   	while ( current_time.toSec() - last_time.toSec() < 0.01 ) current_time = ros::Time::now();	// arduino only updates every 20 msec, no need to go too fast here
+		}
+		while (pdMotorStatus_) //and then wait for it to complete
+		{
+			ros::spinOnce();
+			last_time = ros::Time::now();
+			current_time = ros::Time::now();
+	   	while ( current_time.toSec() - last_time.toSec() < 0.01 ) current_time = ros::Time::now();	// arduino only updates every 20 msec, no need to go too fast here
+		}
+		
+		ROS_INFO("finished auto pd Motor move in movement node");
+		msgResult.data = "PDmotor_done";
+	   complete_pub_.publish(msgResult);
+	   return;
+	}
+	
    else if (!command.compare("PDmotor"))
    {
    	/*
@@ -705,9 +753,17 @@ void movementCommandCallback(const outdoor_bot::movement_msg msg)
 			{
 				if (motorSpeed == DROP_BAR_DOWN)
 				{
-					if (encoderDropBar_ <= DROP_BAR_LOCATION) moveFinished = true;
+					if (encoderDropBar_ >= DROP_BAR_LOCATION)
+					{
+						cout << "dropbar is down, encoder = " << encoderDropBar_ << endl;
+						moveFinished = true;
+					}
 				}
-				else if (encoderDropBar_ >= 0) moveFinished = true;
+				else if (encoderDropBar_ <= 0)
+				{
+					cout << "dropbar is up, encoder = " << encoderDropBar_ << endl;
+					moveFinished = true;
+				}
 			}
 			
 		 	if (motorNumber == MOTOR_PICKER_UPPER)

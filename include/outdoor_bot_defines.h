@@ -3,10 +3,12 @@
 
 // sections
 #define BOOTUP 0
-#define FIRST_TARGET 1
-#define TARGETS 2
-#define HOME 3
-#define PLATFORM 4
+#define FIRST_TARGET_CHECK 1
+#define FIRST_TARGET_MOVE 2
+#define TARGETS 3
+#define HOME 4
+#define PLATFORM 5
+#define ALL_DONE 6
 
 #define SERVO_ANTENNA_PAN 0
 #define SERVO_ANTENNA_TILT 1
@@ -40,7 +42,7 @@
 #define ZOOM_DIGCAM 3
 #define HOMECAM 4
 
-#define WEBCAM_TILT_DOWN -30.	// degrees to point webcam down when the target is close
+#define WEBCAM_TILT_DOWN -18.	// degrees to point webcam down when the target is close
 #define WEBCAM_TILT_LEVEL 0.
 
 #define DIGCAM_PIXELS_WIDTH 2272
@@ -52,8 +54,9 @@
 #define WEBCAM_FOV 41.  // logitech 310 sees 7.5m at 10m -> has 40 degrees field of view
 #define ORBITCAM_FOV	54.	// orbitcam sees 14m at 10m -> has 54 degree FOV
 #define REGULAR_DIGCAM_ZOOM7_FOV 14.  // powershot digcam with zoom = 7, sees 2.5m wide at 10m -> 14 degree FOV
-#define REGULAR_DIGCAM_ZOOM5_FOV 33.  // with zoom = 5, it sees 1m at 3m
-#define ZOOM_DIGCAM_FOV 3.8 // zoom = 7, sees 0.66 m wide at 10m -> 4 degree FOV
+#define REGULAR_DIGCAM_ZOOM5_FOV 21.  // with zoom = 5, it sees 2.1 at 5.5m
+#define ZOOM_DIGCAM_ZOOM 7
+#define ZOOM_DIGCAM_ZOOM7_FOV 3.8 // zoom = 7, sees 0.66 m wide at 10m -> 4 degree FOV
 
 //#define FRONT 1
 //#define REAR 0
@@ -72,8 +75,8 @@
 #define PICKER_UPPER_UP -1
 #define PICKER_UPPER_DOWN 1
 #define PICKER_UPPER_DOWN_PREP 2
-#define DROP_BAR_UP 1
-#define DROP_BAR_DOWN -1
+#define DROP_BAR_UP -1
+#define DROP_BAR_DOWN 1
 #define BIN_SHADE_UP 1
 #define BIN_SHADE_DOWN -1
 

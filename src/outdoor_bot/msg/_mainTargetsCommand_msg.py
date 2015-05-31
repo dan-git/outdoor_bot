@@ -6,17 +6,19 @@ import struct
 
 
 class mainTargetsCommand_msg(genpy.Message):
-  _md5sum = "73690328cd0b01b0a4718c219c76ca8d"
+  _md5sum = "89c932c18b3e94aa4c8385b150b15b95"
   _type = "outdoor_bot/mainTargetsCommand_msg"
   _has_header = False #flag to mark the presence of a Header object
   _full_text = """int32 cameraName
+int32 regularDigcamZoom
+int32 zoomDigcamZoom
 float32 approxRange
 bool firstTarget
 
 
 """
-  __slots__ = ['cameraName','approxRange','firstTarget']
-  _slot_types = ['int32','float32','bool']
+  __slots__ = ['cameraName','regularDigcamZoom','zoomDigcamZoom','approxRange','firstTarget']
+  _slot_types = ['int32','int32','int32','float32','bool']
 
   def __init__(self, *args, **kwds):
     """
@@ -26,7 +28,7 @@ bool firstTarget
     changes.  You cannot mix in-order arguments and keyword arguments.
 
     The available fields are:
-       cameraName,approxRange,firstTarget
+       cameraName,regularDigcamZoom,zoomDigcamZoom,approxRange,firstTarget
 
     :param args: complete set of field values, in .msg order
     :param kwds: use keyword arguments corresponding to message field names
@@ -37,12 +39,18 @@ bool firstTarget
       #message fields cannot be None, assign default values for those that are
       if self.cameraName is None:
         self.cameraName = 0
+      if self.regularDigcamZoom is None:
+        self.regularDigcamZoom = 0
+      if self.zoomDigcamZoom is None:
+        self.zoomDigcamZoom = 0
       if self.approxRange is None:
         self.approxRange = 0.
       if self.firstTarget is None:
         self.firstTarget = False
     else:
       self.cameraName = 0
+      self.regularDigcamZoom = 0
+      self.zoomDigcamZoom = 0
       self.approxRange = 0.
       self.firstTarget = False
 
@@ -59,7 +67,7 @@ bool firstTarget
     """
     try:
       _x = self
-      buff.write(_struct_ifB.pack(_x.cameraName, _x.approxRange, _x.firstTarget))
+      buff.write(_struct_3ifB.pack(_x.cameraName, _x.regularDigcamZoom, _x.zoomDigcamZoom, _x.approxRange, _x.firstTarget))
     except struct.error as se: self._check_types(struct.error("%s: '%s' when writing '%s'" % (type(se), str(se), str(_x))))
     except TypeError as te: self._check_types(ValueError("%s: '%s' when writing '%s'" % (type(te), str(te), str(_x))))
 
@@ -72,8 +80,8 @@ bool firstTarget
       end = 0
       _x = self
       start = end
-      end += 9
-      (_x.cameraName, _x.approxRange, _x.firstTarget,) = _struct_ifB.unpack(str[start:end])
+      end += 17
+      (_x.cameraName, _x.regularDigcamZoom, _x.zoomDigcamZoom, _x.approxRange, _x.firstTarget,) = _struct_3ifB.unpack(str[start:end])
       self.firstTarget = bool(self.firstTarget)
       return self
     except struct.error as e:
@@ -88,7 +96,7 @@ bool firstTarget
     """
     try:
       _x = self
-      buff.write(_struct_ifB.pack(_x.cameraName, _x.approxRange, _x.firstTarget))
+      buff.write(_struct_3ifB.pack(_x.cameraName, _x.regularDigcamZoom, _x.zoomDigcamZoom, _x.approxRange, _x.firstTarget))
     except struct.error as se: self._check_types(struct.error("%s: '%s' when writing '%s'" % (type(se), str(se), str(_x))))
     except TypeError as te: self._check_types(ValueError("%s: '%s' when writing '%s'" % (type(te), str(te), str(_x))))
 
@@ -102,12 +110,12 @@ bool firstTarget
       end = 0
       _x = self
       start = end
-      end += 9
-      (_x.cameraName, _x.approxRange, _x.firstTarget,) = _struct_ifB.unpack(str[start:end])
+      end += 17
+      (_x.cameraName, _x.regularDigcamZoom, _x.zoomDigcamZoom, _x.approxRange, _x.firstTarget,) = _struct_3ifB.unpack(str[start:end])
       self.firstTarget = bool(self.firstTarget)
       return self
     except struct.error as e:
       raise genpy.DeserializationError(e) #most likely buffer underfill
 
 _struct_I = genpy.struct_I
-_struct_ifB = struct.Struct("<ifB")
+_struct_3ifB = struct.Struct("<3ifB")
