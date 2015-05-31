@@ -118,7 +118,7 @@ bool userCommandReceived_;
 int dirAntMaxAngle_, dirAntSweepNumber_, dirAntLevel_, usingDirAnt_;
 bool currentSection_;
 
-OutDoorBot::Navigation::ObstacleDetector OD;
+OutdoorBot::Navigation::ObstacleDetector OD;
 
 FBFSM fsm_;
 int BootupState_, CheckLinedUpState_, PhaseTwoFirstState_, CheckFirstTargetState_, SearchForFirstTargetState_;
