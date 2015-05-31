@@ -34,8 +34,8 @@ find_package(OpenCV)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
 rosbuild_add_library(rcm src/rcmRadar/rcm.c src/rcmRadar/rcmIf.c src/rcmRadar/radar.cpp)
-rosbuild_add_library(${PROJECT_NAME} src/FBFSM/FBFSM.cpp)
-rosbuild_add_library(${PROJECT_NAME} src/navigation/ObstacleDetector.cpp)
+rosbuild_add_library(fbfsm src/FBFSM/FBFSM.cpp)
+rosbuild_add_library(outdoorbot_nav src/navigation/ObstacleDetector.cpp)
 
 rosbuild_add_executable(robotPose_node nodes/robotPose_node.cpp)
 rosbuild_add_executable(serialComm_node nodes/serialComm_node.cpp)
@@ -70,7 +70,8 @@ target_link_libraries(digcams gphoto2 gphoto2_port)
 target_link_libraries(robotPose_node rcm)
 target_link_libraries(movement_node rcm)
 target_link_libraries(radar_node rcm)
-target_link_libraries(autonomous_node ${PROJECT_NAME})
+target_link_libraries(autonomous_node fbfsm)
+target_link_libraries(autonomous_node outdoor_bot_nav)
 
 #rosbuild_add_executable(odomTester_node nodes/odomTester_node.cpp)
 
