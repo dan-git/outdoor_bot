@@ -1,0 +1,31 @@
+<launch>
+
+ <include file="$(find outdoor_bot)/launch/includes/serialComm/serialComm_outdoor.launch"/>
+ 
+  
+  <node pkg="outdoor_bot" type="mainTargets" name="mainTargets" output= "screen">
+  </node>
+
+  <node pkg="outdoor_bot" type="NavTargets" name="NavTargets" output= "screen">
+  </node>
+ 
+  <node pkg="tf" type="static_transform_publisher" name="static_broadcaster" args="1 0 0 0 0 0 1 map odom 10" /> 
+
+ <include file="$(find outdoor_bot)/launch/includes/hokuyo_outdoor.launch"/>
+  
+  <include file="$(find outdoor_bot)/launch/includes/robot_state_publisher_outdoor.launch"/> 
+
+ <!-- <include file="$(find outdoor_bot)/launch/includes/amcl_hokuyo.launch"/> -->
+ 
+<!--  <node pkg="outdoor_bot" type="radar_node" name="radar_node" output= "screen">
+  </node> 
+-->
+  <node pkg="outdoor_bot" type="movement_node" name="movement_node" output= "screen">
+  </node> 
+
+  <node pkg="outdoor_bot" type="baseController_node" name="baseController_node" args = "outdoor" output= "screen">
+  </node>
+ 
+
+  <!-- <node pkg="outdoor_bot" type="sensors_node" name="sensors_node" output="screen" /> -->
+ </launch> 

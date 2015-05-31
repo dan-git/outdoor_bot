@@ -1,0 +1,4 @@
+ <launch>
+  <node pkg="outdoor_bot" type="robotPose_node" name="robotPose_node" args=" 1 OUTDOOR" output="screen" >
+  </node>
+ </launch>

@@ -1,0 +1,54 @@
+<!-- 
+
+This launch file shows how to start a hokuyo node. 
+
+You may have to change the port parameter if your laser is not at
+/dev/ttyACM0.
+
+If you have rviz built, you can uncomment the rviz node to visualize the
+laser data.
+
+Otherwise, you can use rostopic to see the data:
+rostopic echo /scan
+
+here is the udev rule (note you may have to change the ros version to match what you are using)
+SUBSYSTEMS=="usb", KERNEL=="ttyACM[0-9]*", ATTRS{manufacturer}=="Hokuyo Data Flex for USB", ATTRS{product}=="URG-Series USB Driver", MODE="0666", GROUP="dialout", PROGRAM=="/opt/ros/indigo/env.sh rosrun hokuyo_node getID %N q", SYMLINK+="sensors/hokuyo_%c"
+
+hokuyo ls names:
+/dev/sensors/hokuyo_H0713066  this is the front one
+/dev/sensors/hokuyo_H0713131 this is the rear one
+
+
+-->
+
+<launch>
+  <node name="hokuyo_node" pkg="hokuyo_node" type="hokuyo_node" respawn="false" output="screen">
+  
+    <!-- when true, the driver starts up slower, but timestamps are more accurate. --> 
+    <param name="calibrate_time" type="bool" value="true"/> 
+    
+    <!-- Set the port to connect to here -->
+    <param name="port" type="string" value="/dev/sensors/hokuyo_H0713066"/> 
+  
+    <param name="intensity" type="bool" value="false"/>
+
+    <param name="frame_id" type="string" value="hokuyo_front_link" />
+    <param name="frameid" type="string" value="hokuyo_front_link" />
+  </node>
+  
+
+  <node name="hokuyo_rear" pkg="hokuyo_node" type="hokuyo_node" respawn="false" output="screen">
+  
+    <param name="calibrate_time" type="bool" value="true"/> 
+    
+    <param name="port" type="string" value="/dev/sensors/hokuyo_H0713131"/> 
+  
+    <param name="intensity" type="bool" value="false"/>
+
+    <param name="frame_id" type="string" value="hokuyo_right_link" />
+    <param name="frameid" type="string" value="hokuyo_right_link" />
+    <remap from="scan" to="right_scan"/>
+  </node>
+  
+ 
+</launch>
