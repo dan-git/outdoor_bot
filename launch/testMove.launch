@@ -14,7 +14,7 @@
     <node pkg="outdoor_bot" type="baseController_node" name="baseController_node" args = "outdoor" output= "screen">
  </node>
  
- <include file="$(find outdoor_bot)/launch/includes/move_base_outdoor.launch"/>
+ <include file="$(find outdoor_bot)/launch/includes/mb.launch"/>
  
  </launch>
 

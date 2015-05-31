@@ -742,7 +742,11 @@ bool detectBlobs(Mat im_original, bool firstTarget)
          centerX_ = (int) keypoints[maxIndex].pt.x;
          centerY_ = (int) keypoints[maxIndex].pt.y;
          double rangeByArea = 0, rangeByVerticalCoordinate = 0, rangeByLookDownArea = 0;
-         if (cameraName_ == ZOOM_DIGCAM) rangeSquared_ = (ZOOM_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER * ZOOM_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER) / (maxKeypointArea * maxKeypointArea);
+         if (cameraName_ == ZOOM_DIGCAM)
+         {
+         	cout << "setting range for zoomcam" << endl;
+         	 rangeByArea = 5; //(ZOOM_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER * ZOOM_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER) / (maxKeypointArea * maxKeypointArea);
+         }
          else if (cameraName_ == REGULAR_DIGCAM)
         {
         		if(regularDigcamZoom_ == 5) 

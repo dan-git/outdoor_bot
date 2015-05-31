@@ -88,7 +88,8 @@ double accelX, accelY, accelZ;
 double velocityLeft, velocityRight, dtROS_ = 0.02;
 long EncoderTicksRight = 0, EncoderTicksLeft = 0, previousEncoderTicksRight = 0, previousEncoderTicksLeft = 0;
 long EncoderPickerUpper = 0, EncoderBinShade = 0, EncoderDropBar = 0, EncoderExtra = 0;
-int battery, pauseState = 0, dirAntMaxAngle = 0, dirAntSweepNumber = 0,  dirAntLevel = 0, autoMoveStatus = 0, previousAutoMoveStatus = 0, pdMotorStatus = 0, previouspdMotorStatus = 0;
+int battery, pauseState = 0, dirAntMaxAngle = 0, dirAntSweepNumber = 0,  dirAntLevel = 0;
+int angOnly = 0, autoMoveStatus = 0, previousAutoMoveStatus = 0, pdMotorStatus = 0, previouspdMotorStatus = 0;
 unsigned long arduinoCycleTime, arduinoDataCounter;
 bool firstTime = true, radarDataEnabled_ = true;
 bool pauseStateSent_ = false, releaseStateSent_ = false;
@@ -353,8 +354,11 @@ void sendOutNavData()
         ROS_WARN("One encoder is reading zero when the other is not, possible encoder failure, L,R ticks = %ld %ld",
                   EncoderTicksLeft, EncoderTicksRight);
 
-    leftDeltaTicks = EncoderTicksLeft - previousEncoderTicksLeft;
-    rightDeltaTicks = EncoderTicksRight - previousEncoderTicksRight;
+    if (!angOnly)	// if we are only turning, don't increment the distances, as these ticks are just skidding wheels
+    {
+    	leftDeltaTicks = EncoderTicksLeft - previousEncoderTicksLeft;
+    	rightDeltaTicks = EncoderTicksRight - previousEncoderTicksRight;
+    }
     previousEncoderTicksRight = EncoderTicksRight;
     previousEncoderTicksLeft = EncoderTicksLeft;
     //ROS_INFO("left, right encoder ticks = %ld, %ld", EncoderTicksLeft, EncoderTicksRight);
@@ -480,8 +484,9 @@ void parseNavData(std::string data)
   dirAntLevel = atof(navDataBuffer[13].c_str());
   autoMoveStatus = atof(navDataBuffer[14].c_str());
   pdMotorStatus = atof(navDataBuffer[15].c_str());
-  arduinoCycleTime = atof(navDataBuffer[16].c_str());
-  arduinoDataCounter = atof(navDataBuffer[17].c_str());
+  angOnly = atof(navDataBuffer[16].c_str());
+  arduinoCycleTime = atof(navDataBuffer[17].c_str());
+  arduinoDataCounter = atof(navDataBuffer[18].c_str());
   // use this to check the timing of arduino data
   /*  ros::Time current_time = ros::Time::now();
     double dtROS_ = current_time.toSec() - local_last_time.toSec();

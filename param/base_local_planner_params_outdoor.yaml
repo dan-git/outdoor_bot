@@ -1,5 +1,5 @@
 #controller_frequency: 4.0
-controller_frequency: 1.0
+controller_frequency: 4.0
 recovery_behavior_enabled: true
 clearing_rotation_allowed: false
 #base_global_planner: global_planner/GlobalPlanner
@@ -12,18 +12,18 @@ base_local_planner: dwa_local_planner/DWAPlannerROS
 DWAPlannerROS:
    acc_lim_x: 1.0
    acc_lim_y: 0.0
-   acc_lim_th: 1.0
+   acc_lim_th: 0.2
    max_trans_vel: 1.0  
    min_trans_vel: 0.8 
    max_vel_x: 1.0
    min_vel_x: 0.8
    max_vel_y: 0.0
    min_vel_y: 0.0  
-   max_rot_vel: 1.0
-   min_rot_vel: 0.5
+   max_rot_vel: 0.2
+   min_rot_vel: 0.18
    
    yaw_goal_tolerance: 0.5 # about 24 degrees
-   xy_goal_tolerance: 0.9 # 0.9 m
+   xy_goal_tolerance: 2.0 # 0.9 m
    latch_xy_goal_tolerance: true
    
    sim_time: 1.7
