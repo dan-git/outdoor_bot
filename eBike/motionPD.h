@@ -110,7 +110,7 @@ public:
       {
         int motorCurrent = analogRead(BRAKES_CURRENT_PIN);
         long timer = millis() - startTime ;
-        if (DEBUG)
+        //if (DEBUG)
         {
           DEBUG_SERIAL_PORT.print("timer, motor current = ");
           DEBUG_SERIAL_PORT.print(timer);
