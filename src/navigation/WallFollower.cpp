@@ -247,7 +247,7 @@ int WallFollower::on_update_command_turn_into()
   double angle = M_PI / 2.0;
   if (goal_.side() == Goal::LEFT)
   {
-    angle = M_PI / 2.0;
+    angle = -M_PI / 2.0;
   }
   output_.set_distance(angle);
   state_.current_angle = wrapAngle(state_.current_angle + angle);
