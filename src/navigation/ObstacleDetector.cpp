@@ -16,6 +16,27 @@ ObstacleDetector::ObstacleDetector()
   laserSub_ = nh.subscribe("scan", 10, &ObstacleDetector::laserCallback, this);
   ros::NodeHandle private_nh("~");
   private_nh.param("min_obstacle_points", min_obstacle_points_, 4);
+  private_nh.param("max_obstacle_detections", max_obstacle_detections_, 3);
+}
+
+void ObstacleDetector::activate(double distance, double robot_radius)
+{
+  state_ = State();
+  state_.distance = distance;
+  state_.robot_radius = robot_radius;
+}
+
+bool ObstacleDetector::update()
+{
+  if (obstacleInRectangle(state_.distance, 2.0 * state_.robot_radius, 0.0))
+  {
+    state_.front_obstacle_detections++;
+  }
+  else
+  {
+    state_.front_obstacle_detections = 0;
+  }
+  return state_.front_obstacle_detections > max_obstacle_detections_;
 }
 
 bool ObstacleDetector::obstacleInRectangle(double xL, double yL, double theta) const

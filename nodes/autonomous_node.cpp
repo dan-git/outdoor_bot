@@ -19,6 +19,7 @@
 #include "outdoor_bot/movement_msg.h"
 #include "FBFSM/FBFSM.h"
 #include "navigation/ObstacleDetector.h"
+#include "navigation/WallFollower.h"
 #include "std_msgs/String.h"
 #include "std_msgs/Int32.h"
 #include "outdoor_bot_defines.h"
@@ -79,6 +80,13 @@ using namespace std;
 #define REGULAR_DIGCAM_SHORT_ZOOM 0
 #define ZOOM_DIGCAM_ZOOM 7
 
+// OBSTACLE AVOIDANCE DEFINES
+#define STOP_IF_OBSTACLE_WITHIN_DISTANCE 1.5  // If there is an obstacle within this distance, react.
+#define ROBOT_RADIUS 0.63
+
+// namespace aliases for shorter typing
+namespace obn = OutdoorBot::Navigation;
+
 ros::ServiceClient NavTargets_client_, accelerometers_client_, dirAnt_client_; //, encoders_client_; //, mainTargets_client_, mainTargetsCheckImage_client_;
 ros::ServiceClient setPose_client_; //digcams_client_, 
 ros::Publisher digcam_pub_, movement_pub_, webcam_pub_, mainTargetsCommand_pub_, NavTargetsCommand_pub_, servo_pub_, dirAnt_pub_; //, pmotor_pub_;
@@ -118,11 +126,13 @@ bool userCommandReceived_;
 int dirAntMaxAngle_, dirAntSweepNumber_, dirAntLevel_, usingDirAnt_;
 bool currentSection_;
 
-OutdoorBot::Navigation::ObstacleDetector OD;
+obn::ObstacleDetector obstacle_detector_;
+obn::WallFollower     obstacle_avoider_;
 
 FBFSM fsm_;
 int BootupState_, CheckLinedUpState_, PhaseTwoFirstState_, CheckFirstTargetState_, SearchForFirstTargetState_;
 int MoveToFirstTargetState_;
+int AvoidObstacleState_;
 int FindTargetState_, MoveToTargetState_, PickupTargetState_, PhaseOneHomeState_;
 int CheckHomeState_, SearchForHomeState_;
 int HeadForHomeState_, MoveOntoPlatformState_, UserCommandState_;
@@ -1424,6 +1434,7 @@ void on_enter_MoveToFirstTargetState()
    movementComplete_ = false;
    moving_ = false;
    turning_ = false;
+   obstacle_detector_.activate(STOP_IF_OBSTACLE_WITHIN_DISTANCE, ROBOT_RADIUS);
 }
 
 int on_update_MoveToFirstTargetState()
@@ -1433,6 +1444,12 @@ int on_update_MoveToFirstTargetState()
       previousState_ = MoveToFirstTargetState_;
       if (firstMoveToFirstTarget_) currentSection_ = FIRST_TARGET_MOVE; // after the first move, it is better for pause to return to checkFirstTargetState
       return PauseState_;
+   }
+
+   if (obstacle_detector_.update())
+   {
+     // We've seen an obstacle!
+     return AvoidObstacleState_;
    }
 
    // check to see if we have arrived at the new pose   
@@ -1733,6 +1750,55 @@ int on_update_MoveToFirstTargetState()
    return MoveToFirstTargetState_;
 }
  
+void on_enter_AvoidObstacleState()
+{
+  cout << "Avoiding an obstacle.";
+
+  obstacle_avoider_.activate(obn::WallFollower::Goal(obn::WallFollower::Goal::LEFT));
+}
+
+int on_update_AvoidObstacleState()
+{
+  obn::WallFollower::Input input(obn::WallFollower::Input::EXECUTING_COMMAND);
+  if (false)  // TODO: replace this false with a check on whether the arduino is ready for a new command
+  {
+    input = obn::WallFollower::Input(obn::WallFollower::Input::READY_FOR_NEW_COMMAND);
+  }
+
+  obn::WallFollower::Output output = obstacle_avoider_.update(input);
+
+  switch (output.mode())
+  {
+    case obn::WallFollower::Output::TIMEOUT:
+      // TODO: The obstacle avoider failed because something timed out.  Fill this in with something appropriate
+      ROS_ERROR("I am very sad.");
+      return MoveToTargetState_;
+    case obn::WallFollower::Output::SUCCESSFUL_COMPLETION:
+      ROS_INFO("I am very happy.");
+      return MoveToTargetState_;
+    case obn::WallFollower::Output::WAIT_FOR_READY:
+      // We're waiting for the last command to complete.  Do nothing.
+      return AvoidObstacleState_;
+    case obn::WallFollower::Output::OBSTACLE_AHEAD:
+      // TODO: Slam on brakes here!
+      ROS_INFO("I should stop really really quickly now.");
+      return AvoidObstacleState_;
+    case obn::WallFollower::Output::MOVE_FORWARD:
+      ROS_INFO("I should send a command to move %f meters.", output.distance());
+      // TODO: Send the arduino a command to move forward a distance of output.distance():
+      return AvoidObstacleState_;
+    case obn::WallFollower::Output::TURN:
+      ROS_INFO("I should send a command to turn %f radians.", output.distance());
+      // TODO: send the arduino a command to turn a distance of output.distance().
+      return AvoidObstacleState_;
+    case obn::WallFollower::Output::STOP:
+      // We're presumably already stopped and want to stay so.  Do nothing.
+      return AvoidObstacleState_;
+  }
+
+  return AvoidObstacleState_;
+}
+
 int on_update_FindTargetState()
 {
    cout << "updating FindTargetState" << endl;
@@ -2673,6 +2739,7 @@ void setupStates()
    CheckFirstTargetState_ = fsm_.add_state("CheckFirstTargetState");  // 1
    SearchForFirstTargetState_ = fsm_.add_state("SearchForFirstTargetState");
    MoveToFirstTargetState_ = fsm_.add_state("MoveToFirstTargetState");
+   AvoidObstacleState_ = fsm_.add_state("AvoidObstacleState");
    FindTargetState_ = fsm_.add_state("FindTargetState");
    PickupTargetState_ = fsm_.add_state("PickupTargetState");
    MoveToTargetState_ = fsm_.add_state("MoveToTargetState");
@@ -2713,6 +2780,9 @@ void setupStates()
    fsm_.set_entry_function(MoveToFirstTargetState_, boost::bind(&on_enter_MoveToFirstTargetState));
    fsm_.set_update_function(MoveToFirstTargetState_, boost::bind(&on_update_MoveToFirstTargetState));
    //fsm_.set_exit_function(MoveToFirstTargetState_, boost::bind(&on_exit_MoveToFirstTargetState))
+
+   fsm_.set_entry_function(AvoidObstacleState_, boost::bind(&on_enter_AvoidObstacleState));
+   fsm_.set_update_function(AvoidObstacleState_, boost::bind(&on_update_AvoidObstacleState));
 
    //fsm_.set_entry_function(FindTargetState_, boost::bind(&on_enter_FindTargetState));
    fsm_.set_update_function(FindTargetState_, boost::bind(&on_update_FindTargetState));

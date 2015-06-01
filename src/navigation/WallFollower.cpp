@@ -72,7 +72,7 @@ void WallFollower::activate(const Goal& goal)
 {
   state_ = State();
   goal_ = goal;
-  fsm_.set_state(command_turn_away_state_);
+  fsm_.set_state(wait_for_obstacle_clear_state_);
 }
 
 WallFollower::Output WallFollower::update(const Input& input)
@@ -117,7 +117,6 @@ int WallFollower::on_update_move_forward()
   // STOOOOOOOOP!  STOOOOOP NOW.
   if (move_forward_data_.forward_obstacle_detections >= params_.max_obstacle_detections)
   {
-    output_.set_mode(Output::OBSTACLE_AHEAD);
     return wait_for_obstacle_clear_state_;
   }
 
@@ -164,6 +163,7 @@ void WallFollower::on_enter_wait_for_obstacle_clear()
   ROS_INFO("WallFollower: Waiting %f seconds to see if obstacle clears.", params_.wait_for_obstacle_clear_duration);
   wait_for_obstacle_clear_data_ = WaitForObstacleClearData();
   wait_for_obstacle_clear_data_.start_time = ros::WallTime::now();
+  output_.set_mode(Output::OBSTACLE_AHEAD);
 }
 
 int WallFollower::on_update_wait_for_obstacle_clear()
@@ -191,7 +191,14 @@ int WallFollower::on_update_wait_for_obstacle_clear()
 
   if (wait_for_obstacle_clear_data_.no_obstacle_detections >= params_.max_obstacle_detections)
   {
-    // The obstacle left!  Yay.  Move forward again.
+    // The obstacle left!  Yay.
+    if (fabs(state_.current_angle) < 0.1)
+    {
+      // Since we start in this state it's possible we just waited for an obstacle to go by and now we are done.
+      return successful_completion_state_;
+    }
+
+    // Move forward again.
     return command_move_forward_state_;
   }
 
@@ -203,7 +210,10 @@ int WallFollower::on_update_wait_for_obstacle_clear()
   }
 
   // Keep waiting.
-  output_.set_mode(Output::STOP);
+  if (output_.mode() == Output::WAIT_FOR_READY)
+  {
+    output_.set_mode(Output::STOP);
+  }
   return wait_for_obstacle_clear_state_;
 }
 
