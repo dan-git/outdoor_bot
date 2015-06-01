@@ -12,7 +12,7 @@ private:
     bool dropbarUp_, dropbarDown_, motorDropbarCommand_;
     bool binshadeUp_, binshadeDown_, motorBinshadeCommand_ ;
     long scooperStartTime_, dropbarStartTime_, binshadeStartTime_;
-    bool brakesOn_;
+    bool brakesOn_, scooperStartEncoder_;
     
 public:
     MotionPD()
@@ -38,6 +38,7 @@ public:
       motorDropbarCommand_ = false;
       motorBinshadeCommand_ = false;
       brakesOn_ = false;
+      scooperStartEncoder_ = 0;
       scooperStartTime_ = millis();
       dropbarStartTime_ = millis();
       binshadeStartTime_ = millis();
@@ -188,6 +189,7 @@ public:
         if (motorDirection == PICKER_UPPER_UP || motorDirection == PICKER_UPPER_DOWN)
         {
           scooperStartTime_ = millis();
+          scooperStartEncoder_ = encoder_spi[getEncoderNumber(PICKER_UPPER_ENCODER_SELECT_PIN)].readEncoder();
           motorPickerUpperCommand_ = true;
           if (motorDirection == PICKER_UPPER_UP)
           {
@@ -279,6 +281,7 @@ public:
     bool getPuttingDown() { return puttingDown_; }
     long getScooperStartTime() { return scooperStartTime_; }
     void setScooperStartTime(long value) { scooperStartTime_ = value; }
+    bool getScooperStartEncoder() { return scooperStartEncoder_; }
     bool getBrakesState() { return brakesOn_; }
     
     bool getDropbarCommand() { return motorDropbarCommand_; }
@@ -383,6 +386,8 @@ class MotionPDLoop :
 public:
     virtual void loop()
       {           
+         int scooperStuckAlreadyDone = 0;
+         bool scooperProgressReportDone = false;
          if (motion_pd.getPickerUpperCommand())
          {
            if (robotPause_)
@@ -393,6 +398,7 @@ public:
            }
              
            long scooperTimeout = millis() - motion_pd.getScooperStartTime();
+           long scooperStartEncoder = motion_pd.getScooperStartEncoder();
            long scooperEncoder = encoder_spi[getEncoderNumber(PICKER_UPPER_ENCODER_SELECT_PIN)].readEncoder();
            if (scooperTimeout > SCOOPER_TIMEOUT - 1000)
            {
@@ -411,7 +417,37 @@ public:
                 DEBUG_SERIAL_PORT.print(", ");
                 DEBUG_SERIAL_PORT.println(scooperEncoder);
              }
+             if (scooperTimeout > SCOOPER_STUCK_TIME
+               && scooperEncoder < scooperStartEncoder - SCOOPER_STUCK_ENCODER_THRESHOLD)
+             {
+               if (scooperStuckAlreadyDone < UNSTICK_SCOOPER_ATTEMPTS_ALLOWED)
+                 {
+                   //scooper's jammed, need to back up a little
+                 bool resetBrakes = motion_pd.getBrakesState();
+                 motion_pd.releaseRobotBrakes();
+                 motor_dac[LEFT].setMotorSpeed(-DAC_MAX_VALUE);
+                 motor_dac[RIGHT].setMotorSpeed(-DAC_MAX_VALUE);
+                 delay(500);
+                 motor_dac[LEFT].setMotorSpeed(0);
+                 motor_dac[RIGHT].setMotorSpeed(0);     
+                 if (resetBrakes)  motion_pd.applyRobotBrakes();  
+                 scooperStuckAlreadyDone++;
+                 }
+              }
+              else
+              {
+                if (scooperTimeout > SCOOPER_STUCK_TIME && !scooperProgressReportDone)
+                {
+                  DEBUG_SERIAL_PORT.print("past the scooper stuck time, with the scooper encoder = ");
+                  DEBUG_SERIAL_PORT.print(scooperEncoder);
+                  DEBUG_SERIAL_PORT.print(" which is past the threshold by ");
+                  DEBUG_SERIAL_PORT.println( (scooperStartEncoder - SCOOPER_STUCK_ENCODER_THRESHOLD) - scooperEncoder);
+                  scooperProgressReportDone = true;
+                  scooperStuckAlreadyDone = 0;   
+                } 
+              }              
            }
+           
            else if (motion_pd.getPuttingDown())
            {
              if (!digitalRead(PICKER_UPPER_DOWN_CONTACT_PIN) || scooperTimeout > SCOOPER_TIMEOUT)
