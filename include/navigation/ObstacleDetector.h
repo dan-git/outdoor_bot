@@ -4,7 +4,7 @@
 #include <boost/thread/mutex.hpp>
 
 #include <ros/ros.h>
-#include "sensor_msgs/LaserScan.h"
+#include <sensor_msgs/LaserScan.h>
 
 namespace OutdoorBot
 {
@@ -16,7 +16,7 @@ class ObstacleDetector
  public:
   ObstacleDetector();
 
-  bool obstacleInCone(double cone_height, double cone_radius, double angle) const;
+  bool obstacleInRectangle(double xL, double yL, double angle) const;
 
  private:
   void laserCallback(const sensor_msgs::LaserScan msg);
