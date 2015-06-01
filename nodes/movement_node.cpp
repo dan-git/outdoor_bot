@@ -134,16 +134,23 @@ public:
    complete_pub_ = nh.advertise<std_msgs::String>("movement_complete", 4);
    pmotor_pub_ = nh.advertise<outdoor_bot::pmotor_msg>("pmotor_cmd", 5);
    autoMove_pub_ = nh.advertise<outdoor_bot::autoMove_msg>("autoMove_cmd", 2);
-   ac_ = new MoveBaseClient("move_base",true);
+   //ac_ = new MoveBaseClient("move_base",true);
+   
+   
+   /* **********without the action server, we cannot set pose-based goals ********************************************
    //wait for the action server to come up
    while(!ac_->waitForServer(ros::Duration(5.0))){
-   ROS_INFO("commands controller is waiting for the move_base action server to come up");
+   ROS_INFO("movement node is waiting for the move_base action server to come up");
    }
-   ROS_INFO("commands controller sees that the move_base action server is up");
+   ROS_INFO("movement node sees that the move_base action server is up");
+   
+   */
+   
+   
 }
    ~movementControl()
    {
-      delete ac_;
+     // delete ac_;
    }
 
 /*
@@ -230,7 +237,7 @@ void sendMotionCommand(std::string motionCmd)
    base_cmd.linear.z = 0.0;   // this is our enable command.  start enabled.
    base_cmd.angular.z = 0.0;   
 
-   bool finishedInTime;
+   //bool finishedInTime;
 
    //move forward
    if(motionCmd[0]=='f'){
@@ -277,6 +284,7 @@ void sendMotionCommand(std::string motionCmd)
      //publish the assembled command
      cmd_vel_pub_.publish(base_cmd);
    }
+   /*
    //cancel goal
    else if(motionCmd[0]=='c'){
 
@@ -407,8 +415,10 @@ void sendMotionCommand(std::string motionCmd)
       }
       else ROS_WARN("Goal pose request has incorrect number of parameters");
    }
-
+   
+*/
 }
+/*
 
 bool movementLinear(double distance)
 {
@@ -477,13 +487,14 @@ bool movementPose(double x, double y, double thetaDegrees)
    }
    return false;
 }
-
+*/
 void keyboardCommandCallback(const std_msgs::String::ConstPtr& msg)
 {
    std::string keyboardCommand = msg->data.c_str();
    sendMotionCommand(keyboardCommand);
 
 }
+
 
 void movementCommandCallback(const outdoor_bot::movement_msg msg)
 {
@@ -535,8 +546,8 @@ void movementCommandCallback(const outdoor_bot::movement_msg msg)
 	   return;
 	 }
 		
-		
-   else if (!command.compare("move"))	// command bot to enter pause mode
+	/*	
+   else if (!command.compare("move"))	
 	{
 		cout << "moving in movement node " << endl;
 		double distance = msg.distance;
@@ -554,7 +565,7 @@ void movementCommandCallback(const outdoor_bot::movement_msg msg)
       return;
    }
    
-   else if (!command.compare("turn"))	// command bot to enter pause mode
+   else if (!command.compare("turn"))	
    {
       double angle = msg.angle;		
 		if (movementAngular(angle))
@@ -571,7 +582,7 @@ void movementCommandCallback(const outdoor_bot::movement_msg msg)
       return;
    }
    
-   else if (!command.compare("pose"))	// command bot to enter pause mode 
+   else if (!command.compare("pose"))	
    {
    	double poseX = msg.poseX;
    	double poseY = msg.poseY;
@@ -589,6 +600,7 @@ void movementCommandCallback(const outdoor_bot::movement_msg msg)
       complete_pub_.publish(msgResult);
       return;  
     }
+    */
     /*
     else if (!command.compare("platform"))	// time for final approach
     {

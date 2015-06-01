@@ -205,9 +205,9 @@ unsigned long pauseBlinkTime_;
   // dac_motor defines: 
   #define STOPPED_MOVING_COUNT_THRESHOLD 10
   #define MAX_WHEEL_VELOCITY 4000.0f  // mm/sec, how fast can we make the wheel spin
-  #define MIN_ABSVAL_LINEAR_ROBOT_VELOCITY 500
+  //#define MIN_ABSVAL_LINEAR_ROBOT_VELOCITY 500
   #define MAX_LINEAR_ROBOT_VELOCITY 2000.0f   // in mm/sec
-  #define MIN_STANDING_ABSVAL_ANGULAR_ROBOT_VELOCITY 20.0f  // in deg/sec
+  //#define MIN_STANDING_ABSVAL_ANGULAR_ROBOT_VELOCITY 20.0f  // in deg/sec
   #define MAX_ANGULAR_ROBOT_VELOCITY 60.0f  // in deg/sec
   #define MAX_RC_ANGULAR_VEL 20.0f  // in deg/sec
   #define MAX_RC_LINEAR_VEL 2000.0f  // in mm/sec 

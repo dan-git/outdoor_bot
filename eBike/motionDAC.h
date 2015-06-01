@@ -321,6 +321,39 @@ public:
         totalDistance_ += deltaDistance;
         leftPreviousTicks_ = leftTotalTicks;
         rightPreviousTicks_ = rightTotalTicks;
+ 
+        double currentBufferDistance = 0;
+        unsigned long currentBufferTime = 0;
+        if (MOTION_BUFFER_SIZE > 0)
+        {
+          for (int i=1; i < MOTION_BUFFER_SIZE; i++)
+          {
+            bufferDistance_[i-1] = bufferDistance_[i]; 
+            motionBufferTime_[i-1] = motionBufferTime_[i];
+          }
+          bufferDistance_[MOTION_BUFFER_SIZE - 1] = deltaDistance;
+          motionBufferTime_[MOTION_BUFFER_SIZE - 1] = deltaT;
+
+          for (int i=0; i < MOTION_BUFFER_SIZE; i++)
+          {
+            currentBufferDistance += bufferDistance_[i]; 
+            currentBufferTime += motionBufferTime_[i];
+          }
+          // no need to divide out since we use both these two numbers
+          // to calc velocity
+          //currentBufferDistance /= MOTION_BUFFER_SIZE;
+          //currentBufferTime /= MOTION_BUFFER_SIZE;
+        } 
+        else
+        {
+          currentBufferDistance = deltaDistance;
+          currentBufferTime = deltaT;         
+        }
+
+        linearCurrentVelocity_ = currentBufferDistance * 1000.0f / ((double) currentBufferTime); // velocity in mm/sec 
+        
+        
+
         
         if (autoMoveMode_)
         {
@@ -416,36 +449,8 @@ public:
           }               
         }
         
-        double currentBufferDistance = 0;
-        unsigned long currentBufferTime = 0;
-        if (MOTION_BUFFER_SIZE > 0)
-        {
-          for (int i=1; i < MOTION_BUFFER_SIZE; i++)
-          {
-            bufferDistance_[i-1] = bufferDistance_[i]; 
-            motionBufferTime_[i-1] = motionBufferTime_[i];
-          }
-          bufferDistance_[MOTION_BUFFER_SIZE - 1] = deltaDistance;
-          motionBufferTime_[MOTION_BUFFER_SIZE - 1] = deltaT;
-
-          for (int i=0; i < MOTION_BUFFER_SIZE; i++)
-          {
-            currentBufferDistance += bufferDistance_[i]; 
-            currentBufferTime += motionBufferTime_[i];
-          }
-          // no need to divide out since we use both these two numbers
-          // to calc velocity
-          //currentBufferDistance /= MOTION_BUFFER_SIZE;
-          //currentBufferTime /= MOTION_BUFFER_SIZE;
-        } 
-        else
-        {
-          currentBufferDistance = deltaDistance;
-          currentBufferTime = deltaT;         
-        }
-
-        linearCurrentVelocity_ = currentBufferDistance * 1000.0f / ((double) currentBufferTime); // velocity in mm/sec 
-
+ 
+   
         linearTargetVelocity = linearPreviousTargetVelocity_;
         pidLinear_->calc(&linearTargetVelocity, linearCommandedVelocity_, linearCurrentVelocity_, deltaT);
 
@@ -475,10 +480,10 @@ public:
             DEBUG_SERIAL_PORT.print("pidLinearV = ");
             DEBUG_SERIAL_PORT.println(linearTargetVelocity);
           }
-        #endif  // ends #ifdef DEBUG_SERIAL_PORT
-        
+        #endif  // ends #ifdef DEBUG_SERIAL_PORT     
         // don't let pid controller swap our linear direction
         // unless we are mostly just turning
+        /*
         if (rcs::sign(linearCommandedVelocity_) > 0)
         {
           if (rcs::sign(linearTargetVelocity) < 0)
@@ -495,7 +500,7 @@ public:
             linearTargetVelocity = -MIN_ABSVAL_LINEAR_ROBOT_VELOCITY;
           }
         }
-          
+        */ 
         linearPreviousTargetVelocity_ = linearTargetVelocity;
       
       transformVelocityToMotorSpeed(linearTargetVelocity, angTargetV, &leftSpeed_, &rightSpeed_);
@@ -523,6 +528,10 @@ public:
             DEBUG_SERIAL_PORT.print(angCommandedVelocity_);
             DEBUG_SERIAL_PORT.print(", ");
             DEBUG_SERIAL_PORT.println(angCommandedVelocityMMperSec);
+            DEBUG_SERIAL_PORT.print("linearTargetVelocity, angTargetV =  ");
+            DEBUG_SERIAL_PORT.print(linearTargetVelocity);
+            DEBUG_SERIAL_PORT.print(", ");
+            DEBUG_SERIAL_PORT.println(angTargetV);
           }
         if ( ((linearCommandedVelocity_ - angCommandedVelocityMMperSec > 50) && leftSpeed_ < -DAC_LOWER_VALUE )
         || ((linearCommandedVelocity_ - angCommandedVelocityMMperSec < -50) && leftSpeed_ > DAC_LOWER_VALUE )) 
@@ -633,7 +642,7 @@ public:
       // check if we will be commanding speeds beyond what the robot can do
       if (fabs(linearVelocity) > MAX_LINEAR_ROBOT_VELOCITY) linearVelocity = MAX_LINEAR_ROBOT_VELOCITY * sign(linearVelocity);
       if (fabs(angVelocity) > MAX_ANGULAR_ROBOT_VELOCITY) angVelocity = MAX_ANGULAR_ROBOT_VELOCITY * sign(angVelocity);
-      else if (fabs(angVelocity) > 1. && fabs(angVelocity) <  MIN_STANDING_ABSVAL_ANGULAR_ROBOT_VELOCITY && fabs(linearVelocity) < 1.) angVelocity = MIN_STANDING_ABSVAL_ANGULAR_ROBOT_VELOCITY * sign(angVelocity);
+     // else if (fabs(angVelocity) > 1. && fabs(angVelocity) <  MIN_STANDING_ABSVAL_ANGULAR_ROBOT_VELOCITY && fabs(linearVelocity) < 1.) angVelocity = MIN_STANDING_ABSVAL_ANGULAR_ROBOT_VELOCITY * sign(angVelocity);
       
       if (fabs(linearCommandedVelocity_) < 0.1f) angVelocity *= STANDING_MM_PER_SEC_CONVERSION_TO_DEGREES_PER_SECOND_RATIO; // express angular velocity in wheel speed
       else angVelocity *= MOVING_MM_PER_SEC_CONVERSION_TO_DEGREES_PER_SECOND_RATIO; // when we are moving, we have less frictional force to overcome, so this ratio is lower than when standing
@@ -646,9 +655,13 @@ public:
         linearVelocity = (MAX_WHEEL_VELOCITY - fabs(angVelocity)) * sign(linearVelocity);
         //linearVelocity *= ratio;
         //angVelocity *= ratio;
-        if (DEBUG && !messageLimit_)
+        //if (DEBUG && 
+        if (!messageLimit_)
         {
-          DEBUG_SERIAL_PORT.print("velocities exceeded max, had to be throttled ");
+          DEBUG_SERIAL_PORT.print("velocities exceeded max, had to be throttled.  linear vel, ang vel =  ");
+          DEBUG_SERIAL_PORT.print(linearVelocity);
+          DEBUG_SERIAL_PORT.print(", ");
+          DEBUG_SERIAL_PORT.println(angVelocity);
          // DEBUG_SERIAL_PORT.println(ratio);
           messageLimit_ = true;  // don't want to flood the print screen with tons of these messages
         }
@@ -733,6 +746,9 @@ public:
     boolean getNewCommandMode() { 
       return newCommandMode_; 
     }
+    
+    double getLinearCommandedVelocity() { return linearCommandedVelocity_; }
+    double getAngCommandedVelocity() { return angCommandedVelocity_; }
     
     void setAngOnly(boolean value) { angOnly_ = value; }
     boolean getAngOnly() { return angOnly_; }
@@ -910,14 +926,17 @@ class MotionModuleLoop :
 public:
     virtual void loop()
       {           
-         if (millis() - robot_base.getMotionPreviousTime() >= MIN_UPDATE_PERIOD 
-          && (robot_base.getAutonomousCommandMode() || robot_base.getAutoMoveMode()) )
+         if (millis() - robot_base.getMotionPreviousTime() >= MIN_UPDATE_PERIOD) // don't want to update too fast, otherwise can swamp the gyro and the motor controllers
          {
-            robot_base.checkSpeed(); 
-            //robot_base.setSpeedVelocityRatios();
+           if (robot_base.getAutonomousCommandMode() || robot_base.getAutoMoveMode() )
+           {
+              robot_base.checkSpeed(); 
+              //robot_base.setSpeedVelocityRatios();
+           }
+           
+           //if (robot_base.
+          
          }
-          // don't want to update too fast, otherwise can swamp the gyro and the motor controllers
-        
       }    
   } 
   motion_loop;

@@ -1642,6 +1642,7 @@ int on_update_MoveToFirstTargetState()
 	// we already centered the target
 	alreadyTurned_ = 0;
 	currentServoDegrees_ = 0.;
+	msg.angle = 0.;
 	turning_ = false;
 		
 	if (targetRange_ > 0.1)	
@@ -1752,44 +1753,98 @@ int on_update_MoveToFirstTargetState()
  
 void on_enter_AvoidObstacleState()
 {
-  cout << "Avoiding an obstacle.";
-
-  obstacle_avoider_.activate(obn::WallFollower::Goal(obn::WallFollower::Goal::LEFT));
+   cout << "Avoiding an obstacle.";
+	moving_ = false;
+	turning_ = false;
+	movementComplete_ = false;
+	obstacle_avoider_.activate(obn::WallFollower::Goal(obn::WallFollower::Goal::LEFT));
 }
 
 int on_update_AvoidObstacleState()
-{
-  obn::WallFollower::Input input(obn::WallFollower::Input::EXECUTING_COMMAND);
-  if (false)  // TODO: replace this false with a check on whether the arduino is ready for a new command
-  {
-    input = obn::WallFollower::Input(obn::WallFollower::Input::READY_FOR_NEW_COMMAND);
-  }
+{  
+   obn::WallFollower::Input input;
+   obn::WallFollower::Output output;
+   
+   // check to see if we have arrived at the new pose   
+	if ( (moving_ || turning_) && (!movementComplete_ ))
+	{
+		ros::spinOnce();
+		input = obn::WallFollower::Input(obn::WallFollower::Input::EXECUTING_COMMAND);
+   	output = obstacle_avoider_.update(input);
+		return AvoidObstacleState_;  // move has not completed yet
+	} 
 
-  obn::WallFollower::Output output = obstacle_avoider_.update(input);
+	if (moving_ || turning_)	//  move is complete
+	{	      	      
+		moving_ = false;
+		turning_ = false;
+		movementComplete_ = false;
+  		output = obstacle_avoider_.update(input);
+  		input = obn::WallFollower::Input(obn::WallFollower::Input::READY_FOR_NEW_COMMAND);	
+  	}
+	
+  // move has not begun
+  //input = obn::WallFollower::Input(obn::WallFollower::Input::EXECUTING_COMMAND);
+  //output = obstacle_avoider_.update(input);
+
+  outdoor_bot::movement_msg msg;
 
   switch (output.mode())
   {
     case obn::WallFollower::Output::TIMEOUT:
       // TODO: The obstacle avoider failed because something timed out.  Fill this in with something appropriate
       ROS_ERROR("I am very sad.");
-      return MoveToTargetState_;
+      if (currentSection_ == FIRST_TARGET_CHECK) previousState_ =  CheckFirstTargetState_;
+		if (currentSection_ == FIRST_TARGET_MOVE) previousState_ =  MoveToFirstTargetState_;
+		if (currentSection_ == TARGETS) previousState_ =  FindTargetState_;
+		if (currentSection_ == HOME) previousState_ =  CheckHomeState_;
+		if (currentSection_ == PLATFORM) previousState_ =  MoveOntoPlatformState_;
+		if (currentSection_ == ALL_DONE) previousState_ = AllDoneState_;
+   	return MoveToRecoverState_;  // something is seriously wrong if we get to here 
     case obn::WallFollower::Output::SUCCESSFUL_COMPLETION:
       ROS_INFO("I am very happy.");
-      return MoveToTargetState_;
+      if (currentSection_ == FIRST_TARGET_CHECK) return CheckFirstTargetState_;
+		if (currentSection_ == FIRST_TARGET_MOVE) return MoveToFirstTargetState_;
+		if (currentSection_ == TARGETS) return FindTargetState_;
+		if (currentSection_ == HOME) return CheckHomeState_;
+		if (currentSection_ == PLATFORM) return MoveOntoPlatformState_;
+		if (currentSection_ == ALL_DONE) return AllDoneState_;
+   	return MoveToRecoverState_;  // something is seriously wrong if we get to here 
     case obn::WallFollower::Output::WAIT_FOR_READY:
       // We're waiting for the last command to complete.  Do nothing.
       return AvoidObstacleState_;
     case obn::WallFollower::Output::OBSTACLE_AHEAD:
       // TODO: Slam on brakes here!
-      ROS_INFO("I should stop really really quickly now.");
+     	msg.command = "autoMove";
+     	msg.angle = 0.;
+		msg.distance = 0.;	// mm
+		msg.speed = 0.;   	// mm/sec or deg/sec 
+		movement_pub_.publish(msg);
+   	moving_ = true;
+   	movementComplete_ = false; 		
+		ROS_INFO("hitting brakes for obstacle"); 
       return AvoidObstacleState_;
     case obn::WallFollower::Output::MOVE_FORWARD:
       ROS_INFO("I should send a command to move %f meters.", output.distance());
       // TODO: Send the arduino a command to move forward a distance of output.distance():
+      msg.command = "autoMove";
+     	msg.angle = 0.;
+		msg.distance = output.distance() * 1000.;	// mm
+		msg.speed = 1000.;   	// mm/sec
+		movement_pub_.publish(msg);
+   	moving_ = true;
+   	movementComplete_ = false; 	
       return AvoidObstacleState_;
     case obn::WallFollower::Output::TURN:
       ROS_INFO("I should send a command to turn %f radians.", output.distance());
       // TODO: send the arduino a command to turn a distance of output.distance().
+      msg.command = "autoMove";
+     	msg.angle =  output.distance() * 57.3;
+		msg.distance = 0;	// mm
+		msg.speed = 20. * sgn(output.distance());   	// deg/sec
+		movement_pub_.publish(msg);
+   	turning_ = true;
+   	movementComplete_ = false;       
       return AvoidObstacleState_;
     case obn::WallFollower::Output::STOP:
       // We're presumably already stopped and want to stay so.  Do nothing.
