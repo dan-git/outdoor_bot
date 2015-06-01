@@ -22,7 +22,7 @@ class WallFollower
      *   obstacle avoidance succeeded.
      *  WAIT_FOR_READY: The wall follower has issued a move or stop command and is waiting for the robot to report
      *   successful completion of this command.
-     *  EMERGENCY_STOP: An obstacle is detected in front of the robot.  Slam on the brakes now no matter what you were
+     *  OBSTACLE_AHEAD: An obstacle is detected in front of the robot.  Slam on the brakes now no matter what you were
      *   doing before.
      *  MOVE_FORWARD: Move forward a certain distance.
      *  TURN: Turn a certain distance.
@@ -34,7 +34,7 @@ class WallFollower
       TIMEOUT               = -1,
       SUCCESSFUL_COMPLETION = 0,
       WAIT_FOR_READY        = 1,
-      EMERGENCY_STOP        = 2,
+      OBSTACLE_AHEAD        = 2,
       MOVE_FORWARD          = 3,
       TURN                  = 4,
       STOP                  = 5

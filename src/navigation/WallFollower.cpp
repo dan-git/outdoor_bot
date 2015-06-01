@@ -117,7 +117,7 @@ int WallFollower::on_update_move_forward()
   // STOOOOOOOOP!  STOOOOOP NOW.
   if (move_forward_data_.forward_obstacle_detections >= params_.max_obstacle_detections)
   {
-    output_.set_mode(Output::EMERGENCY_STOP);
+    output_.set_mode(Output::OBSTACLE_AHEAD);
     return wait_for_obstacle_clear_state_;
   }
 
