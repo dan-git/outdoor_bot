@@ -1762,7 +1762,7 @@ void on_enter_AvoidObstacleState()
 
 int on_update_AvoidObstacleState()
 {  
-   obn::WallFollower::Input input;
+  obn::WallFollower::Input input(obn::WallFollower::Input::EXECUTING_COMMAND);
    obn::WallFollower::Output output;
    
    // check to see if we have arrived at the new pose   
