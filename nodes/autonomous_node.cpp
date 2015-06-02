@@ -1762,7 +1762,7 @@ void on_enter_AvoidObstacleState()
 
 int on_update_AvoidObstacleState()
 {  
-  obn::WallFollower::Input input(obn::WallFollower::Input::EXECUTING_COMMAND);
+   obn::WallFollower::Input input(obn::WallFollower::Input::READY_FOR_NEW_COMMAND);  
    obn::WallFollower::Output output;
    
    // check to see if we have arrived at the new pose   
@@ -1770,22 +1770,19 @@ int on_update_AvoidObstacleState()
 	{
 		ros::spinOnce();
 		input = obn::WallFollower::Input(obn::WallFollower::Input::EXECUTING_COMMAND);
-   	output = obstacle_avoider_.update(input);
-		return AvoidObstacleState_;  // move has not completed yet
 	} 
 
-	if (moving_ || turning_)	//  move is complete
+	else if (moving_ || turning_)	//  move is complete
 	{	      	      
 		moving_ = false;
 		turning_ = false;
 		movementComplete_ = false;
-  		output = obstacle_avoider_.update(input);
   		input = obn::WallFollower::Input(obn::WallFollower::Input::READY_FOR_NEW_COMMAND);	
   	}
 	
   // move has not begun
   //input = obn::WallFollower::Input(obn::WallFollower::Input::EXECUTING_COMMAND);
-  //output = obstacle_avoider_.update(input);
+  output = obstacle_avoider_.update(input);
 
   outdoor_bot::movement_msg msg;
 
@@ -1830,7 +1827,7 @@ int on_update_AvoidObstacleState()
       msg.command = "autoMove";
      	msg.angle = 0.;
 		msg.distance = output.distance() * 1000.;	// mm
-		msg.speed = 1000.;   	// mm/sec
+		msg.speed = 1000. * sgn(output.distance());   	// mm/sec
 		movement_pub_.publish(msg);
    	moving_ = true;
    	movementComplete_ = false; 	
