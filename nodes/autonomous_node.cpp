@@ -117,7 +117,7 @@ int maxSearchPan_ = PAN_CAMERA_SEARCH_MAX, maxSearchTilt_ = TILT_CAMERA_SEARCH_M
 int lastCamName_ = WEBCAM, camName_ = WEBCAM;
 std::string movementResult_;
 //int encoderPickerUpper_, encoderDropBar_, encoderBinShade_;
-bool prepping_, placing_, driving_, pushing_, scooping_, dropping_, retrieving_;
+bool prepping_, placing_, driving_, pushing_, scooping_, dropping_, retrieving_, verifying_, alreadyTriedVerifying_; 
 ros::Time overallTimer_;
 double startTime_, totalTime_, secondsRemaining_;
 double userCmdDistance_[32], userCmdTurn_[32], userCmdSpeed_[32], userCmdPickup_[32];
@@ -944,6 +944,7 @@ void on_enter_BootupState()
    recoverTurnedAlready_ = false;
    firstMoveToFirstTarget_ = true;
    finalMoveToTarget_ = false;
+   alreadyTriedVerifying_ = false;
    distanceToHomeRadar_ = 0.;
    orientationToHomeRadar_ = 0;
    angleToHomeRadar_ = 0.; 
@@ -1239,12 +1240,12 @@ void on_enter_CheckFirstTargetState()
    // start by capturing an image using fsm
    centerX_ = -1;
    cout << "entering CheckFirstTargetState, approximate range to target = " << approxRangeToTarget_ << endl;
-   if (!triedZoomDigcamAlready_)
+   if (!triedZoomDigcamAlready_ && !verifying_)
    {
 		tAF_.set_acquireCamName(ZOOM_DIGCAM);
 		lastCamName_ = ZOOM_DIGCAM;		
    }
-   else if (!triedRegularDigcamAlready_) //approxRangeToTarget_ > WEBCAM_DISTANCE_LIMIT)  // too far for webcam *****************might add for real ops to avoid false positives
+   else if (!triedRegularDigcamAlready_ && !verifying_) //approxRangeToTarget_ > WEBCAM_DISTANCE_LIMIT)  // too far for webcam *****************might add for real ops to avoid false positives
    {
    	tAF_.set_acquireCamName(REGULAR_DIGCAM);
    	lastCamName_ = REGULAR_DIGCAM;
@@ -1298,6 +1299,13 @@ int on_update_CheckFirstTargetState()
    	cout << "did final move to target, so it is OK that we did not see a target here" << endl;
    	triedZoomDigcamAlready_ = false;	// these are in case we need to redo
       triedRegularDigcamAlready_ = false;
+   	if (verifying_)	// we were checking to see if we left the target on the ground, but we did not see it, so hopefully we got it
+   	{
+   		verifying_ = false;
+   		alreadyTriedVerifying_ = false;
+   		finalMoveToTarget_ = false;
+   		return PhaseOneHomeState_;
+   	}
    	return MoveToFirstTargetState_;
    }
    else
@@ -1582,7 +1590,7 @@ int on_update_MoveToFirstTargetState()
 		}
 		msg.command = "autoMove";
 		msg.angle = INCREMENTAL_TURN_TO_FIND_TARGET;
-		msg.speed = 20.;
+		msg.speed = -20.;
 		msg.distance = 0.;
 		cout << "starting blind turn, distance = " << msg.angle * sgn(msg.speed) << " degrees" << endl;
 		turning_ = true;
@@ -1926,6 +1934,7 @@ void on_enter_PickupTargetState()
    pushing_ = false;
    scooping_ = false;
    retrieving_ = false;	
+   verifying_ = false;
 }
 
 int on_update_PickupTargetState()
@@ -2009,11 +2018,31 @@ int on_update_PickupTargetState()
    		movement_pub_.publish(msg); 
    		return PickupTargetState_;  
    	} 
-   	retrieving_ = false;
+   	if (retrieving_ && !alreadyTriedVerifying_) // we hope we got the target in the bin, we'll back up a bit and check to see if it is still on the ground
+   	{
+   		retrieving_ = false;
+   		verifying_ = true;
+   		movementComplete_ = false;
+	      cout << "driving backwards 2m to check that we got the target" << endl;
+		   msg.command = "autoMove";
+		   msg.distance = 2000;	// mm
+		   msg.angle = 0;			// degrees
+		   msg.speed = -800;   	// mm/sec or deg/sec  
+   		movement_pub_.publish(msg);
+   		return PickupTargetState_;  
+   	}
+   	if (verifying_ && !alreadyTriedVerifying_)
+   	{
+   		 finalMoveToTarget_ = true;
+   		 alreadyTriedVerifying_ = true;
+   		 return CheckFirstTargetState_;
+   	}	
    	if (phase1_)
    	{
-   		currentSection_ = HOME;
-   		// turn 180 degrees and start looking for home
+   		verifying_ = false;
+   		alreadyTriedVerifying_ = false;
+   		finalMoveToTarget_ = false;
+   		currentSection_ = HOME; 
    		return PhaseOneHomeState_;
    	}
    	currentSection_ = TARGETS;
