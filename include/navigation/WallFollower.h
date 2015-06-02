@@ -122,6 +122,9 @@ class WallFollower
   void on_enter_successful_completion();
   int on_update_successful_completion();
 
+  void on_enter_prepare_for_timeout();
+  int on_update_prepare_for_timeout();
+
   void on_enter_timeout();
   int on_update_timeout();
 
@@ -133,6 +136,7 @@ class WallFollower
   int command_turn_into_state_;
   int wait_for_turn_state_;
   int successful_completion_state_;
+  int prepare_for_timeout_state_;
   int timeout_state_;
 
   struct MoveForwardData
@@ -174,8 +178,6 @@ class WallFollower
     double move_timeout;
     // Timeout for turns (-1 for no timeout).
     double turn_timeout;
-    // Timeout for stops (-1 for no timeout).
-    double stop_timeout;
     Params()
         : obstacle_rect_x(2.0),
           obstacle_rect_y(1.3),
@@ -184,8 +186,7 @@ class WallFollower
           side_angle(1.0),
           incremental_distance(2.0),
           move_timeout(-1.0),
-          turn_timeout(-1.0),
-          stop_timeout(-1.0)
+          turn_timeout(-1.0)
     {}
   } params_;
 
