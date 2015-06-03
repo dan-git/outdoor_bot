@@ -158,13 +158,13 @@ unsigned long pauseBlinkTime_;
   #define PICKER_UPPER_UP -1
   #define PICKER_UPPER_DOWN 1
   //#define PICKER_UPPER_DOWN_PREP 2
-  #define DROP_BAR_UP -1
-  #define DROP_BAR_DOWN 1
+  #define DROP_BAR_UP 1
+  #define DROP_BAR_DOWN -1
   #define BIN_SHADE_UP 1
   #define BIN_SHADE_DOWN -1
   
-  #define DROP_BAR_UP_POSITION 100
-  #define DROP_BAR_DOWN_POSITION 3000
+  #define DROP_BAR_UP_POSITION -100
+  #define DROP_BAR_DOWN_POSITION -3000
   #define DROP_BAR_TIMEOUT  15000
   #define BIN_SHADE_UP_POSITION 0
   #define BIN_SHADE_DOWN_POSITION1 580
@@ -243,8 +243,8 @@ unsigned long pauseBlinkTime_;
   // with max speed = 6 rev/sec, max ticks/ sec = 144 or 3 per arduino cycle.
   // at 10 rev/sec, max ticks / sec = 240 or about 5 per cycle.
   #define UNSTICK_SCOOPER_ATTEMPTS_ALLOWED 1
-  #define SCOOPER_STUCK_ENCODER_THRESHOLD 80
-  #define SCOOPER_STUCK_TIME 5000
+  #define SCOOPER_STUCK_ENCODER_THRESHOLD 95
+  #define SCOOPER_STUCK_TIME 3000
   
   #define NUM_SERVOS 12  // make this the size of the servo board slots, because we use the slot numbers as indices, which could otherwise cause a BAD seg fault
   #define SERVO_DRIVER_DEV_NUM 20 

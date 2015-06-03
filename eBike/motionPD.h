@@ -393,8 +393,8 @@ public:
        {
            motionPDLoopTimer = millis();
            static int numBinshadeMoves = 0;
-           int scooperStuckAlreadyDone = 0;
-           bool scooperProgressReportDone = false;
+           static int scooperStuckAlreadyDone = 0;
+           static bool scooperProgressReportDone = false;
            
            if (motion_pd.getApplyingBrakes())
            {
@@ -412,6 +412,7 @@ public:
                 motor_pololu_driver[MOTOR_BRAKE_INDEX].setMotorSpeed(0); 
                 motion_pd.setApplyingBrakes(false); 
                 motion_pd.setBrakesState(true);
+                scooperProgressReportDone = false;
               }
            }         
              
@@ -440,7 +441,7 @@ public:
              long scooperEncoder = encoder_spi[getEncoderNumber(PICKER_UPPER_ENCODER_SELECT_PIN)].readEncoder();
              if (scooperTimeout > SCOOPER_TIMEOUT - 1000)
              {
-                DEBUG_SERIAL_PORT.println("scooper close to timing out: time, encoder = ");
+                DEBUG_SERIAL_PORT.print("scooper close to timing out: time, encoder = ");
                 DEBUG_SERIAL_PORT.print(scooperTimeout);
                 DEBUG_SERIAL_PORT.print(", ");
                 DEBUG_SERIAL_PORT.println(scooperEncoder);
@@ -455,31 +456,39 @@ public:
                   DEBUG_SERIAL_PORT.print(", ");
                   DEBUG_SERIAL_PORT.println(scooperEncoder);
                }
-               if (scooperTimeout > SCOOPER_STUCK_TIME
-                 && scooperEncoder < scooperStartEncoder - SCOOPER_STUCK_ENCODER_THRESHOLD)
+               if (scooperTimeout > SCOOPER_STUCK_TIME && scooperEncoder > SCOOPER_STUCK_ENCODER_THRESHOLD)
                {
-                 if (scooperStuckAlreadyDone < UNSTICK_SCOOPER_ATTEMPTS_ALLOWED)
+                  if (scooperStuckAlreadyDone < UNSTICK_SCOOPER_ATTEMPTS_ALLOWED)
                    {
                      //scooper's jammed, need to back up a little
-                   bool resetBrakes = motion_pd.getBrakesState();
-                   motion_pd.releaseRobotBrakes();
-                   motor_dac[LEFT].setMotorSpeed(-800);
-                   motor_dac[RIGHT].setMotorSpeed(-800);
-                   delay(500);
-                   motor_dac[LEFT].setMotorSpeed(0);
-                   motor_dac[RIGHT].setMotorSpeed(0);     
-                   if (resetBrakes) motion_pd.applyRobotBrakes();  
-                   scooperStuckAlreadyDone++;
+                     DEBUG_SERIAL_PORT.println("moving backwards a bit to unstick scooper: attempt number, time, encoder = ");
+                     DEBUG_SERIAL_PORT.print(scooperStuckAlreadyDone);
+                     DEBUG_SERIAL_PORT.print(", ");
+                     DEBUG_SERIAL_PORT.print(scooperTimeout);
+                     DEBUG_SERIAL_PORT.print(", ");
+                     DEBUG_SERIAL_PORT.println(scooperEncoder);
+                     bool resetBrakes = motion_pd.getBrakesState();
+                     motion_pd.releaseRobotBrakes();
+                     motor_dac[LEFT].setMotorSpeed(-1200);
+                     motor_dac[RIGHT].setMotorSpeed(-1200);
+                     delay(800);
+                     motor_dac[LEFT].setMotorSpeed(0);
+                     motor_dac[RIGHT].setMotorSpeed(0);     
+                     if (resetBrakes) motion_pd.applyRobotBrakes();  
+                     scooperStuckAlreadyDone++;
+                     motion_pd.setScooperStartTime(millis());
                    }
                 }
                 else
                 {
-                  if (scooperTimeout > SCOOPER_STUCK_TIME && !scooperProgressReportDone)
+                  if (scooperTimeout > SCOOPER_STUCK_TIME  && (!scooperProgressReportDone))
                   {
-                    DEBUG_SERIAL_PORT.print("past the scooper stuck time, with the scooper encoder = ");
+                    DEBUG_SERIAL_PORT.print("past the scooper stuck time, at time, scooper encoder = ");
+                    DEBUG_SERIAL_PORT.print(scooperTimeout);
+                    DEBUG_SERIAL_PORT.print(", ");
                     DEBUG_SERIAL_PORT.print(scooperEncoder);
                     DEBUG_SERIAL_PORT.print(" which is past the threshold by ");
-                    DEBUG_SERIAL_PORT.println( (scooperStartEncoder - SCOOPER_STUCK_ENCODER_THRESHOLD) - scooperEncoder);
+                    DEBUG_SERIAL_PORT.println( (scooperStartEncoder - SCOOPER_STUCK_ENCODER_THRESHOLD) - (scooperStartEncoder - scooperEncoder));
                     scooperProgressReportDone = true;
                     scooperStuckAlreadyDone = 0;   
                   } 
@@ -523,7 +532,7 @@ public:
              
              if (motion_pd.getDropbarUp()) 
              {
-                 if (dropbarEncoder < DROP_BAR_UP_POSITION)
+                 if (dropbarEncoder > DROP_BAR_UP_POSITION)
                  {
                   motion_pd.start(MOTOR_DROP_BAR_INDEX, 0);
                   DEBUG_SERIAL_PORT.print("finished pulling dropbar up: time, encoder = ");
@@ -534,7 +543,7 @@ public:
               }
               else if (motion_pd.getDropbarDown()) 
               {
-                if (dropbarEncoder > DROP_BAR_DOWN_POSITION)
+                if (dropbarEncoder < DROP_BAR_DOWN_POSITION)
                 {
                   motion_pd.start(MOTOR_DROP_BAR_INDEX, 0);
                   DEBUG_SERIAL_PORT.print("finshed putting dropbar down: time, encoder = ");

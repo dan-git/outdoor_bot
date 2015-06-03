@@ -124,7 +124,7 @@ double userCmdDistance_[32], userCmdTurn_[32], userCmdSpeed_[32], userCmdPickup_
 int userCmdNumDataValues_, currentUserCommandNumber_, userCmdReturnSection_;
 bool userCommandReceived_;
 int dirAntMaxAngle_, dirAntSweepNumber_, dirAntLevel_, usingDirAnt_;
-bool currentSection_;
+int currentSection_;
 
 OutdoorBot::Navigation::ObstacleDetector *obstacle_detector_;
 OutdoorBot::Navigation::WallFollower     *obstacle_avoider_;
@@ -378,8 +378,16 @@ bool askUserForGo()
 	int userValue = 0;
    cout << "WE ARE ABOUT TO MOVE TO FULLY AUTONOMOUS OPERATIONS!  SET RC CONTROL TO PAUSE (may need to cycle unpause/pause once)." << endl;
    cout << "when that is done, we will continue......." << endl;
-   while (!pauseCommanded_) ros::spinOnce();
-   cout << "pause is acknowledged as set.  WHEN YOU ARE READY TO GO, HIT 1.  TO ABORT AND RETURN TO LINEUP STATE, HIT 0" << endl;
+   while (!pauseCommanded_)
+   {
+      struct timespec ts;
+      ts.tv_sec = 0;
+      ts.tv_nsec = 10000000;
+      nanosleep(&ts, NULL); // update every 10 ms, saves cpu from going to 100%
+      ros::spinOnce();
+    }
+   cout << "pause is acknowledged as set." << endl;
+   cout << "WHEN YOU ARE READY TO GO, HIT 1.  TO ABORT AND RETURN TO LINEUP STATE, HIT 0" << endl;
    getline(cin, input);
 
    // This code converts from string to number safely.
@@ -962,8 +970,8 @@ void on_enter_BootupState()
    triedWebcamAlready_ = false;
    triedZoomDigcamAlready_ = false;	
    triedRegularDigcamAlready_ = false;
-   zoomDigcamZoom_ = ZOOM_DIGCAM_ZOOM7;		// these get set together
-   zoomDigcamFOV_ = ZOOM_DIGCAM_ZOOM7_FOV;	// these two	
+   zoomDigcamZoom_ = ZOOM_DIGCAM_ZOOM6;		// these get set together
+   zoomDigcamFOV_ = ZOOM_DIGCAM_ZOOM6_FOV;	// these two	
    regularDigcamZoom_ = REGULAR_DIGCAM_ZOOM5;	// these get set together
    regularDigcamFOV_ = REGULAR_DIGCAM_ZOOM5_FOV;		// these two
    recoverTurnedAlready_ = false;
@@ -1117,7 +1125,7 @@ void on_exit_BootupState()
 void on_enter_CheckLinedUpState()
 {
    // start by capturing an image using fsm
-   tAF_.set_acquireCamName(ZOOM_DIGCAM);	// if we change here, also change in on_update below
+   tAF_.set_acquireCamName(WEBCAM);	// if we change here, also change in on_update below
    tAF_.set_camCommand("capture");
    tAF_.set_firstTarget(true);
    tAF_.set_homeTarget(false);
@@ -1156,7 +1164,7 @@ int on_update_CheckLinedUpState()
    }
    
    // decided to try again, so we will capture an image using fsm
-   tAF_.set_acquireCamName(ZOOM_DIGCAM);			//if we change here , change above in on_enter too
+   tAF_.set_acquireCamName(WEBCAM);			//if we change here , change above in on_enter too
    tAF_.set_camCommand("capture");
    tAF_.set_firstTarget(true);
    tAF_.set_homeTarget(false);
@@ -1468,15 +1476,9 @@ int on_update_MoveToFirstTargetState()
       if (firstMoveToFirstTarget_) 
       {
       	currentSection_ = FIRST_TARGET_MOVE; // after the first move, it is better for pause to return to checkFirstTargetState
-      	cout << "since we are in firstMoveTofirstTarget, currentSection is FIRST_TARGET_MOVE" << endl;
       }
-      else cout << " we are not in firstMoveToFirstTarget " << endl;
+      else currentSection_ = FIRST_TARGET_CHECK;
       return PauseState_;
-   }
-   else 
-   {
-   	cout << "pause was not commanded" << endl;
-   	ros::spinOnce();	// want to see the pause command 
    }
 
    if (obstacle_detector_->update())
@@ -3202,7 +3204,6 @@ int on_update_MoveToRecoverState()
 {
    if (!movementComplete_)
    {
-   	ros::spinOnce();
    	return MoveToRecoverState_;
    }
    
@@ -3268,7 +3269,6 @@ void on_enter_PauseState()
   
 int on_update_PauseState()
 {
-   ros::spinOnce();
    if (pauseCommanded_) return PauseState_;  
    if (userCommandReceived_) return UserCommandState_;
    if (currentSection_ == BOOTUP) return BootupState_;
@@ -3278,6 +3278,7 @@ int on_update_PauseState()
    if (currentSection_ == HOME) return CheckHomeState_;
    if (currentSection_ == PLATFORM) return MoveOntoPlatformState_;
    if (currentSection_ == ALL_DONE) return AllDoneState_;
+   cout << "Pause did not recognize the current section, returning to CheckFirstTargetState" << endl;
    return CheckFirstTargetState_;  // something is seriously wrong if we get to here   
 }
 
@@ -3468,7 +3469,7 @@ int main(int argc, char* argv[])
 
    while (nh.ok())
    {
-      //ros::spinOnce();
+      ros::spinOnce();
       struct timespec ts;
       ts.tv_sec = 0;
       ts.tv_nsec = 10000000;

@@ -42,7 +42,7 @@
 #define ZOOM_DIGCAM 3
 #define HOMECAM 4
 
-#define WEBCAM_TILT_DOWN -18.	// degrees to point webcam down when the target is close
+#define WEBCAM_TILT_DOWN -25.	// degrees to point webcam down when the target is close
 #define WEBCAM_TILT_LEVEL 0.
 
 #define DIGCAM_PIXELS_WIDTH 2272
@@ -53,12 +53,14 @@
 #define LARGE_TARGET_WIDTH 0.445
 #define WEBCAM_FOV 41.  // logitech 310 sees 7.5m at 10m -> has 40 degrees field of view
 #define ORBITCAM_FOV	54.	// orbitcam sees 14m at 10m -> has 54 degree FOV
-#define REGULAR_DIGCAM_ZOOM7_FOV 14.  // powershot digcam with zoom = 7, sees 2.5m wide at 10m -> 14 degree FOV
+//#define REGULAR_DIGCAM_ZOOM7_FOV 14.  // powershot digcam with zoom = 7, sees 2.5m wide at 10m -> 14 degree FOV
 #define REGULAR_DIGCAM_ZOOM5_FOV 21.  // with zoom = 5, it sees 2.1 at 5.5m
-#define ZOOM_DIGCAM_ZOOM7 7
-#define ZOOM_DIGCAM_ZOOM10 10
-#define ZOOM_DIGCAM_ZOOM7_FOV 3.8 // zoom = 7, sees 0.66 m wide at 10m -> 4 degree FOV
-#define ZOOM_DIGCAM_ZOOM10_FOV 2.5 // this needs to be measured
+//#define ZOOM_DIGCAM_ZOOM7 7
+#define ZOOM_DIGCAM_ZOOM6 6
+#define ZOOM_DIGCAM_ZOOM6_FOV 11	// with zoom 6 it sees 1m at 5m
+//#define ZOOM_DIGCAM_ZOOM10 10
+//#define ZOOM_DIGCAM_ZOOM7_FOV 8 // zoom = 7, sees 0.66 m wide at 10m, 0.8 at 5m -> 8 degree FOV
+//#define ZOOM_DIGCAM_ZOOM10_FOV 2.5 // this needs to be measured
 //#define FRONT 1
 //#define REAR 0
 //#define DIGCAM 0
@@ -76,8 +78,8 @@
 #define PICKER_UPPER_UP -1
 #define PICKER_UPPER_DOWN 1
 #define PICKER_UPPER_DOWN_PREP 2
-#define DROP_BAR_UP -1
-#define DROP_BAR_DOWN 1
+#define DROP_BAR_UP 1
+#define DROP_BAR_DOWN -1
 #define BIN_SHADE_UP 1
 #define BIN_SHADE_DOWN -1
 
