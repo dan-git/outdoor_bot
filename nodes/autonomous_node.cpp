@@ -126,8 +126,8 @@ bool userCommandReceived_;
 int dirAntMaxAngle_, dirAntSweepNumber_, dirAntLevel_, usingDirAnt_;
 bool currentSection_;
 
-//OutdoorBot::Navigation::ObstacleDetector obstacle_detector_;
-//OutdoorBot::Navigation::WallFollower     obstacle_avoider_;
+OutdoorBot::Navigation::ObstacleDetector *obstacle_detector_;
+OutdoorBot::Navigation::WallFollower     *obstacle_avoider_;
 
 FBFSM fsm_;
 int BootupState_, CheckLinedUpState_, PhaseTwoFirstState_, CheckFirstTargetState_, SearchForFirstTargetState_;
@@ -1457,7 +1457,7 @@ void on_enter_MoveToFirstTargetState()
    moving_ = false;
    turning_ = false;
    ros::spinOnce();	// want to see the pause command 
- //  obstacle_detector_.activate(STOP_IF_OBSTACLE_WITHIN_DISTANCE, ROBOT_RADIUS);
+   obstacle_detector_->activate(STOP_IF_OBSTACLE_WITHIN_DISTANCE, ROBOT_RADIUS);
 }
 
 int on_update_MoveToFirstTargetState()
@@ -1479,11 +1479,11 @@ int on_update_MoveToFirstTargetState()
    	ros::spinOnce();	// want to see the pause command 
    }
 
-//   if (obstacle_detector_.update())
-//   {
-//     // We've seen an obstacle!
-//     return AvoidObstacleState_;
- //  }
+   if (obstacle_detector_->update())
+   {
+      // We've seen an obstacle!
+     return AvoidObstacleState_;
+   }
 
    // check to see if we have arrived at the new pose   
    if ( (moving_ || turning_) && (!movementComplete_ ))
@@ -1782,14 +1782,14 @@ int on_update_MoveToFirstTargetState()
    movementComplete_ = false;   
    return MoveToFirstTargetState_;
 }
-/* 
+
 void on_enter_AvoidObstacleState()
 {
    cout << "Avoiding an obstacle.";
 	moving_ = false;
 	turning_ = false;
 	movementComplete_ = false;
-	obstacle_avoider_.activate(OutdoorBot::Navigation::WallFollower::Goal(OutdoorBot::Navigation::WallFollower::Goal::LEFT));
+	obstacle_avoider_->activate(OutdoorBot::Navigation::WallFollower::Goal(OutdoorBot::Navigation::WallFollower::Goal::LEFT));
 }
 
 int on_update_AvoidObstacleState()
@@ -1814,7 +1814,7 @@ int on_update_AvoidObstacleState()
 	
   // move has not begun
   //input = OutdoorBot::Navigation::WallFollower::Input(OutdoorBot::Navigation::WallFollower::Input::EXECUTING_COMMAND);
-  output = obstacle_avoider_.update(input);
+  output = obstacle_avoider_->update(input);
 
   outdoor_bot::movement_msg msg;
 
@@ -1882,7 +1882,7 @@ int on_update_AvoidObstacleState()
 
   return AvoidObstacleState_;
 }
-*/
+
 
 void on_enter_NewTargetState()
 {
@@ -2115,7 +2115,7 @@ void on_enter_MoveToTargetState()
    movementComplete_ = false;
    moving_ = false;
    turning_ = false;
- //  obstacle_detector_.activate(STOP_IF_OBSTACLE_WITHIN_DISTANCE, ROBOT_RADIUS);
+   obstacle_detector_->activate(STOP_IF_OBSTACLE_WITHIN_DISTANCE, ROBOT_RADIUS);
 }
 
 int on_update_MoveToTargetState()
@@ -2126,11 +2126,11 @@ int on_update_MoveToTargetState()
       return PauseState_;
    }
 
-//   if (obstacle_detector_.update())
-//   {
-//     // We've seen an obstacle!
-//     return AvoidObstacleState_;
-//   }
+   if (obstacle_detector_->update())
+   {
+     // We've seen an obstacle!
+     return AvoidObstacleState_;
+   }
 
    // check to see if we have arrived at the new pose   
    if ( (moving_ || turning_ || binShading_) && (!movementComplete_ ))
@@ -3302,7 +3302,7 @@ void setupStates()
    CheckFirstTargetState_ = fsm_.add_state("CheckFirstTargetState");  // 1
    SearchForFirstTargetState_ = fsm_.add_state("SearchForFirstTargetState");
    MoveToFirstTargetState_ = fsm_.add_state("MoveToFirstTargetState");
-//   AvoidObstacleState_ = fsm_.add_state("AvoidObstacleState");
+   AvoidObstacleState_ = fsm_.add_state("AvoidObstacleState");
    NewTargetState_ = fsm_.add_state("NewTargetState");
    CheckTargetState_ = fsm_.add_state("CheckTargetState");
    FindTargetState_ = fsm_.add_state("FindTargetState");
@@ -3346,8 +3346,8 @@ void setupStates()
    fsm_.set_update_function(MoveToFirstTargetState_, boost::bind(&on_update_MoveToFirstTargetState));
    //fsm_.set_exit_function(MoveToFirstTargetState_, boost::bind(&on_exit_MoveToFirstTargetState))
 
-//   fsm_.set_entry_function(AvoidObstacleState_, boost::bind(&on_enter_AvoidObstacleState));
-//   fsm_.set_update_function(AvoidObstacleState_, boost::bind(&on_update_AvoidObstacleState)); 	
+   fsm_.set_entry_function(AvoidObstacleState_, boost::bind(&on_enter_AvoidObstacleState));
+   fsm_.set_update_function(AvoidObstacleState_, boost::bind(&on_update_AvoidObstacleState)); 	
 
    fsm_.set_entry_function(NewTargetState_, boost::bind(&on_enter_NewTargetState));
    fsm_.set_update_function(NewTargetState_, boost::bind(&on_update_NewTargetState));
@@ -3420,6 +3420,8 @@ int main(int argc, char* argv[])
 {
    ros::init(argc, argv, "autonomous_node");
    ros::NodeHandle nh;
+   obstacle_detector_ = new OutdoorBot::Navigation::ObstacleDetector;
+	obstacle_avoider_ = new OutdoorBot::Navigation::WallFollower;
 
    //digcams_client_ = nh.serviceClient<outdoor_bot::digcams_service>("digcams_service");
    accelerometers_client_ = nh.serviceClient<outdoor_bot::accelerometers_service>("accelerometers_service");
@@ -3479,6 +3481,8 @@ int main(int argc, char* argv[])
    }
 
    cout << "all done" << endl;
+   delete obstacle_avoider_;
+   delete obstacle_detector_;
    return EXIT_SUCCESS;
 }
 
