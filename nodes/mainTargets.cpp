@@ -29,7 +29,8 @@ using namespace cv;
 #define BLUE_RED 2
 #define ZOOM_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER 175000.
 #define REGULAR_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER 58000. // ratio of area to distance
-#define WEBCAM_FIRST_TARGET_RANGE_PARAMETER 4000.
+##define REGULAR_DIGCAM_FIRST_TARGET_ZOOM5_RANGE_PARAMETER 45000.	// need to figure this out
+define WEBCAM_FIRST_TARGET_RANGE_PARAMETER 4000.
 
 // these values are for ZOOM = 7 on the digcams  
 #define MAX_FIRST_TARGET_AREA_ZOOM_DIGCAM 250000.
@@ -511,6 +512,7 @@ bool detectBlobs(Mat im_original, bool firstTarget)
          if (cameraName_ == ZOOM_DIGCAM) 
          {
          	cout << "ZOOM_DIGCAM ";
+         	/*
          	if (approxRange_ > 0.5) predictedArea = ZOOM_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER / approxRange_;
          	if (predictedArea / 2. < MIN_FIRST_TARGET_AREA_ZOOM_DIGCAM || predictedArea * 5 > MAX_FIRST_TARGET_AREA_ZOOM_DIGCAM)
          	{
@@ -522,17 +524,22 @@ bool detectBlobs(Mat im_original, bool firstTarget)
 					params.minArea = predictedArea / 2.;
 					params.maxArea = predictedArea * 5;   
 				}
+				*/
+				predictedArea = 20000.;
+				params.minArea = 5000.;
+				params.maxArea = 40000.;
 			}         	         
         
          else if (cameraName_ == REGULAR_DIGCAM) 
          {
          	cout << "REGULAR_DIGCAM ";
-         	if (regularDigcamZoom_ == 5)
+         	//if (regularDigcamZoom_ == 5)
          	{
 					predictedArea = 20000.;
 					params.minArea = 5000.;
 					params.maxArea = 40000.;
 				} 
+				/*
 				else
 				{        		
 		      	if (approxRange_ > 0.5) predictedArea = REGULAR_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER / approxRange_;
@@ -547,11 +554,13 @@ bool detectBlobs(Mat im_original, bool firstTarget)
 						params.maxArea = predictedArea * 5;   
 					}
 				}
+				*/
 			}  
 			
 			else if (cameraName_ == WEBCAM) 
          {
          	cout << "WEBCAM ";
+         	/*
          	if (webcamTilt_ == WEBCAM_TILT_LEVEL)
          	{
 		      	cout << "with tilt level ";
@@ -568,6 +577,7 @@ bool detectBlobs(Mat im_original, bool firstTarget)
 					}
 				}
 				else
+				*/
 				{
 					cout << "with tilt down ";
 					params.minArea = 700;
@@ -704,7 +714,7 @@ bool detectBlobs(Mat im_original, bool firstTarget)
          }
          if (cameraName_ == WEBCAM)
          {
-         	if (webcamTilt_ == WEBCAM_TILT_LEVEL)
+         	//if (webcamTilt_ == WEBCAM_TILT_LEVEL)
          	{
          		if (keypoints[i].pt.y < WEBCAM_Y_MIN) continue; // this is too high in the image to be a valid target (higher numbers are closer to the top)
          		if  (keypoints[i].pt.y >= WEBCAM_Y_MIN && keypoints[i].pt.y < WEBCAM_Y_MID && ( keypointArea > WEBCAM_Y_MID_MAX_AREA || keypointArea < WEBCAM_Y_MID_MIN_AREA)) continue;
@@ -745,7 +755,7 @@ bool detectBlobs(Mat im_original, bool firstTarget)
          if (cameraName_ == ZOOM_DIGCAM)
          {
          	cout << "setting range for zoomcam" << endl;
-         	 rangeByArea = 5; //(ZOOM_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER * ZOOM_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER) / (maxKeypointArea * maxKeypointArea);
+         	 rangeByArea = 16.; //(ZOOM_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER * ZOOM_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER) / (maxKeypointArea * maxKeypointArea);
          }
          else if (cameraName_ == REGULAR_DIGCAM)
         {

@@ -68,7 +68,7 @@ using namespace std;
 #define SERVO_WAIT_SECONDS 3.0  // time from servo command until we are sure servo is in position *****************untested change*************
 #define DEGREES_PER_PAN_STEP 0.64
 #define PAN_CAMERA_DELTA 20
-#define PAN_CAMERA_SEARCH_MAX 40
+#define PAN_CAMERA_SEARCH_MAX 20
 #define TILT_CAMERA_DELTA 10
 #define TILT_CAMERA_SEARCH_MAX 20
 
@@ -76,16 +76,16 @@ using namespace std;
 #define TARGET_DISTANCE_FOR_WEBCAM_TILT_DOWN 2.
 
 #define REGULAR_DIGCAM_FAR_ZOOM 10
-#define REGULAR_DIGCAM_MEDIUM_ZOOM 5
+#define REGULAR_DIGCAM_ZOOM5 5
 #define REGULAR_DIGCAM_SHORT_ZOOM 0
-#define ZOOM_DIGCAM_ZOOM 7
+//#define ZOOM_DIGCAM_ZOOM 7
 
 // OBSTACLE AVOIDANCE DEFINES
 #define STOP_IF_OBSTACLE_WITHIN_DISTANCE 1.5  // If there is an obstacle within this distance, react.
 #define ROBOT_RADIUS 0.63
 
 // namespace aliases for shorter typing
-namespace obn = OutdoorBot::Navigation;
+//namespace obn = OutdoorBot::Navigation;
 
 ros::ServiceClient NavTargets_client_, accelerometers_client_, dirAnt_client_; //, encoders_client_; //, mainTargets_client_, mainTargetsCheckImage_client_;
 ros::ServiceClient setPose_client_; //digcams_client_, 
@@ -126,8 +126,8 @@ bool userCommandReceived_;
 int dirAntMaxAngle_, dirAntSweepNumber_, dirAntLevel_, usingDirAnt_;
 bool currentSection_;
 
-obn::ObstacleDetector obstacle_detector_;
-obn::WallFollower     obstacle_avoider_;
+//OutdoorBot::Navigation::ObstacleDetector obstacle_detector_;
+//OutdoorBot::Navigation::WallFollower     obstacle_avoider_;
 
 FBFSM fsm_;
 int BootupState_, CheckLinedUpState_, PhaseTwoFirstState_, CheckFirstTargetState_, SearchForFirstTargetState_;
@@ -376,8 +376,10 @@ bool askUserForGo()
 {
 	string input = "";
 	int userValue = 0;
-   cout << "WE ARE ABOUT TO MOVE TO FULLY AUTONOMOUS OPERATIONS!  SET RC CONTROL TO PAUSE." << endl;
-   cout << "WHEN RC CONTROL IS PAUSED AND YOU ARE READY TO GO, HIT 1.  TO ABORT AND RETURN TO LINEUP STATE, HIT 0" << endl;
+   cout << "WE ARE ABOUT TO MOVE TO FULLY AUTONOMOUS OPERATIONS!  SET RC CONTROL TO PAUSE (may need to cycle unpause/pause once)." << endl;
+   cout << "when that is done, we will continue......." << endl;
+   while (!pauseCommanded_) ros::spinOnce();
+   cout << "pause is acknowledged as set.  WHEN YOU ARE READY TO GO, HIT 1.  TO ABORT AND RETURN TO LINEUP STATE, HIT 0" << endl;
    getline(cin, input);
 
    // This code converts from string to number safely.
@@ -387,10 +389,65 @@ bool askUserForGo()
    	if (userValue == 1) return true;
    	return false;
    }	
-   cout << "Failed to get a user value, returning false" << endl;
+   cout << "Failed to get a user value, returning false from askUserForGo" << endl;
    return false;
 } 
-   
+ 
+bool callSetPoseService(double x, double y, double yaw, bool setHome)
+{
+   outdoor_bot::setPose_service::Request req;
+   outdoor_bot::setPose_service::Response resp;
+   req.setHome = setHome;
+   req.x = x;
+   req.y = y;
+   req.yaw = yaw; 
+   if (setPose_client_.call(req,resp)) return true;
+   return false;
+}
+ 
+ 
+
+bool callAccelerometersService()
+{
+	outdoor_bot::accelerometers_service::Request req;
+	outdoor_bot::accelerometers_service::Response resp;
+	//double aX = 0., aY = 0., aZ = 0.;
+	cout << "calling accelerometers service"  << endl;
+	/* this would just yield 10 of the same number, as the accels updat at only 50 Hz
+	for (int i=0; i < 10; i++)
+	{
+		bool success = accelerometers_client_.call(req, resp);
+		if (success)
+		{
+			aX += resp.accelX;
+			aY += resp.accelY;
+			aZ += resp.accelZ;			
+		}
+	}
+	accelX_ = aX / 10.;
+	accelY_ = aY / 10.;
+	accelZ_ = aZ / 10.;
+	*/
+	
+	bool success = accelerometers_client_.call(req, resp);
+	if (success)
+	{
+		accelX_ = resp.accelX;
+		accelY_ = resp.accelY;
+		accelZ_ = resp.accelZ;	
+		yaw_ = resp.yaw; // radians
+		x_ = resp.x; // meters
+		y_ = resp.y;	
+		odomDistanceToHome_ = sqrt((x_ * x_) + (y_ * y_));	
+	}
+	cout << "accels, x, y, z = " << accelX_ << ", " << accelY_ << ", " << accelZ_ << endl;
+	cout << "x, y, yaw (radians), yaw (degrees), odomDistanceToHome_ (meters)  = " << x_ << ", " << y_ << ", " << yaw_ << ", " << yaw_ * 57.3 << ", " << odomDistanceToHome_ << endl;
+	//if (fabs(accelZ_) > 3.) return true;
+	return true;
+}
+
+
+ 
 bool getUserInput()
 {
    string input = "";
@@ -408,6 +465,22 @@ bool getUserInput()
       distanceToFirstTargetStaging_ = distanceToFirstTarget_ - TARGET_STAGING_DISTANCE;
       cout << "We are on platform number " << platformNumber_  << ", a distance = " << distanceToFirstTarget_ << " meters from the first target" << endl;
       cout << "Staging distance = " << distanceToFirstTargetStaging_ << endl;
+      
+		         
+		//******************************************use this with a blank map, decide later for real ops*************
+		// makes using odometry in autonmous node a lot easier***************
+		if (!callSetPoseService(0,0,0,true)) //platPoseX_, platPoseY_, platPoseYaw_, true)) // set home pose in robotPose_node
+		{
+		   cout << "failed to set home pose" << endl;
+		}
+		if (!callSetPoseService(0,0,0,false)) //platPoseX_, platPoseY_, platPoseYaw_, false)) // and place us there
+		{
+		   cout << "failed to place us at home pose on the map" << endl;
+		}
+		//******************************************use this with a blank map, decide later for real ops********
+		
+		cout << "current nav parameters are as follows: " << endl;
+		callAccelerometersService();
    }
    else
    {
@@ -523,21 +596,21 @@ void testCameras()
    }
    */
    
-   cout << "setting zoom on zoom digital camera... " << endl;
+   cout << "setting zoom on zoom digital camera to " << zoomDigcamZoom_ << endl;
 
    setZoom(ZOOM_DIGCAM, (float) zoomDigcamZoom_ );
    while (!askUser())
    {
-   	cout << "setting zoom again on zoom digital camera... " << endl;
+   	cout << "setting zoom again on zoom digital camera to " << zoomDigcamZoom_ << endl;
    	setZoom(ZOOM_DIGCAM, (float) zoomDigcamZoom_ );
    }
    
-   cout << "setting zoom on right digital camera... " << endl;
+   cout << "setting zoom on right digital camera to " << regularDigcamZoom_ << endl;
 
    setZoom(REGULAR_DIGCAM, (float) regularDigcamZoom_);
    while (!askUser())
    {
-   	cout << "setting zoom again on right digital camera... " << endl;
+   	cout << "setting zoom again on right digital camera to " << regularDigcamZoom_ << endl;
    	setZoom(REGULAR_DIGCAM, (float) regularDigcamZoom_);
    }	
       
@@ -637,6 +710,7 @@ void moveCompleteCallback(const std_msgs::String::ConstPtr& msg)
 {
    movementResult_ = msg->data.c_str();
    movementComplete_ = true;
+   cout << "movement complete callback message received" << endl;
 }
   
 void homeCenterCallback(const outdoor_bot::NavTargets_msg::ConstPtr &msg)
@@ -835,56 +909,6 @@ void radarCallback(const outdoor_bot::radar_msg::ConstPtr& msg)
 
 }
 
-bool callAccelerometersService()
-{
-	outdoor_bot::accelerometers_service::Request req;
-	outdoor_bot::accelerometers_service::Response resp;
-	//double aX = 0., aY = 0., aZ = 0.;
-	cout << "calling accelerometers service"  << endl;
-	/* this would just yield 10 of the same number, as the accels updat at only 50 Hz
-	for (int i=0; i < 10; i++)
-	{
-		bool success = accelerometers_client_.call(req, resp);
-		if (success)
-		{
-			aX += resp.accelX;
-			aY += resp.accelY;
-			aZ += resp.accelZ;			
-		}
-	}
-	accelX_ = aX / 10.;
-	accelY_ = aY / 10.;
-	accelZ_ = aZ / 10.;
-	*/
-	
-	bool success = accelerometers_client_.call(req, resp);
-	if (success)
-	{
-		accelX_ = resp.accelX;
-		accelY_ = resp.accelY;
-		accelZ_ = resp.accelZ;	
-		yaw_ = resp.yaw; // radians
-		x_ = resp.x; // meters
-		y_ = resp.y;	
-		odomDistanceToHome_ = sqrt((x_ * x_) + (y_ * y_));	
-	}
-	cout << "accels, x, y, z = " << accelX_ << ", " << accelY_ << ", " << accelZ_ << endl;
-	cout << "x, y, yaw (radians), yaw (degrees), odomDistanceToHome_ (meters)  = " << x_ << ", " << y_ << ", " << yaw_ << ", " << yaw_ * 57.3 << ", " << odomDistanceToHome_ << endl;
-	//if (fabs(accelZ_) > 3.) return true;
-	return true;
-}
-
-bool callSetPoseService(double x, double y, double yaw, bool setHome)
-{
-   outdoor_bot::setPose_service::Request req;
-   outdoor_bot::setPose_service::Response resp;
-   req.setHome = setHome;
-   req.x = x;
-   req.y = y;
-   req.yaw = yaw; 
-   if (setPose_client_.call(req,resp)) return true;
-   return false;
-}
 
 /*
 bool callEncodersService()
@@ -938,14 +962,15 @@ void on_enter_BootupState()
    triedWebcamAlready_ = false;
    triedZoomDigcamAlready_ = false;	
    triedRegularDigcamAlready_ = false;
-   zoomDigcamZoom_ = ZOOM_DIGCAM_ZOOM;		// these get set together
+   zoomDigcamZoom_ = ZOOM_DIGCAM_ZOOM7;		// these get set together
    zoomDigcamFOV_ = ZOOM_DIGCAM_ZOOM7_FOV;	// these two	
-   regularDigcamZoom_ = REGULAR_DIGCAM_MEDIUM_ZOOM;	// these get set together
+   regularDigcamZoom_ = REGULAR_DIGCAM_ZOOM5;	// these get set together
    regularDigcamFOV_ = REGULAR_DIGCAM_ZOOM5_FOV;		// these two
    recoverTurnedAlready_ = false;
    firstMoveToFirstTarget_ = true;
    firstMoveToTarget_ = false;
    finalMoveToTarget_ = false;
+   verifying_ = false;
    alreadyTriedVerifying_ = false;
    distanceToHomeRadar_ = 0.;
    orientationToHomeRadar_ = 0;
@@ -1048,42 +1073,15 @@ int on_update_BootupState()
 	}
    else return BootupState_;
    
-      
-   //******************************************use this with a blank map, decide later for real ops*************
-   // makes using odometry in autonmous node a lot easier***************
-   if (!callSetPoseService(0,0,0,true)) //platPoseX_, platPoseY_, platPoseYaw_, true)) // set home pose in robotPose_node
-   {
-      cout << "failed to set home pose" << endl;
-   }
-   if (!callSetPoseService(0,0,0,false)) //platPoseX_, platPoseY_, platPoseYaw_, false)) // and place us there
-   {
-      cout << "failed to place us at home pose on the map" << endl;
-   }
-   //******************************************use this with a blank map, decide later for real ops*************
-   
    cout << "Do you want to move on to autonomous ops or go through bootstate stuff?" << endl;
    if (askUser()) 			// delete for real ops, but may want to keep the dirant = false ***************************************************************************************
    {
-	   if (pauseCommanded_) return PauseState_;
-
 	   usingDirAnt_ = false;			// ************************************************************************ check for real ops********
    	return CheckLinedUpState_; 
    }
    
    // start by setting zooms and taking a photo from each camera
    testCameras();
-   
-   // now get the target centered, or at least the robot pointed in the right direction
-
- 	string input = "";
- 	int inputNum = 0;
-   while (inputNum == 0)
-   {
-   	imageCapture("capture", ZOOM_DIGCAM);
-   	
-   	cout << "check image and center the robot on the target.  Do you want to move on or retry?" << endl;
-   	if (askUser()) inputNum = 1;
-	}
    
    cout << "bootupState is finished.  Do you want to move on or retry?" << endl;
    if (!askUser()) return BootupState_;
@@ -1337,7 +1335,9 @@ void on_enter_SearchForFirstTargetState()
 		   if (triedZoomDigcamAlready_ && triedRegularDigcamAlready_) // then the camera pan that exceeded max must be the webcam, so we have tried them all
 			{
 				cout << "no camera sees a target in SeachForFirstTargetState" << endl;	
-				// we will reset currentServoDegrees_ later, when we use it to know that we exceeded PAN_CAMERA_SEARCH_MAX	   
+				// we will reset currentServoDegrees_ later, when we use it to know that we exceeded PAN_CAMERA_SEARCH_MAX	 
+				triedRegularDigcamAlready_ = false;
+				triedZoomDigcamAlready_ = false;  
 				return; // no camera sees the target, so move a bit
 			
 			}
@@ -1419,7 +1419,17 @@ int on_update_SearchForFirstTargetState()
    if (tAF_.get_acquireCamName() == WEBCAM && searchCounter_ > 0)
    {
    	currentServoDegrees_ = 0;
-   	return MoveToFirstTargetState_;
+   	if (centerX_ > 0)
+   	{
+   		cout << "got a target with the webcam" << endl;
+   	}
+   	else
+   	{
+   		cout << "no camera saw any targets, moving on " << endl;
+   		triedZoomDigcamAlready_ = false; 
+   		triedRegularDigcamAlready_ = false;
+   		return MoveToFirstTargetState_;
+   	}
    }
    
    if (fabs(currentServoDegrees_) > 0)
@@ -1436,15 +1446,18 @@ void on_enter_MoveToFirstTargetState()
    {
    	triedZoomDigcamAlready_ = true; 
    	triedRegularDigcamAlready_ = true;
+   	cout << "we have seen the target in the webcam, so we will skip the other cameras" << endl;
    }
    if (lastCamName_ == REGULAR_DIGCAM && centerX_ > 0) // if we have seen it in the regular digcam, then dont check the zoom digcam
    {
    	triedZoomDigcamAlready_ = true; 
+   	cout << "we have seen the target in the regular digcam, so we will skip the zoom digcam" << endl;
    }   
    movementComplete_ = false;
    moving_ = false;
    turning_ = false;
-   obstacle_detector_.activate(STOP_IF_OBSTACLE_WITHIN_DISTANCE, ROBOT_RADIUS);
+   ros::spinOnce();	// want to see the pause command 
+ //  obstacle_detector_.activate(STOP_IF_OBSTACLE_WITHIN_DISTANCE, ROBOT_RADIUS);
 }
 
 int on_update_MoveToFirstTargetState()
@@ -1452,15 +1465,25 @@ int on_update_MoveToFirstTargetState()
    if (pauseCommanded_)	// we go here as the very first step in autonomous ops
    {
       previousState_ = MoveToFirstTargetState_;
-      if (firstMoveToFirstTarget_) currentSection_ = FIRST_TARGET_MOVE; // after the first move, it is better for pause to return to checkFirstTargetState
+      if (firstMoveToFirstTarget_) 
+      {
+      	currentSection_ = FIRST_TARGET_MOVE; // after the first move, it is better for pause to return to checkFirstTargetState
+      	cout << "since we are in firstMoveTofirstTarget, currentSection is FIRST_TARGET_MOVE" << endl;
+      }
+      else cout << " we are not in firstMoveToFirstTarget " << endl;
       return PauseState_;
    }
-
-   if (obstacle_detector_.update())
+   else 
    {
-     // We've seen an obstacle!
-     return AvoidObstacleState_;
+   	cout << "pause was not commanded" << endl;
+   	ros::spinOnce();	// want to see the pause command 
    }
+
+//   if (obstacle_detector_.update())
+//   {
+//     // We've seen an obstacle!
+//     return AvoidObstacleState_;
+ //  }
 
    // check to see if we have arrived at the new pose   
    if ( (moving_ || turning_) && (!movementComplete_ ))
@@ -1725,7 +1748,6 @@ int on_update_MoveToFirstTargetState()
 	   msg.command = "autoMove";
 		msg.distance = 500;	// mm
 		approxRangeToTarget_ = 2.;
-		finalMoveToTarget_ = true;
 		msg.speed = 800.;   	// mm/sec or deg/sec 
 		ROS_INFO("auto moving forward 1m"); 
 	}
@@ -1760,26 +1782,26 @@ int on_update_MoveToFirstTargetState()
    movementComplete_ = false;   
    return MoveToFirstTargetState_;
 }
- 
+/* 
 void on_enter_AvoidObstacleState()
 {
    cout << "Avoiding an obstacle.";
 	moving_ = false;
 	turning_ = false;
 	movementComplete_ = false;
-	obstacle_avoider_.activate(obn::WallFollower::Goal(obn::WallFollower::Goal::LEFT));
+	obstacle_avoider_.activate(OutdoorBot::Navigation::WallFollower::Goal(OutdoorBot::Navigation::WallFollower::Goal::LEFT));
 }
 
 int on_update_AvoidObstacleState()
 {  
-   obn::WallFollower::Input input(obn::WallFollower::Input::READY_FOR_NEW_COMMAND);  
-   obn::WallFollower::Output output;
+   OutdoorBot::Navigation::WallFollower::Input input(OutdoorBot::Navigation::WallFollower::Input::READY_FOR_NEW_COMMAND);  
+   OutdoorBot::Navigation::WallFollower::Output output;
    
    // check to see if we have arrived at the new pose   
 	if ( (moving_ || turning_) && (!movementComplete_ ))
 	{
 		ros::spinOnce();
-		input = obn::WallFollower::Input(obn::WallFollower::Input::EXECUTING_COMMAND);
+		input = OutdoorBot::Navigation::WallFollower::Input(OutdoorBot::Navigation::WallFollower::Input::EXECUTING_COMMAND);
 	} 
 
 	else if (moving_ || turning_)	//  move is complete
@@ -1787,18 +1809,18 @@ int on_update_AvoidObstacleState()
 		moving_ = false;
 		turning_ = false;
 		movementComplete_ = false;
-  		input = obn::WallFollower::Input(obn::WallFollower::Input::READY_FOR_NEW_COMMAND);	
+  		input = OutdoorBot::Navigation::WallFollower::Input(OutdoorBot::Navigation::WallFollower::Input::READY_FOR_NEW_COMMAND);	
   	}
 	
   // move has not begun
-  //input = obn::WallFollower::Input(obn::WallFollower::Input::EXECUTING_COMMAND);
+  //input = OutdoorBot::Navigation::WallFollower::Input(OutdoorBot::Navigation::WallFollower::Input::EXECUTING_COMMAND);
   output = obstacle_avoider_.update(input);
 
   outdoor_bot::movement_msg msg;
 
   switch (output.mode())
   {
-    case obn::WallFollower::Output::TIMEOUT:
+    case OutdoorBot::Navigation::WallFollower::Output::TIMEOUT:
       // TODO: The obstacle avoider failed because something timed out.  Fill this in with something appropriate
       ROS_ERROR("I am very sad.");
       if (currentSection_ == FIRST_TARGET_CHECK) previousState_ =  CheckFirstTargetState_;
@@ -1808,7 +1830,7 @@ int on_update_AvoidObstacleState()
 		if (currentSection_ == PLATFORM) previousState_ =  MoveOntoPlatformState_;
 		if (currentSection_ == ALL_DONE) previousState_ = AllDoneState_;
    	return MoveToRecoverState_;  // something is seriously wrong if we get to here 
-    case obn::WallFollower::Output::SUCCESSFUL_COMPLETION:
+    case OutdoorBot::Navigation::WallFollower::Output::SUCCESSFUL_COMPLETION:
       ROS_INFO("I am very happy.");
       if (currentSection_ == FIRST_TARGET_CHECK) return CheckFirstTargetState_;
 		if (currentSection_ == FIRST_TARGET_MOVE) return MoveToFirstTargetState_;
@@ -1817,10 +1839,10 @@ int on_update_AvoidObstacleState()
 		if (currentSection_ == PLATFORM) return MoveOntoPlatformState_;
 		if (currentSection_ == ALL_DONE) return AllDoneState_;
    	return MoveToRecoverState_;  // something is seriously wrong if we get to here 
-    case obn::WallFollower::Output::WAIT_FOR_READY:
+    case OutdoorBot::Navigation::WallFollower::Output::WAIT_FOR_READY:
       // We're waiting for the last command to complete.  Do nothing.
       return AvoidObstacleState_;
-    case obn::WallFollower::Output::OBSTACLE_AHEAD:
+    case OutdoorBot::Navigation::WallFollower::Output::OBSTACLE_AHEAD:
       // TODO: Slam on brakes here!
      	msg.command = "autoMove";
      	msg.angle = 0.;
@@ -1831,7 +1853,7 @@ int on_update_AvoidObstacleState()
    	movementComplete_ = false; 		
 		ROS_INFO("hitting brakes for obstacle"); 
       return AvoidObstacleState_;
-    case obn::WallFollower::Output::MOVE_FORWARD:
+    case OutdoorBot::Navigation::WallFollower::Output::MOVE_FORWARD:
       ROS_INFO("I should send a command to move %f meters.", output.distance());
       // TODO: Send the arduino a command to move forward a distance of output.distance():
       msg.command = "autoMove";
@@ -1842,7 +1864,7 @@ int on_update_AvoidObstacleState()
    	moving_ = true;
    	movementComplete_ = false; 	
       return AvoidObstacleState_;
-    case obn::WallFollower::Output::TURN:
+    case OutdoorBot::Navigation::WallFollower::Output::TURN:
       ROS_INFO("I should send a command to turn %f radians.", output.distance());
       // TODO: send the arduino a command to turn a distance of output.distance().
       msg.command = "autoMove";
@@ -1853,14 +1875,14 @@ int on_update_AvoidObstacleState()
    	turning_ = true;
    	movementComplete_ = false;       
       return AvoidObstacleState_;
-    case obn::WallFollower::Output::STOP:
+    case OutdoorBot::Navigation::WallFollower::Output::STOP:
       // We're presumably already stopped and want to stay so.  Do nothing.
       return AvoidObstacleState_;
   }
 
   return AvoidObstacleState_;
 }
-
+*/
 
 void on_enter_NewTargetState()
 {
@@ -2093,7 +2115,7 @@ void on_enter_MoveToTargetState()
    movementComplete_ = false;
    moving_ = false;
    turning_ = false;
-   obstacle_detector_.activate(STOP_IF_OBSTACLE_WITHIN_DISTANCE, ROBOT_RADIUS);
+ //  obstacle_detector_.activate(STOP_IF_OBSTACLE_WITHIN_DISTANCE, ROBOT_RADIUS);
 }
 
 int on_update_MoveToTargetState()
@@ -2104,11 +2126,11 @@ int on_update_MoveToTargetState()
       return PauseState_;
    }
 
-   if (obstacle_detector_.update())
-   {
-     // We've seen an obstacle!
-     return AvoidObstacleState_;
-   }
+//   if (obstacle_detector_.update())
+//   {
+//     // We've seen an obstacle!
+//     return AvoidObstacleState_;
+//   }
 
    // check to see if we have arrived at the new pose   
    if ( (moving_ || turning_ || binShading_) && (!movementComplete_ ))
@@ -2376,7 +2398,7 @@ void on_enter_PickupTargetState()
 	//callEncodersService();  // get initial locations
 	finalMoveToTarget_ = false;
 	outdoor_bot::movement_msg msg;   
-   msg.command = "PDmotor";
+   msg.command = "PDmotorAuto";
    msg.PDmotorNumber = MOTOR_PICKER_UPPER;
    msg.speed = PICKER_UPPER_DOWN; //PICKER_UPPER_DOWN_PREP;************************real ops
    movement_pub_.publish(msg);    
@@ -2505,7 +2527,8 @@ int on_update_PickupTargetState()
    	currentSection_ = TARGETS;
    	approxRangeToTarget_ = 20.;
    	return NewTargetState_;
-   }			   
+   }
+   ros::spinOnce();			   
    return PickupTargetState_;
 }		
 
@@ -3239,6 +3262,7 @@ void on_enter_PauseState()
    // if the current state is a recovery state, then we must not change previousState_
    // otherwise, set previousState_ = currentState
    // also remember variables and other things needed to recover when motion is resumed
+   cout << "entering pause state, currentSection = " << currentSection_ << endl;
 
 }
   
@@ -3278,7 +3302,7 @@ void setupStates()
    CheckFirstTargetState_ = fsm_.add_state("CheckFirstTargetState");  // 1
    SearchForFirstTargetState_ = fsm_.add_state("SearchForFirstTargetState");
    MoveToFirstTargetState_ = fsm_.add_state("MoveToFirstTargetState");
-   AvoidObstacleState_ = fsm_.add_state("AvoidObstacleState");
+//   AvoidObstacleState_ = fsm_.add_state("AvoidObstacleState");
    NewTargetState_ = fsm_.add_state("NewTargetState");
    CheckTargetState_ = fsm_.add_state("CheckTargetState");
    FindTargetState_ = fsm_.add_state("FindTargetState");
@@ -3322,8 +3346,8 @@ void setupStates()
    fsm_.set_update_function(MoveToFirstTargetState_, boost::bind(&on_update_MoveToFirstTargetState));
    //fsm_.set_exit_function(MoveToFirstTargetState_, boost::bind(&on_exit_MoveToFirstTargetState))
 
-   fsm_.set_entry_function(AvoidObstacleState_, boost::bind(&on_enter_AvoidObstacleState));
-   fsm_.set_update_function(AvoidObstacleState_, boost::bind(&on_update_AvoidObstacleState)); 	
+//   fsm_.set_entry_function(AvoidObstacleState_, boost::bind(&on_enter_AvoidObstacleState));
+//   fsm_.set_update_function(AvoidObstacleState_, boost::bind(&on_update_AvoidObstacleState)); 	
 
    fsm_.set_entry_function(NewTargetState_, boost::bind(&on_enter_NewTargetState));
    fsm_.set_update_function(NewTargetState_, boost::bind(&on_update_NewTargetState));
@@ -3442,7 +3466,7 @@ int main(int argc, char* argv[])
 
    while (nh.ok())
    {
-      ros::spinOnce();
+      //ros::spinOnce();
       struct timespec ts;
       ts.tv_sec = 0;
       ts.tv_nsec = 10000000;

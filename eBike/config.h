@@ -167,7 +167,9 @@ unsigned long pauseBlinkTime_;
   #define DROP_BAR_DOWN_POSITION 3000
   #define DROP_BAR_TIMEOUT  15000
   #define BIN_SHADE_UP_POSITION 0
-  #define BIN_SHADE_DOWN_POSITION 300
+  #define BIN_SHADE_DOWN_POSITION 580
+  #define BIN_SHADE_DOWN_POSITION2 1549
+  #define BIN_SHADE_DOWN_POSITION3 2433
   #define BIN_SHADE_TIMEOUT 5000
   
   // motorPD driver device numbers (writtenonto the driver board EEPROM)

@@ -425,8 +425,8 @@ public:
                    //scooper's jammed, need to back up a little
                  bool resetBrakes = motion_pd.getBrakesState();
                  motion_pd.releaseRobotBrakes();
-                 motor_dac[LEFT].setMotorSpeed(-DAC_MAX_VALUE);
-                 motor_dac[RIGHT].setMotorSpeed(-DAC_MAX_VALUE);
+                 motor_dac[LEFT].setMotorSpeed(-800);
+                 motor_dac[RIGHT].setMotorSpeed(-800);
                  delay(500);
                  motor_dac[LEFT].setMotorSpeed(0);
                  motor_dac[RIGHT].setMotorSpeed(0);     
