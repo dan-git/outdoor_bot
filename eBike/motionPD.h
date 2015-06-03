@@ -468,7 +468,7 @@ public:
                    delay(500);
                    motor_dac[LEFT].setMotorSpeed(0);
                    motor_dac[RIGHT].setMotorSpeed(0);     
-                   if (resetBrakes)  motion_pd.applyRobotBrakes();  
+                   if (resetBrakes) motion_pd.applyRobotBrakes();  
                    scooperStuckAlreadyDone++;
                    }
                 }

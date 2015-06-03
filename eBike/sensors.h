@@ -193,7 +193,7 @@ class SensorsModuleLoop : public ModuleLoop {
                   DEBUG_SERIAL_PORT.println(previousDACmotorSpeed_[i]);
                 }
               }
-              if (!motion_pd.getBrakesState()) motion_pd.applyRobotBrakes();
+              motion_pd.applyRobotBrakes();
               newPauseState_ = false;
            }
         }
@@ -214,7 +214,7 @@ class SensorsModuleLoop : public ModuleLoop {
   //            {
  //               motor_dac[i].setMotorSpeed(previousDACmotorSpeed_[i]);  //***************** decided to not resume speed from before pause
  //             } 
-               if (motion_pd.getBrakesState()) motion_pd.releaseRobotBrakes();
+               motion_pd.releaseRobotBrakes();
             }          
             pauseBlinkTime_ += deltaT;
             if (pauseBlinkTime_ > AMBER_LIGHT_BLINK_TIME)

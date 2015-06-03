@@ -80,7 +80,7 @@ public:
       motor_dac[LEFT].setMotorDirection(&direction);
       previousRightDirection_ = rcs::sign(rightSpeed_);  // the ebike motor controller remembers the last non-zero direction, so we have to too
       previousLeftDirection_ = rcs::sign(leftSpeed_); 
-      if (motion_pd.getBrakesState()) motion_pd.releaseRobotBrakes();
+      if (motion_pd.getBrakesState() || motion_pd.getApplyingBrakes()) motion_pd.releaseRobotBrakes();
       else delay(100);
 
       motor_dac[RIGHT].setMotorSpeed(GOOSE_SPEED * rcs::sign(rightSpeed_)); 
@@ -88,7 +88,7 @@ public:
       delay(50);
     }   
   
-    if (motion_pd.getBrakesState()) motion_pd.releaseRobotBrakes();
+    if (motion_pd.getBrakesState() || motion_pd.getApplyingBrakes()) motion_pd.releaseRobotBrakes();
     if (abs(rightSpeed_) > DAC_LOWER_VALUE) motor_dac[RIGHT].setMotorSpeed(GOOSE_SPEED * rcs::sign(rightSpeed_)); // send eike controllers a large speed to get going
     if (abs(leftSpeed_) > DAC_LOWER_VALUE) motor_dac[LEFT].setMotorSpeed(GOOSE_SPEED * rcs::sign(leftSpeed_)); // and then reduce it to the commanded speed
     delay(100);
@@ -132,7 +132,7 @@ public:
       
       transformVelocityToMotorSpeed(linearCommandedVelocity_, angCommandedVelocity_, &leftSpeed_, &rightSpeed_);
       
-      if (motion_pd.getBrakesState()) motion_pd.releaseRobotBrakes();
+      motion_pd.releaseRobotBrakes();
       gooseMotors();
       
       motor_dac[RIGHT].setMotorSpeed(rightSpeed_);
@@ -235,8 +235,7 @@ public:
         
       transformVelocityToMotorSpeed(linearCommandedVelocity_, angCommandedVelocity_, &leftSpeed_, &rightSpeed_);
       
-      if (motion_pd.getBrakesState()) motion_pd.releaseRobotBrakes();
-
+      //motion_pd.releaseRobotBrakes();  goose does this
       gooseMotors();
       
       motor_dac[RIGHT].setMotorSpeed(rightSpeed_);
