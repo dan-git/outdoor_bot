@@ -29,7 +29,7 @@ using namespace cv;
 #define BLUE_RED 2
 #define ZOOM_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER 175000.
 #define REGULAR_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER 58000. // ratio of area to distance
-##define REGULAR_DIGCAM_FIRST_TARGET_ZOOM5_RANGE_PARAMETER 45000.	// need to figure this out
+##define REGULAR_DIGCAM_FIRST_TARGET_ZOOM5_RANGE_PARAMETER 40000.	// need to figure this out
 define WEBCAM_FIRST_TARGET_RANGE_PARAMETER 4000.
 
 // these values are for ZOOM = 7 on the digcams  

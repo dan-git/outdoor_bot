@@ -8,10 +8,11 @@ namespace rcs {
 class MotionPD {
 private:
     int motorSpeed_[NUM_MOTORS_POLOLU_DRIVER];
+    bool applyingBrakes_, releasingBrakes_;
     bool pickingUp_, puttingDown_, motorPickerUpperCommand_;
     bool dropbarUp_, dropbarDown_, motorDropbarCommand_;
     bool binshadeUp_, binshadeDown_, motorBinshadeCommand_ ;
-    long scooperStartTime_, dropbarStartTime_, binshadeStartTime_;
+    long scooperStartTime_, dropbarStartTime_, binshadeStartTime_, applyingBrakesStartTime_, releasingBrakesStartTime_;
     bool brakesOn_, scooperStartEncoder_;
     
 public:
@@ -34,11 +35,15 @@ public:
       dropbarDown_ = false;
       binshadeUp_ = false;
       binshadeDown_ = false;
+      applyingBrakes_ = false;
+      releasingBrakes_ = false;
+      brakesOn_ = false;
       motorPickerUpperCommand_ = false;
       motorDropbarCommand_ = false;
       motorBinshadeCommand_ = false;
-      brakesOn_ = false;
       scooperStartEncoder_ = 0;
+      applyingBrakesStartTime_ = millis();
+      releasingBrakesStartTime_ = millis();
       scooperStartTime_ = millis();
       dropbarStartTime_ = millis();
       binshadeStartTime_ = millis();
@@ -97,56 +102,45 @@ public:
     
     void applyRobotBrakes()
     {
-      if (brakesOn_)
+      if (brakesOn_ || applyingBrakes_)
       {
         DEBUG_SERIAL_PORT.println("apply brakes command received, but brakes are already applied");
         return;
       }
-      brakesOn_ = true;
       motor_pololu_driver[MOTOR_BRAKE_INDEX].setMotorSpeed(BRAKES_SPEED);
       DEBUG_SERIAL_PORT.println("applying brakes");
-      bool allDone = false;
-      long startTime = millis();
-      while (!allDone) 
+      if (releasingBrakes_)
       {
-        int motorCurrent = analogRead(BRAKES_CURRENT_PIN);
-        long timer = millis() - startTime ;
-        //if (DEBUG)
-        {
-          DEBUG_SERIAL_PORT.print("timer, motor current = ");
-          DEBUG_SERIAL_PORT.print(timer);
-          DEBUG_SERIAL_PORT.print(", ");
-          DEBUG_SERIAL_PORT.println(motorCurrent);
-        }
-        if (timer > BRAKES_APPLY_TIMER || (motorCurrent < BRAKES_CURRENT_THRESHOLD && timer > 50)) allDone = true; // waiting for brakes to apply
+        long residualApplyTime = BRAKES_RELEASE_TIMER - (millis() - releasingBrakesStartTime_);
+        if (residualApplyTime <= 0) applyingBrakesStartTime_ =  millis();
+        else applyingBrakesStartTime_ =  millis() - residualApplyTime;
+        DEBUG_SERIAL_PORT.print("brakes applied while still releasing, so the brakes apply timeout adjusted to = ");
+        DEBUG_SERIAL_PORT.println(residualApplyTime);
       }
-      motor_pololu_driver[MOTOR_BRAKE_INDEX].setMotorSpeed(0);
+      else applyingBrakesStartTime_ = millis();
+      applyingBrakes_ = true;
+      releasingBrakes_ = false;
     }
       
     void releaseRobotBrakes()
     {
-      if (robotPause_ || (!brakesOn_) ) return;
-      brakesOn_ = false;
-      DEBUG_SERIAL_PORT.println("releasing brakes");
+      if (robotPause_ || (!brakesOn_) || releasingBrakes_) return;
       motor_pololu_driver[MOTOR_BRAKE_INDEX].setMotorSpeed(-BRAKES_SPEED);
-      //delay(BRAKES_RELEASE_TIMER);
-      bool allDone = false;
-      long startTime = millis();
-      while (!allDone) 
+      DEBUG_SERIAL_PORT.println("releasing brakes");
+      if (applyingBrakes_)
       {
-        int motorCurrent = analogRead(BRAKES_CURRENT_PIN);
-        long timer = millis() - startTime ;
-        if (DEBUG)
-        {
-          DEBUG_SERIAL_PORT.print("timer, motor current = ");
-          DEBUG_SERIAL_PORT.print(timer);
-          DEBUG_SERIAL_PORT.print(", ");
-          DEBUG_SERIAL_PORT.println(motorCurrent);
-        }
-        if (timer > BRAKES_RELEASE_TIMER ) allDone = true; // waiting for brakes to apply
+        long residualReleaseTime = BRAKES_RELEASE_TIMER - (millis() - applyingBrakesStartTime_);
+        if (residualReleaseTime <= 0) releasingBrakesStartTime_ =  millis();
+        else releasingBrakesStartTime_ =  millis() - residualReleaseTime;
+        DEBUG_SERIAL_PORT.print("brakes released while still applying timeout adjust to ");
+        DEBUG_SERIAL_PORT.println(residualReleaseTime);
       }
-      motor_pololu_driver[MOTOR_BRAKE_INDEX].setMotorSpeed(0); 
-    }    
+      else releasingBrakesStartTime_ = millis();
+      releasingBrakes_ = true;
+      applyingBrakes_ = false;
+      
+    }  
+    
     void start(int motorNumber, int motorDirection) 
     {
       if (robotPause_) return; // we stop the motors in the pause section of sensors.h, here we just need to not start them when paused.
@@ -275,6 +269,15 @@ public:
       }
     }
     
+    bool getApplyingBrakes() { return applyingBrakes_; }
+    void setApplyingBrakes(bool value) { applyingBrakes_ = value; }
+    bool getReleasingBrakes() { return releasingBrakes_; }
+    void setReleasingBrakes(bool value) { releasingBrakes_ = value; }
+    long getApplyingBrakesStartTime() { return applyingBrakesStartTime_; }
+    long getReleasingBrakesStartTime() { return releasingBrakesStartTime_; }
+    bool getBrakesState() { return brakesOn_; }
+    void setBrakesState(bool value) { brakesOn_ = value; }
+    
     bool getPickerUpperCommand() { return motorPickerUpperCommand_; }
     void setPickerUpperCommand(boolean value) { motorPickerUpperCommand_  = value; }
     bool getPickingUp() { return pickingUp_; }
@@ -282,7 +285,6 @@ public:
     long getScooperStartTime() { return scooperStartTime_; }
     void setScooperStartTime(long value) { scooperStartTime_ = value; }
     bool getScooperStartEncoder() { return scooperStartEncoder_; }
-    bool getBrakesState() { return brakesOn_; }
     
     bool getDropbarCommand() { return motorDropbarCommand_; }
     void setDropbarCommand(boolean value) { motorDropbarCommand_  = value; }
@@ -386,170 +388,213 @@ class MotionPDLoop :
 public:
     virtual void loop()
       {           
-         int scooperStuckAlreadyDone = 0;
-         bool scooperProgressReportDone = false;
-         if (motion_pd.getPickerUpperCommand())
-         {
-           if (robotPause_)
+       static long motionPDLoopTimer = millis();
+       if (millis() - motionPDLoopTimer >= MIN_UPDATE_PERIOD) // don't overwhelm the encoders serial interface
+       {
+           motionPDLoopTimer = millis();
+           static int numBinshadeMoves = 0;
+           int scooperStuckAlreadyDone = 0;
+           bool scooperProgressReportDone = false;
+           
+           if (motion_pd.getApplyingBrakes())
            {
-             motion_pd.setScooperStartTime(millis());  // if we are paused in the middle of a scoop, we want to finish it and not timeout when unpaused
-             motion_pd.setDropbarStartTime(millis());  // if we are paused in the middle of a scoop, we want to finish it and not timeout when unpaused
-             motion_pd.setBinshadeStartTime(millis());  // if we are paused in the middle of a scoop, we want to finish it and not timeout when unpaused
-           }
+              long brakesTimeout = millis() - motion_pd.getApplyingBrakesStartTime();
+              int motorCurrent = analogRead(BRAKES_CURRENT_PIN);
+              if (DEBUG)
+              {
+                DEBUG_SERIAL_PORT.print("brakes timer, motor current = ");
+                DEBUG_SERIAL_PORT.print(brakesTimeout);
+                DEBUG_SERIAL_PORT.print(", ");
+                DEBUG_SERIAL_PORT.println(motorCurrent);
+              }
+              if (brakesTimeout > BRAKES_APPLY_TIMER || (motorCurrent < BRAKES_CURRENT_THRESHOLD && brakesTimeout > 50))
+              {
+                motor_pololu_driver[MOTOR_BRAKE_INDEX].setMotorSpeed(0); 
+                motion_pd.setApplyingBrakes(false); 
+                motion_pd.setBrakesState(true);
+              }
+           }         
              
-           long scooperTimeout = millis() - motion_pd.getScooperStartTime();
-           long scooperStartEncoder = motion_pd.getScooperStartEncoder();
-           long scooperEncoder = encoder_spi[getEncoderNumber(PICKER_UPPER_ENCODER_SELECT_PIN)].readEncoder();
-           if (scooperTimeout > SCOOPER_TIMEOUT - 1000)
+           if (motion_pd.getReleasingBrakes())
            {
-              DEBUG_SERIAL_PORT.println("scooper close to timing out: time, encoder = ");
-              DEBUG_SERIAL_PORT.print(scooperTimeout);
-              DEBUG_SERIAL_PORT.print(", ");
-              DEBUG_SERIAL_PORT.println(scooperEncoder);
-           }
-           if (motion_pd.getPickingUp()) 
+              long brakesTimeout = millis() - motion_pd.getReleasingBrakesStartTime();
+              if (brakesTimeout > BRAKES_RELEASE_TIMER)
+              {
+                motor_pololu_driver[MOTOR_BRAKE_INDEX].setMotorSpeed(0); 
+                motion_pd.setReleasingBrakes(false); 
+                motion_pd.setBrakesState(false);
+              }
+           } 
+           
+           if (motion_pd.getPickerUpperCommand())
            {
-             if (!digitalRead(PICKER_UPPER_UP_CONTACT_PIN) || scooperTimeout > SCOOPER_TIMEOUT)
+             if (robotPause_)
              {
-                motion_pd.start(MOTOR_PICKER_UPPER_INDEX, 0);
-                DEBUG_SERIAL_PORT.print("finished scooping up, time, encoder = ");
+               motion_pd.setScooperStartTime(millis());  // if we are paused in the middle of a scoop, we want to finish it and not timeout when unpaused
+               motion_pd.setDropbarStartTime(millis());  // if we are paused in the middle of a scoop, we want to finish it and not timeout when unpaused
+               motion_pd.setBinshadeStartTime(millis());  // if we are paused in the middle of a scoop, we want to finish it and not timeout when unpaused
+             }
+               
+             long scooperTimeout = millis() - motion_pd.getScooperStartTime();
+             long scooperStartEncoder = motion_pd.getScooperStartEncoder();
+             long scooperEncoder = encoder_spi[getEncoderNumber(PICKER_UPPER_ENCODER_SELECT_PIN)].readEncoder();
+             if (scooperTimeout > SCOOPER_TIMEOUT - 1000)
+             {
+                DEBUG_SERIAL_PORT.println("scooper close to timing out: time, encoder = ");
                 DEBUG_SERIAL_PORT.print(scooperTimeout);
                 DEBUG_SERIAL_PORT.print(", ");
                 DEBUG_SERIAL_PORT.println(scooperEncoder);
              }
-             if (scooperTimeout > SCOOPER_STUCK_TIME
-               && scooperEncoder < scooperStartEncoder - SCOOPER_STUCK_ENCODER_THRESHOLD)
+             if (motion_pd.getPickingUp()) 
              {
-               if (scooperStuckAlreadyDone < UNSTICK_SCOOPER_ATTEMPTS_ALLOWED)
+               if (!digitalRead(PICKER_UPPER_UP_CONTACT_PIN) || scooperTimeout > SCOOPER_TIMEOUT)
+               {
+                  motion_pd.start(MOTOR_PICKER_UPPER_INDEX, 0);
+                  DEBUG_SERIAL_PORT.print("finished scooping up, time, encoder = ");
+                  DEBUG_SERIAL_PORT.print(scooperTimeout);
+                  DEBUG_SERIAL_PORT.print(", ");
+                  DEBUG_SERIAL_PORT.println(scooperEncoder);
+               }
+               if (scooperTimeout > SCOOPER_STUCK_TIME
+                 && scooperEncoder < scooperStartEncoder - SCOOPER_STUCK_ENCODER_THRESHOLD)
+               {
+                 if (scooperStuckAlreadyDone < UNSTICK_SCOOPER_ATTEMPTS_ALLOWED)
+                   {
+                     //scooper's jammed, need to back up a little
+                   bool resetBrakes = motion_pd.getBrakesState();
+                   motion_pd.releaseRobotBrakes();
+                   motor_dac[LEFT].setMotorSpeed(-800);
+                   motor_dac[RIGHT].setMotorSpeed(-800);
+                   delay(500);
+                   motor_dac[LEFT].setMotorSpeed(0);
+                   motor_dac[RIGHT].setMotorSpeed(0);     
+                   if (resetBrakes)  motion_pd.applyRobotBrakes();  
+                   scooperStuckAlreadyDone++;
+                   }
+                }
+                else
+                {
+                  if (scooperTimeout > SCOOPER_STUCK_TIME && !scooperProgressReportDone)
+                  {
+                    DEBUG_SERIAL_PORT.print("past the scooper stuck time, with the scooper encoder = ");
+                    DEBUG_SERIAL_PORT.print(scooperEncoder);
+                    DEBUG_SERIAL_PORT.print(" which is past the threshold by ");
+                    DEBUG_SERIAL_PORT.println( (scooperStartEncoder - SCOOPER_STUCK_ENCODER_THRESHOLD) - scooperEncoder);
+                    scooperProgressReportDone = true;
+                    scooperStuckAlreadyDone = 0;   
+                  } 
+                }              
+             }
+             
+             else if (motion_pd.getPuttingDown())
+             {
+               if (!digitalRead(PICKER_UPPER_DOWN_CONTACT_PIN) || scooperTimeout > SCOOPER_TIMEOUT)
+               {
+                 motion_pd.start(MOTOR_PICKER_UPPER_INDEX, 0);
+                 DEBUG_SERIAL_PORT.print("finished putting scooper down, time, encoder = ");
+                 DEBUG_SERIAL_PORT.print(scooperTimeout);
+                 DEBUG_SERIAL_PORT.print(", ");
+                 DEBUG_SERIAL_PORT.println(scooperEncoder);
+               }
+             }
+             if (DEBUG)
+             {
+               if (!digitalRead(PICKER_UPPER_UP_CONTACT_PIN)) DEBUG_SERIAL_PORT.println("top contact closed");
+               if (!digitalRead(PICKER_UPPER_DOWN_CONTACT_PIN)) DEBUG_SERIAL_PORT.println("lower contact closed");
+             } 
+           }
+           
+           if (motion_pd.getDropbarCommand())
+           {
+             if (robotPause_)
+             {
+               motion_pd.setDropbarStartTime(millis());  // if we are paused in the middle of a scoop, we want to finish it and not timeout when unpaused
+             }
+               
+             long dropbarTimeout = millis() - motion_pd.getDropbarStartTime();
+             long dropbarEncoder = encoder_spi[getEncoderNumber(DROP_BAR_ENCODER_SELECT_PIN)].readEncoder();
+             if (dropbarTimeout > DROP_BAR_TIMEOUT - 1000)
+             {
+                DEBUG_SERIAL_PORT.print("dropbar close to timing out: time, encoder = ");
+                DEBUG_SERIAL_PORT.print(dropbarTimeout);
+                DEBUG_SERIAL_PORT.print(" ms, ");
+                DEBUG_SERIAL_PORT.println(dropbarEncoder);
+             }
+             
+             if (motion_pd.getDropbarUp()) 
+             {
+                 if (dropbarEncoder < DROP_BAR_UP_POSITION)
                  {
-                   //scooper's jammed, need to back up a little
-                 bool resetBrakes = motion_pd.getBrakesState();
-                 motion_pd.releaseRobotBrakes();
-                 motor_dac[LEFT].setMotorSpeed(-800);
-                 motor_dac[RIGHT].setMotorSpeed(-800);
-                 delay(500);
-                 motor_dac[LEFT].setMotorSpeed(0);
-                 motor_dac[RIGHT].setMotorSpeed(0);     
-                 if (resetBrakes)  motion_pd.applyRobotBrakes();  
-                 scooperStuckAlreadyDone++;
+                  motion_pd.start(MOTOR_DROP_BAR_INDEX, 0);
+                  DEBUG_SERIAL_PORT.print("finished pulling dropbar up: time, encoder = ");
+                  DEBUG_SERIAL_PORT.print(dropbarTimeout);
+                  DEBUG_SERIAL_PORT.print(",");
+                  DEBUG_SERIAL_PORT.println(dropbarEncoder);
                  }
               }
-              else
+              else if (motion_pd.getDropbarDown()) 
               {
-                if (scooperTimeout > SCOOPER_STUCK_TIME && !scooperProgressReportDone)
+                if (dropbarEncoder > DROP_BAR_DOWN_POSITION)
                 {
-                  DEBUG_SERIAL_PORT.print("past the scooper stuck time, with the scooper encoder = ");
-                  DEBUG_SERIAL_PORT.print(scooperEncoder);
-                  DEBUG_SERIAL_PORT.print(" which is past the threshold by ");
-                  DEBUG_SERIAL_PORT.println( (scooperStartEncoder - SCOOPER_STUCK_ENCODER_THRESHOLD) - scooperEncoder);
-                  scooperProgressReportDone = true;
-                  scooperStuckAlreadyDone = 0;   
-                } 
-              }              
+                  motion_pd.start(MOTOR_DROP_BAR_INDEX, 0);
+                  DEBUG_SERIAL_PORT.print("finshed putting dropbar down: time, encoder = ");
+                  DEBUG_SERIAL_PORT.print(dropbarTimeout);
+                  DEBUG_SERIAL_PORT.print(",");
+                  DEBUG_SERIAL_PORT.println(dropbarEncoder);
+                 }   
+              }         
+                   
            }
-           
-           else if (motion_pd.getPuttingDown())
-           {
-             if (!digitalRead(PICKER_UPPER_DOWN_CONTACT_PIN) || scooperTimeout > SCOOPER_TIMEOUT)
+          if (motion_pd.getBinshadeCommand())
+          {
+             if (robotPause_)
              {
-               motion_pd.start(MOTOR_PICKER_UPPER_INDEX, 0);
-               DEBUG_SERIAL_PORT.print("finished putting scooper down, time, encoder = ");
-               DEBUG_SERIAL_PORT.print(scooperTimeout);
-               DEBUG_SERIAL_PORT.print(", ");
-               DEBUG_SERIAL_PORT.println(scooperEncoder);
+               motion_pd.setBinshadeStartTime(millis());  // if we are paused in the middle of a scoop, we want to finish it and not timeout when unpaused
              }
-           }
-           if (DEBUG)
-           {
-             if (!digitalRead(PICKER_UPPER_UP_CONTACT_PIN)) DEBUG_SERIAL_PORT.println("top contact closed");
-             if (!digitalRead(PICKER_UPPER_DOWN_CONTACT_PIN)) DEBUG_SERIAL_PORT.println("lower contact closed");
-           } 
-         }
-         
-         if (motion_pd.getDropbarCommand())
-         {
-           if (robotPause_)
-           {
-             motion_pd.setDropbarStartTime(millis());  // if we are paused in the middle of a scoop, we want to finish it and not timeout when unpaused
-           }
-             
-           long dropbarTimeout = millis() - motion_pd.getDropbarStartTime();
-           long dropbarEncoder = encoder_spi[getEncoderNumber(DROP_BAR_ENCODER_SELECT_PIN)].readEncoder();
-           if (dropbarTimeout > DROP_BAR_TIMEOUT - 1000)
-           {
-              DEBUG_SERIAL_PORT.print("dropbar close to timing out: time, encoder = ");
-              DEBUG_SERIAL_PORT.print(dropbarTimeout);
-              DEBUG_SERIAL_PORT.print(" ms, ");
-              DEBUG_SERIAL_PORT.println(dropbarEncoder);
-           }
-           
-           if (motion_pd.getDropbarUp()) 
-           {
-               if (dropbarEncoder < DROP_BAR_UP_POSITION)
-               {
-                motion_pd.start(MOTOR_DROP_BAR_INDEX, 0);
-                DEBUG_SERIAL_PORT.print("finished pulling dropbar up: time, encoder = ");
-                DEBUG_SERIAL_PORT.print(dropbarTimeout);
-                DEBUG_SERIAL_PORT.print(",");
-                DEBUG_SERIAL_PORT.println(dropbarEncoder);
-               }
-            }
-            else if (motion_pd.getDropbarDown()) 
-            {
-              if (dropbarEncoder > DROP_BAR_DOWN_POSITION)
-              {
-                motion_pd.start(MOTOR_DROP_BAR_INDEX, 0);
-                DEBUG_SERIAL_PORT.print("finshed putting dropbar down: time, encoder = ");
-                DEBUG_SERIAL_PORT.print(dropbarTimeout);
-                DEBUG_SERIAL_PORT.print(",");
-                DEBUG_SERIAL_PORT.println(dropbarEncoder);
-               }   
-            }         
-                 
-         }
-        if (motion_pd.getBinshadeCommand())
-         {
-           if (robotPause_)
-           {
-             motion_pd.setBinshadeStartTime(millis());  // if we are paused in the middle of a scoop, we want to finish it and not timeout when unpaused
-           }
-             
-           long binshadeTimeout = millis() - motion_pd.getBinshadeStartTime();
-           long binshadeEncoder = encoder_spi[getEncoderNumber(BIN_SHADE_ENCODER_SELECT_PIN)].readEncoder();
-           if (binshadeTimeout > BIN_SHADE_TIMEOUT - 1000)
-           {
-              DEBUG_SERIAL_PORT.println("binshade close to timing out: time, encoder = ");
-              DEBUG_SERIAL_PORT.print(motion_pd.getBinshadeStartTime());
-              DEBUG_SERIAL_PORT.print(", ");
-              DEBUG_SERIAL_PORT.println(binshadeEncoder);
-           }
-           
-           if (motion_pd.getBinshadeUp()) 
-           {
-               if (binshadeEncoder < BIN_SHADE_UP_POSITION)
-               {
-                motion_pd.start(MOTOR_DROP_BAR_INDEX, 0);
-                DEBUG_SERIAL_PORT.print("finshed pulling binshade up: time, encoder = ");
-                DEBUG_SERIAL_PORT.print(binshadeTimeout);
-                DEBUG_SERIAL_PORT.print(",");
+               
+             long binshadeTimeout = millis() - motion_pd.getBinshadeStartTime();
+             long binshadeEncoder = encoder_spi[getEncoderNumber(BIN_SHADE_ENCODER_SELECT_PIN)].readEncoder();
+             if (binshadeTimeout > BIN_SHADE_TIMEOUT - 1000)
+             {
+                DEBUG_SERIAL_PORT.println("binshade close to timing out: time, encoder = ");
+                DEBUG_SERIAL_PORT.print(motion_pd.getBinshadeStartTime());
+                DEBUG_SERIAL_PORT.print(", ");
                 DEBUG_SERIAL_PORT.println(binshadeEncoder);
-               }
-            }
-            else if (motion_pd.getBinshadeDown()) 
-            {
-              if (binshadeEncoder > BIN_SHADE_DOWN_POSITION)
+             }
+             
+             if (motion_pd.getBinshadeUp()) 
+             {
+                 if (binshadeEncoder < BIN_SHADE_UP_POSITION)
+                 {
+                  motion_pd.start(MOTOR_DROP_BAR_INDEX, 0);
+                  DEBUG_SERIAL_PORT.print("finshed pulling binshade up: time, encoder = ");
+                  DEBUG_SERIAL_PORT.print(binshadeTimeout);
+                  DEBUG_SERIAL_PORT.print(",");
+                  DEBUG_SERIAL_PORT.println(binshadeEncoder);
+                 }
+              }
+              else if (motion_pd.getBinshadeDown()) 
               {
-                motion_pd.start(MOTOR_BIN_SHADE_INDEX, 0);
-                DEBUG_SERIAL_PORT.print("finshed putting binshade down: time, encoder = ");
-                DEBUG_SERIAL_PORT.print(binshadeTimeout);
-                DEBUG_SERIAL_PORT.print(",");
-                DEBUG_SERIAL_PORT.println(binshadeEncoder);
-               }   
-            }         
-                 
-         }                   
-      }   
-  } 
+                int binshadeEncoderThreshold = 0;
+                if (numBinshadeMoves == 0) binshadeEncoderThreshold = BIN_SHADE_DOWN_POSITION1;
+                else if (numBinshadeMoves == 1) binshadeEncoderThreshold = BIN_SHADE_DOWN_POSITION2;
+                else if (numBinshadeMoves == 2) binshadeEncoderThreshold = BIN_SHADE_DOWN_POSITION3;
+                if (binshadeEncoder > binshadeEncoderThreshold)
+                {
+                  motion_pd.start(MOTOR_BIN_SHADE_INDEX, 0);
+                  numBinshadeMoves++;
+                  DEBUG_SERIAL_PORT.print("finshed putting binshade down: time, encoder = ");
+                  DEBUG_SERIAL_PORT.print(binshadeTimeout);
+                  DEBUG_SERIAL_PORT.print(",");
+                  DEBUG_SERIAL_PORT.println(binshadeEncoder);
+                  DEBUG_SERIAL_PORT.print("This was bin shade move number ");
+                  DEBUG_SERIAL_PORT.println(numBinshadeMoves);
+                 }   
+              }                          
+           }                   
+       } // finishes if (millis() - motionPD LoopTimer
+    }
+  }
   motionPD_loop;
 
  

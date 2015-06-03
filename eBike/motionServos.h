@@ -24,7 +24,7 @@ class dirAnt {
       if (direction_ != DIRANT_PAN_MIN)
       {
         servoDriver.setPosition(SERVO_ANTENNA_PAN, DIRANT_PAN_MIN);
-        delay(200);
+        delay(1000);
       }
       int maxLvl = analogRead(DIRECTIONAL_ANTENNA_PIN);
       
@@ -34,7 +34,7 @@ class dirAnt {
       for(int i = DIRANT_PAN_MIN + increment; i <= DIRANT_PAN_MAX; i += increment)
       {
         servoDriver.setPosition(SERVO_ANTENNA_PAN, i);
-        delay(100); //  time to get there
+        delay(1000); //  time to get there
         level = analogRead(DIRECTIONAL_ANTENNA_PIN);
         DEBUG_SERIAL_PORT.print(", ");
         DEBUG_SERIAL_PORT.print(level);

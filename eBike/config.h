@@ -167,10 +167,10 @@ unsigned long pauseBlinkTime_;
   #define DROP_BAR_DOWN_POSITION 3000
   #define DROP_BAR_TIMEOUT  15000
   #define BIN_SHADE_UP_POSITION 0
-  #define BIN_SHADE_DOWN_POSITION 580
+  #define BIN_SHADE_DOWN_POSITION1 580
   #define BIN_SHADE_DOWN_POSITION2 1549
   #define BIN_SHADE_DOWN_POSITION3 2433
-  #define BIN_SHADE_TIMEOUT 5000
+  #define BIN_SHADE_TIMEOUT 10000
   
   // motorPD driver device numbers (writtenonto the driver board EEPROM)
   // /dev/ttyACM_PololuMotorDriver_53FF-7506-4987-4953-3711-1387
@@ -206,6 +206,10 @@ unsigned long pauseBlinkTime_;
   
   // dac_motor defines: 
   #define STOPPED_MOVING_COUNT_THRESHOLD 10
+  #define NO_COMMAND_BRAKES_THRESHOLD 500
+  #define USE_NO_COMMAND_MOVE_CHECK false
+  #define USE_RUNAWAY_TRAIN_CHECK false
+  #define RUNAWAY_SPEED_THRESHOLD 2000
   #define MAX_WHEEL_VELOCITY 4000.0f  // mm/sec, how fast can we make the wheel spin
   //#define MIN_ABSVAL_LINEAR_ROBOT_VELOCITY 500
   #define MAX_LINEAR_ROBOT_VELOCITY 2000.0f   // in mm/sec

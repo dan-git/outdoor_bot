@@ -66,7 +66,10 @@ class SensorData : public RobotSensor
 {
   public:
     SensorData()
-    {}
+    {
+      leftWheelEncoder_ = 0;
+      rightWheelEncoder_ = 0;
+    }
     
     void sendNavData(unsigned long loopTime)
     {            
@@ -79,9 +82,11 @@ class SensorData : public RobotSensor
           AUTONOMOUS_SERIAL_PORT.print("navdata");
           AUTONOMOUS_SERIAL_PORT.print(gyro_stabilizer.readGyro());
           AUTONOMOUS_SERIAL_PORT.print(", ");
-          AUTONOMOUS_SERIAL_PORT.print(encoder_spi[getEncoderNumber(RIGHT_ENCODER_SELECT_PIN)].readEncoder());
+          rightWheelEncoder_ = encoder_spi[getEncoderNumber(RIGHT_ENCODER_SELECT_PIN)].readEncoder();
+          leftWheelEncoder_ = encoder_spi[getEncoderNumber(LEFT_ENCODER_SELECT_PIN)].readEncoder();
+          AUTONOMOUS_SERIAL_PORT.print(rightWheelEncoder_);
           AUTONOMOUS_SERIAL_PORT.print(", ");
-          AUTONOMOUS_SERIAL_PORT.print(encoder_spi[getEncoderNumber(LEFT_ENCODER_SELECT_PIN)].readEncoder());
+          AUTONOMOUS_SERIAL_PORT.print(leftWheelEncoder_);
           AUTONOMOUS_SERIAL_PORT.print(", ");
           AUTONOMOUS_SERIAL_PORT.print(encoder_spi[getEncoderNumber(PICKER_UPPER_ENCODER_SELECT_PIN)].readEncoder());
           AUTONOMOUS_SERIAL_PORT.print(", ");
@@ -136,6 +141,12 @@ class SensorData : public RobotSensor
         }
       #endif // AUTONOMOUS_SERIAL_PORT  
     }
+    
+    long getLeftWheelEncoder() { return leftWheelEncoder_; }
+    long getRightWheelEncoder() { return rightWheelEncoder_; }
+    
+    private:
+    long leftWheelEncoder_, rightWheelEncoder_;
 
     
 } sensor_data;
@@ -214,6 +225,59 @@ class SensorsModuleLoop : public ModuleLoop {
               pauseBlinkTime_ = 0;
             }
           } // closes pause section
+          
+          // runaway train section
+          long static previousWheelEncoderValue = 0, netNoCommandMove = 0, previousTime = millis() - 1, goodSpeedCounter = 0, runawaySpeedCounter = 0;
+          bool static runawayBrakesApplied = false;
+          long newWheelEncoderValue = abs(sensor_data.getLeftWheelEncoder()) + abs(sensor_data.getRightWheelEncoder());
+          long deltaTicks = previousWheelEncoderValue - newWheelEncoderValue;
+          
+          if (USE_NO_COMMAND_MOVE_CHECK)
+          {            
+            // movement with no command
+            if ( fabs(robot_base.getLinearCommandedVelocity()) + fabs(robot_base.getAngCommandedVelocity()) < 0.1
+              && (!(radio_joystick_x_handler.getRadioCommandMode()) || radio_joystick_y_handler.getRadioCommandMode()) ) // no commanded move
+            {             
+               netNoCommandMove += deltaTicks; 
+               double distanceMoved = ((double) netNoCommandMove) * MM_PER_TICK_EBIKE / 2.;
+               if ( distanceMoved > NO_COMMAND_BRAKES_THRESHOLD) motion_pd.applyRobotBrakes();
+            }
+            else netNoCommandMove = 0;
+          }
+          
+          if (USE_RUNAWAY_TRAIN_CHECK)
+          {  
+            double currentSpeed =  (((double) deltaTicks) * MM_PER_TICK_EBIKE * 1000.) / ((double) (millis() - previousTime)); // mm/sec
+            if (currentSpeed > RUNAWAY_SPEED_THRESHOLD) runawaySpeedCounter++;
+            else goodSpeedCounter++;
+            if (goodSpeedCounter > 20)
+            {
+              goodSpeedCounter = 0;
+              runawaySpeedCounter = 0;
+            }
+            if (runawaySpeedCounter - goodSpeedCounter > 25) 
+            {
+              motion_pd.applyRobotBrakes();
+              runawayBrakesApplied = true;
+              goodSpeedCounter = 0;
+              runawaySpeedCounter = 0;
+            }
+            else if (runawayBrakesApplied && (goodSpeedCounter - runawaySpeedCounter > 10))
+            {
+              motion_pd.releaseRobotBrakes();
+              runawayBrakesApplied = false;
+              goodSpeedCounter = 0;
+              runawaySpeedCounter = 0; 
+            }          
+            
+          }
+          
+          
+          previousWheelEncoderValue = newWheelEncoderValue;
+          
+          // movement with excessive speed
+          
+          
           
           sensor_data.setpreviousSentDataTime(millis());
           sensor_data.sendNavData(deltaT);         
