@@ -803,8 +803,8 @@ bool detectBlobs(Mat im_original, bool firstTarget)
           	}
           	else
           	{
-          		rangeByVerticalCoordinate = ((480. - centerY_)/350.) + 0.40;
-          		rangeByLookDownArea = ((7000. - maxKeypointArea)/4100.) + 0.40;
+          		rangeByVerticalCoordinate = ((480. - centerY_) * 0.003) + 0.60;
+          		rangeByLookDownArea = ((7000 - maxKeypointArea)/3746.);
           		cout << "webcam is looking down, rangeByVerticalCoordinate, rangeByLookDownArea = " << rangeByVerticalCoordinate << ", " << rangeByLookDownArea << endl;
           	}
           	cout << "analyzed webcam image and found range by area = " << rangeByArea << " and range by coordinates = "

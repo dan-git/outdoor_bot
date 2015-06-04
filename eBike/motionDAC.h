@@ -527,10 +527,14 @@ public:
             DEBUG_SERIAL_PORT.print(angCommandedVelocity_);
             DEBUG_SERIAL_PORT.print(", ");
             DEBUG_SERIAL_PORT.println(angCommandedVelocityMMperSec);
-            DEBUG_SERIAL_PORT.print("linearTargetVelocity, angTargetV =  ");
+            DEBUG_SERIAL_PORT.print("the pid generated targets are: linearTargetVelocity, angTargetV =  ");
             DEBUG_SERIAL_PORT.print(linearTargetVelocity);
             DEBUG_SERIAL_PORT.print(", ");
             DEBUG_SERIAL_PORT.println(angTargetV);
+            DEBUG_SERIAL_PORT.print("current linear, angular (deg/sec), angular (mm/sec) velocities = ");          
+            DEBUG_SERIAL_PORT.print(linearCurrentVelocity_);
+            DEBUG_SERIAL_PORT.print(", ");
+            DEBUG_SERIAL_PORT.print(angCurrentVelocity_);
           }
         if ( ((linearCommandedVelocity_ - angCommandedVelocityMMperSec > 50) && leftSpeed_ < -DAC_LOWER_VALUE )
         || ((linearCommandedVelocity_ - angCommandedVelocityMMperSec < -50) && leftSpeed_ > DAC_LOWER_VALUE )) 
@@ -891,7 +895,7 @@ public:
       robot_base.setAutoMoveMode(true);
       robot_base.setAutonomousCommandMode(false);
       ping.resetTimeout();
-      if (DEBUG)
+      //if (DEBUG)
       {
         DEBUG_SERIAL_PORT.print("autoMove command received: ");
         DEBUG_SERIAL_PORT.print(autoDistance);

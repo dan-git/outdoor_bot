@@ -276,7 +276,7 @@ void sendOutNavData()
    {
    	if (autoMoveStatus == 0) cout << "autoMove finished" << endl;
    	else if (autoMoveStatus == 1) cout << "autoMove started" << endl;
-   	else cout << "unknown AutoMove status" << endl;
+   	else cout << "unknown AutoMove status, value = " << autoMoveStatus << endl;
    	std_msgs::Int32 msg;
    	msg.data = autoMoveStatus;
    	autoMove_pub.publish(msg);
@@ -287,7 +287,7 @@ void sendOutNavData()
    {
    	if (pdMotorStatus == 0) cout << "pdMotor finished" << endl;
    	else if (pdMotorStatus == 1) cout << "pdMotor started" << endl;
-   	else cout << "unknown pdMotor status" << endl;
+   	else cout << "unknown pdMotor status, value = " << pdMotorStatus << endl;
    	std_msgs::Int32 msg;
    	msg.data = pdMotorStatus;
    	pdMotor_pub.publish(msg);

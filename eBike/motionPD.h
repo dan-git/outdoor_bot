@@ -368,7 +368,7 @@ public:
       motion_pd.start(motorNumber, motorDirection);
       ping.resetTimeout();
       #ifdef DEBUG_SERIAL_PORT
-      if (DEBUG)
+      //if (DEBUG)
         {
           DEBUG_SERIAL_PORT.print("Autonomous pololu motor command received: ");
           DEBUG_SERIAL_PORT.print("motorNumber, motorDirection = ");
@@ -439,7 +439,7 @@ public:
              long scooperTimeout = millis() - motion_pd.getScooperStartTime();
              long scooperStartEncoder = motion_pd.getScooperStartEncoder();
              long scooperEncoder = encoder_spi[getEncoderNumber(PICKER_UPPER_ENCODER_SELECT_PIN)].readEncoder();
-             if (scooperTimeout > SCOOPER_TIMEOUT - 1000)
+             if (scooperTimeout > SCOOPER_TIMEOUT - 1000 && scooperTimeout < SCOOPER_TIMEOUT - 900)
              {
                 DEBUG_SERIAL_PORT.print("scooper close to timing out: time, encoder = ");
                 DEBUG_SERIAL_PORT.print(scooperTimeout);
@@ -522,7 +522,7 @@ public:
                
              long dropbarTimeout = millis() - motion_pd.getDropbarStartTime();
              long dropbarEncoder = encoder_spi[getEncoderNumber(DROP_BAR_ENCODER_SELECT_PIN)].readEncoder();
-             if (dropbarTimeout > DROP_BAR_TIMEOUT - 1000)
+             if (dropbarTimeout > DROP_BAR_TIMEOUT - 1000 && dropbarTimeout < DROP_BAR_TIMEOUT - 900)
              {
                 DEBUG_SERIAL_PORT.print("dropbar close to timing out: time, encoder = ");
                 DEBUG_SERIAL_PORT.print(dropbarTimeout);
@@ -563,7 +563,7 @@ public:
                
              long binshadeTimeout = millis() - motion_pd.getBinshadeStartTime();
              long binshadeEncoder = encoder_spi[getEncoderNumber(BIN_SHADE_ENCODER_SELECT_PIN)].readEncoder();
-             if (binshadeTimeout > BIN_SHADE_TIMEOUT - 1000)
+             if (binshadeTimeout > BIN_SHADE_TIMEOUT - 1000 && binshadeTimeout < BIN_SHADE_TIMEOUT - 900)
              {
                 DEBUG_SERIAL_PORT.println("binshade close to timing out: time, encoder = ");
                 DEBUG_SERIAL_PORT.print(motion_pd.getBinshadeStartTime());

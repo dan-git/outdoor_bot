@@ -697,7 +697,14 @@ void movementCommandCallback(const outdoor_bot::movement_msg msg)
 	{
 		if (pdMotorStatus_ != 0) 
 		{
-			cout << "we are already doing a pd motor move, we will overwrite it here" << endl;
+			cout << "we are already doing a pd motor move, we will wait for it to complete" << endl;
+			while (pdMotorStatus_) //and then wait for it to complete
+			{
+				ros::spinOnce();
+				last_time = ros::Time::now();
+				current_time = ros::Time::now();
+				while ( current_time.toSec() - last_time.toSec() < 0.01 ) current_time = ros::Time::now();	// arduino only updates every 20 msec, no need to go too fast here
+			}
 		}
    	int motorNumber = msg.PDmotorNumber;
    	int motorSpeed = msg.speed;
@@ -728,8 +735,10 @@ void movementCommandCallback(const outdoor_bot::movement_msg msg)
 	   return;
 	}
 	
+   /*
    else if (!command.compare("PDmotor"))
    {
+   */
    	/*
    	if (!callEncodersService())
    	{    	
@@ -744,6 +753,7 @@ void movementCommandCallback(const outdoor_bot::movement_msg msg)
    	int initialEncoderDropBar = encoderDropBar_;
    	//int initial EncoderDropShade = encoderBinShade_; 
    	*/ 
+   	/*
    	int motorNumber = msg.PDmotorNumber;
    	int motorSpeed = msg.speed;
    		
@@ -829,7 +839,8 @@ void movementCommandCallback(const outdoor_bot::movement_msg msg)
    	cout	<< "time taken = " << timeoutCounter / 10 << " seconds " << endl;
    	complete_pub_.publish(msgResult);
    	return;
-   }  
+   } 
+   */ 
    
    else cout << "unknown command sent to movement node: " << command << endl;   
 }

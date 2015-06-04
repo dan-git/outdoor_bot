@@ -36,13 +36,11 @@ bool ObstacleDetector::update()
   {
     state_.front_obstacle_detections = 0;
   }
-  return state_.front_obstacle_detections > max_obstacle_detections_;
+  return state_.front_obstacle_detections > 0; //max_obstacle_detections_; ***************************************************************
 }
 
 bool ObstacleDetector::obstacleInRectangle(double xL, double yL, double theta) const
 {
-  return false;
-
   lock_.lock();
   double angle_min = lastMsg_.angle_min;
   double angle_increment = lastMsg_.angle_increment;
@@ -60,12 +58,13 @@ bool ObstacleDetector::obstacleInRectangle(double xL, double yL, double theta) c
     // x' and y' are the coordinates of the point in the coordinate system rotated at angle theta to the robot.
     double xp = ranges[i] * cos(phi - theta);
     double yp = ranges[i] * sin(phi - theta);
+   // std::cout << "analyzing points" << std::endl;
     if (fabs(xp) < xL && fabs(yp) < yL / 2.0)
     {
       points_within_rectangle++;
     }
   }
-  return points_within_rectangle >= min_obstacle_points_;
+  return points_within_rectangle >= 5; // min_obstacle_points_;***********************************************************************
 }
 
 void ObstacleDetector::laserCallback(const sensor_msgs::LaserScan msg)

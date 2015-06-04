@@ -264,12 +264,18 @@ class GyroStabilizer : public MotionStabilizer {
         // avoid windup
         if (fabs(correction) > MAX_ZERO_ANGV_EXTRA_INTEGRAL_PARAMETER)
         {
-           DEBUG_SERIAL_PORT.println("exceeded max zero angular velocity correction in gyro.h");
+           DEBUG_SERIAL_PORT.print("exceeded max zero angular velocity correction in gyro.h: yawZeroAngV_, yawTotal_ = ");
+           DEBUG_SERIAL_PORT.print(yawZeroAngV_);
+           DEBUG_SERIAL_PORT.print(", ");
+           DEBUG_SERIAL_PORT.println(yawTotal_);
+           DEBUG_SERIAL_PORT.print(correction);
+           DEBUG_SERIAL_PORT.print(", ");
            correction = MAX_ZERO_ANGV_EXTRA_INTEGRAL_PARAMETER * rcs::sign(correction);
+           DEBUG_SERIAL_PORT.println(correction);
         }
-        *pidResult += (yawZeroAngV_ - yawTotal_) *  ZERO_ANGV_EXTRA_INTEGRAL_PARAMETER;
+        *pidResult += correction;
       }
-      else firstPassZeroAngV_ = true;
+      else firstPassZeroAngV_ = true; // w got a turn command, so we reset for use next time there is a linear move command
       
       #ifdef DEBUG_SERIAL_PORT
       if (DEBUG)

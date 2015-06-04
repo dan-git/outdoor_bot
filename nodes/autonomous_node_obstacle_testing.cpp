@@ -937,6 +937,10 @@ bool callEncodersService()
 */
 void on_enter_BootupState()
 {
+	
+   obstacle_detector_->activate(STOP_IF_OBSTACLE_WITHIN_DISTANCE, ROBOT_RADIUS);
+   return;
+	
 	currentSection_ = BOOTUP;
 	numTargets_ = 0;
 	approxRangeToTarget_ = 5; //15.; // change to 70 for real ops *****************************************
@@ -1049,10 +1053,31 @@ void on_enter_BootupState()
 }
 
 int on_update_BootupState()
-{	 		
+{
+   
+  
+		if (obstacle_detector_->update())
+		{
+		   // We've seen an obstacle!
+		  cout << "obstacle detected, going to AvoidObstacleState" << endl;
+		  return AvoidObstacleState_;  
+
+		}
+		else
+		{
+			cout << "no obstacle seen" << endl;
+		}
+		
+	   
+
+  		return BootupState_;
+  		
+  		
+  		
   	cout << "now in update bootupState" << endl;
 
    if (pauseCommanded_) return PauseState_;
+
 	
    // get radar ranges
    if (radarGoodData_)
@@ -1791,6 +1816,12 @@ int on_update_AvoidObstacleState()
 {  
    OutdoorBot::Navigation::WallFollower::Input input(OutdoorBot::Navigation::WallFollower::Input::READY_FOR_NEW_COMMAND);  
    OutdoorBot::Navigation::WallFollower::Output output;
+   
+   	   cout << "do you want to say that the last movement is done?" << endl;
+	   if (askUser())
+	   {
+	   	   movementComplete_ = true;
+  		}
    
    // check to see if we have arrived at the new pose   
 	if ( (moving_ || turning_) && (!movementComplete_ ))
