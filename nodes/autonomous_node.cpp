@@ -105,7 +105,7 @@ bool targetCenterUpdated_, newNavTargetImageReceived_;
 int retCapToMemory_;
 double distanceToHomeRadar_, angleToHomeRadar_, orientationToHomeRadar_;
 double distanceToRadarStagingPoint_, angleToRadarStagingPoint_;
-bool radarGoodAngle_, radarGoodData_, usingRadar_, pastStagingPoint_, platforming_, atPlatform_;
+bool radarGoodAngle_, radarGoodData_, radarNewData_, usingRadar_, pastStagingPoint_, platforming_, atPlatform_;
 //double velocityToHomeRadar_ = 0., previousdistanceToHomeRadar_ = 0.; 
 int platformXPose_[3], platPoseX_;
 int platformYPose_[3], platPoseY_;
@@ -888,6 +888,7 @@ void radarCallback(const outdoor_bot::radar_msg::ConstPtr& msg)
 {
 	radarGoodData_ = true;
 	radarGoodAngle_ = true;
+	radarNewData_ = true;
 	if (!msg->goodData) // none of the radars are reporting
 	{
 		distanceToHomeRadar_ = 0.;
@@ -987,6 +988,7 @@ void on_enter_BootupState()
    angleToRadarStagingPoint_ = 0.;
    odomDistanceToHome_ = 0.;
    radarGoodData_ = false;
+   radarNewData_ = false;
    radarGoodAngle_ = false;
    pastStagingPoint_ = false;
    platforming_ = false;
@@ -1058,6 +1060,7 @@ int on_update_BootupState()
    if (radarGoodData_)
    {
    	usingRadar_ = true;
+   	radarNewData_ = false;
    	cout << "radar distance, angle, orientation = " <<	 distanceToHomeRadar_ << ", " << angleToHomeRadar_ << ", " << orientationToHomeRadar_ << endl;
    }
    else
@@ -1065,6 +1068,7 @@ int on_update_BootupState()
       cout << "radar failed, do you want to retry bootstate?" << endl;
       if (!askUser()) return BootupState_;
       usingRadar_ = false;
+      radarNewData_ = false;
    }
    
    // give some time for everyone to setup and get started, then ask what platform we are assigned
@@ -1447,7 +1451,20 @@ int on_update_SearchForFirstTargetState()
 
 void on_enter_MoveToFirstTargetState()
 {
-   if (lastCamName_ == WEBCAM && centerX_ > 0) // if we have seen it in the webcam stay with the webcam
+      obstacle_detector_->activate(STOP_IF_OBSTACLE_WITHIN_DISTANCE, ROBOT_RADIUS);
+      previousState_ = MoveToFirstTargetState_;
+      if (firstMoveToFirstTarget_) 
+      {
+      	currentSection_ = FIRST_TARGET_MOVE; // after the first move, it is better for pause to return to checkFirstTargetState
+      	moving_ = false;
+			turning_ = false;
+			movementComplete_ = false;	
+			centerX_ = -1;	
+      	return;
+      }
+      else currentSection_ = FIRST_TARGET_CHECK;
+      
+     if (lastCamName_ == WEBCAM && centerX_ > 0) // if we have seen it in the webcam stay with the webcam
    {
    	triedZoomDigcamAlready_ = true; 
    	triedRegularDigcamAlready_ = true;
@@ -1461,16 +1478,12 @@ void on_enter_MoveToFirstTargetState()
    movementComplete_ = false;
    moving_ = false;
    turning_ = false;
-   obstacle_detector_->activate(STOP_IF_OBSTACLE_WITHIN_DISTANCE, ROBOT_RADIUS);
 }
 
 int on_update_MoveToFirstTargetState()
 {
    if (pauseCommanded_)	// we go here as the very first step in autonomous ops
    {
-      previousState_ = MoveToFirstTargetState_;
-      if (firstMoveToFirstTarget_) currentSection_ = FIRST_TARGET_MOVE; // after the first move, it is better for pause to return to checkFirstTargetState
-      else currentSection_ = FIRST_TARGET_CHECK;
       return PauseState_;
    }
 
@@ -1550,7 +1563,12 @@ int on_update_MoveToFirstTargetState()
 		turning_ = false;
 		alreadyTurned_ = 0;
 				
-   	if (radarGoodData_) distanceToHome = distanceToHomeRadar_;
+   	if (radarGoodData_ && distanceToHomeRadar_ > 4)
+   	{
+   		radarNewData = false;
+   		distanceToHome = distanceToHomeRadar_;
+   	}
+   	else distanceToHome = odomDistanceToHome_;
    	if (distanceToHome >= 0)
    	{
    		if (distanceToHome < distanceToFirstTargetStaging_ - INCREMENTAL_MOVE_TO_TARGET)
@@ -1733,7 +1751,7 @@ int on_update_MoveToFirstTargetState()
 	   msg.command = "autoMove";
 		msg.distance = 1000;	// mm
 		approxRangeToTarget_ -= 3.;
-		msg.speed = 1000.;   	// mm/sec or deg/sec 
+		msg.speed = 800.;   	// mm/sec or deg/sec 
 	   ROS_INFO("auto moving forward 1m");
 	}     
 	
@@ -2252,8 +2270,9 @@ int on_update_MoveToTargetState()
 		if (lastCamName_ == WEBCAM) offsetX_ *= WEBCAM_FOV;
 		else if (lastCamName_ == REGULAR_DIGCAM)
 		{
-			if (approxRangeToTarget_ <= 2)  offsetX_ *= (regularDigcamFOV_ * 0.8) + 4.;  // camera is panned a bit to the left and located a bit to the right, so when we get close, we have to correct for the offset
-			else offsetX_ *= regularDigcamFOV_;
+			//if (approxRangeToTarget_ <= 2)  offsetX_ *= (regularDigcamFOV_ * 0.8) + 4.;  // camera is panned a bit to the left and located a bit to the right, so when we get close, we have to correct for the offset
+			//else
+			offsetX_ *= regularDigcamFOV_;
 		}
 		else if (lastCamName_ == ZOOM_DIGCAM) offsetX_ *= zoomDigcamFOV_;
 		else offsetX_ = 0.;
@@ -2271,7 +2290,12 @@ int on_update_MoveToTargetState()
 			msg.command = "autoMove";
 			msg.angle = offsetX_;	// sign here does not matter, direction is set by the speed
 			// positive offset means turn to the left (ccw), negative to the right.
-			msg.speed = 20. * sgn(offsetX_);	// degrees per second
+			
+			
+			msg.speed = 15. * sgn(offsetX_);	// degrees per second******check this
+			
+			
+			
 			msg.distance = 0.;
 			movement_pub_.publish(msg);
 		   turning_ = true;
@@ -2742,6 +2766,28 @@ int on_update_HeadForHomeState()
    if (movementComplete_)
    {
    	movementComplete_ = false;
+   	
+   	if (usingRadar_)
+   	{
+   		// we need to let the radars gather data with the robot not moving
+   		// so we wait a while between moves.  it takes 2 seconds to get brand new radar data
+   		ros::Time last_time = ros::Time::now();
+			ros::Time current_time = ros::Time::now();
+			while ( current_time.toSec() - last_time.toSec() < 2.0) 
+			{
+				spinOnce();
+				current_time = ros::Time::now(); // delay a bit
+			}
+			radarNewData_ = false;
+			last_time = ros::Time::now();
+			current_time = ros::Time::now();
+			while ( current_time.toSec() - last_time.toSec() < 4.0 && (!radarNewData)) 
+			{
+				spinOnce(); // check messages, wait for new data
+				current_time = ros::Time::now(); // delay a bit
+			}		
+		
+		}
    	if (moving_)
    	{
    		moving_ = false;
@@ -2808,16 +2854,17 @@ int on_update_HeadForHomeState()
 			// untested change **************************************
 			
    		// if we are too close to the staging point, we get large angles and don't want to go there.
-   		if (distanceToRadarStagingPoint_ > 2.) msg.angle = angleToRadarStagingPoint_;
-   		else msg.angle = (angleToHomeRadar_ + angleToRadarStagingPoint_) / 2.;
+   		if (distanceToRadarStagingPoint_ > 2. 
+   			&& fabs(fabs(angleToRadarStagingPoint_) - fabs(angleToHomeRadar_) ) < 20. ) msg.angle = angleToRadarStagingPoint_;
+   		else msg.angle = angleToHomeRadar_ * 1.2;	// go a little past, to maintain an approach intercept
    		
    		// untested change **********************************
    		
    		
    		
-   		if (fabs(msg.angle) < 5.  || fabs(msg.angle) > 90. || (!radarGoodAngle_) || distanceToRadarStagingPoint_ < 1.) // no need to turn	// untested change ***********
+   		if (fabs(msg.angle) < 5.  || (!radarGoodAngle_) || distanceToRadarStagingPoint_ < 1.) // no need to turn	// untested change ***********
    		{
-		      if (fabs(msg.angle) > 90.) pastStagingPoint_ = true;	// untested change*******************************
+		      //if (fabs(msg.angle) > 90.) pastStagingPoint_ = true;	// untested change*******************************
 		      turning_ = true;
 		      movementComplete_ = true;
 		      if (radarGoodAngle_) cout << " turn toward home was small enough to skip, it was = " << msg.angle << endl;
@@ -2858,14 +2905,14 @@ int on_update_HeadForHomeState()
 			}
 			else
 			{
-				if (distanceToRadarStagingPoint_ < 1.)
+				if (distanceToRadarStagingPoint_ < 1.5)
 				{
 					pastStagingPoint_ = true;
 					msg.distance = distanceToRadarStagingPoint_ * 1000.;
 				}	
 				else msg.distance = 1000.;			
 				if (msg.distance < -1000.) msg.distance = -1000.; // don't move more than a meter in reverse
-				msg.speed = 500.  * sgn(msg.distance);
+				msg.speed = 800.  * sgn(msg.distance);
 			}		
 			movement_pub_.publish(msg);
 			moving_ = true;

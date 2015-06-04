@@ -400,7 +400,7 @@ void sendOutNavData()
   
 	// since radar gives us an absolute distance from home, we can scale x and y to match this	  
 	//cout << "in robotPose, radar distance to home = " <<  distanceToHomeRadar_ << endl;
-	if (distanceToHomeRadar_ > 0.001)
+	if (distanceToHomeRadar_ > 4) // too close to the platform, radar data is wonky
 	{
 		double odomDistanceToHome = sqrt((double) (((x - homeX_) * (x - homeX_)) + ((y - homeY_) * (y - homeY_))));
 		//cout << "in robotPose, odom distance to home = " <<  odomDistanceToHome << endl;
@@ -595,12 +595,14 @@ bool setPose_service_send(outdoor_bot::setPose_service::Request  &req, outdoor_b
       homeX_ = req.x;
       homeY_ = req.y;
       homeYaw_ = req.yaw;
+      cout << "set home x, y, yaw = " << homeX_ << ", " << homeY_ << ", " << homeYaw_ << endl;
    }
    else
    {
       x = req.x;
       y = req.y;
       yaw = req.yaw;
+      cout << "set x, y, yaw = " << x << ", " << y << ", " << yaw << endl;
    } 
    return true;
 }

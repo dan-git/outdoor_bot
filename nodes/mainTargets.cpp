@@ -709,7 +709,7 @@ bool detectBlobs(Mat im_original, bool firstTarget)
          	if (regularDigcamZoom_ == 5) 
          	{
          		if (keypoints[i].pt.y < 0) continue; // this is too high in the image to be a valid target (higher numbers are closer to the top)        
-         		if ( keypoints[i].pt.y >= 0 && keypoints[i].pt.y < 1100 && ( keypointArea > 30000 || keypointArea < 3000)) continue;
+         		if ( keypoints[i].pt.y >= 0 && keypoints[i].pt.y < 1100 && ( keypointArea > 40000 || keypointArea < 3000)) continue;
          		if ( keypoints[i].pt.y >= 1100 && keypoints[i].pt.y < 1400 && ( keypointArea > 50000 || keypointArea < 10000)) continue;
          	}
          }

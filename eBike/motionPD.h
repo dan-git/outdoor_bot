@@ -532,7 +532,7 @@ public:
              
              if (motion_pd.getDropbarUp()) 
              {
-                 if (dropbarEncoder > DROP_BAR_UP_POSITION)
+                 if (dropbarEncoder > DROP_BAR_UP_POSITION || dropbarTimeout > DROP_BAR_TIMEOUT )
                  {
                   motion_pd.start(MOTOR_DROP_BAR_INDEX, 0);
                   DEBUG_SERIAL_PORT.print("finished pulling dropbar up: time, encoder = ");
@@ -543,7 +543,7 @@ public:
               }
               else if (motion_pd.getDropbarDown()) 
               {
-                if (dropbarEncoder < DROP_BAR_DOWN_POSITION)
+                if (dropbarEncoder < DROP_BAR_DOWN_POSITION || dropbarTimeout > DROP_BAR_TIMEOUT)
                 {
                   motion_pd.start(MOTOR_DROP_BAR_INDEX, 0);
                   DEBUG_SERIAL_PORT.print("finshed putting dropbar down: time, encoder = ");
