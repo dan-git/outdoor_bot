@@ -268,7 +268,7 @@ void sendOutNavData()
     currentVelocity_ = 0.0;
     static int leftTotalTicks, rightTotalTicks;
     int leftDeltaTicks = 0, rightDeltaTicks = 0;
-    static unsigned long previousArduinoDataCounter = 0;
+    
     // if this is the first time odometry data has come in, then we have no previous time reference
     // and no initial number of odometer ticks, so we need to set those
     
@@ -323,14 +323,6 @@ void sendOutNavData()
       ROS_INFO("first nav data: EncoderTicksLeft = %ld, EncoderTicksRight = %ld", EncoderTicksLeft, EncoderTicksRight);
       return;
     } 
-
-    // check for missed data:
-    if (arduinoDataCounter != previousArduinoDataCounter + 1)
-    {
-      ROS_WARN("arduinoDataCounter not sequential, may have missed data, %ld, %ld",
-          arduinoDataCounter, previousArduinoDataCounter);
-    }
-    previousArduinoDataCounter = arduinoDataCounter;
 
     //compute odometry
     // first calculate times
@@ -438,6 +430,7 @@ void sendOutNavData()
 void parseNavData(std::string data)
 {
   std::string navDataBuffer[64];
+  static unsigned long previousArduinoDataCounter = 0;
 
   //ROS_INFO("parsing nav data");
   //ROS_INFO(data.c_str());
@@ -467,26 +460,38 @@ void parseNavData(std::string data)
     ROS_INFO("%f", navDataValues[i]);
   }
   */
-  vYaw = atof(navDataBuffer[0].c_str()) / 57.3; // convert from degrees/sec to rads/sec
-  EncoderTicksRight = atof(navDataBuffer[1].c_str());
-  EncoderTicksLeft = atof(navDataBuffer[2].c_str());
-  EncoderPickerUpper = atof(navDataBuffer[3].c_str());
-  EncoderBinShade = atof(navDataBuffer[4].c_str());
-  EncoderDropBar = atof(navDataBuffer[5].c_str());
+  arduinoDataCounter = atof(navDataBuffer[0].c_str());
+  // check for missed data:
+	if (arduinoDataCounter != previousArduinoDataCounter + 1)
+	{
+		ROS_WARN("arduinoDataCounter not sequential, may have missed data, %ld, %ld",
+		    arduinoDataCounter, previousArduinoDataCounter);
+		previousArduinoDataCounter = arduinoDataCounter; 
+		return; // we do not want to use corrupt data
+	}
+	previousArduinoDataCounter = arduinoDataCounter; 
+   
+  arduinoDataCounter = atof(navDataBuffer[0].c_str());
+  vYaw = atof(navDataBuffer[1].c_str()) / 57.3; // convert from degrees/sec to rads/sec
+  EncoderTicksRight = atof(navDataBuffer[2].c_str());
+  EncoderTicksLeft = atof(navDataBuffer[3].c_str());
+  EncoderPickerUpper = atof(navDataBuffer[4].c_str());
+  EncoderBinShade = atof(navDataBuffer[5].c_str());
+  EncoderDropBar = atof(navDataBuffer[6].c_str());
   //EncoderExtra = atof(navDataBuffer[6].c_str());
-  accelX = atof(navDataBuffer[6].c_str());
-  accelY = atof(navDataBuffer[7].c_str());
-  accelZ = atof(navDataBuffer[8].c_str());
-  battery = atof(navDataBuffer[9].c_str());
-  pauseState = atof(navDataBuffer[10].c_str());
-  dirAntMaxAngle = atof(navDataBuffer[11].c_str());
-  dirAntSweepNumber = atof(navDataBuffer[12].c_str());
-  dirAntLevel = atof(navDataBuffer[13].c_str());
-  autoMoveStatus = atof(navDataBuffer[14].c_str());
-  pdMotorStatus = atof(navDataBuffer[15].c_str());
-  angOnly = atof(navDataBuffer[16].c_str());
-  arduinoCycleTime = atof(navDataBuffer[17].c_str());
-  arduinoDataCounter = atof(navDataBuffer[18].c_str());
+  accelX = atof(navDataBuffer[7].c_str());
+  accelY = atof(navDataBuffer[8].c_str());
+  accelZ = atof(navDataBuffer[9].c_str());
+  battery = atof(navDataBuffer[10].c_str());
+  pauseState = atof(navDataBuffer[11].c_str());
+  //dirAntMaxAngle = atof(navDataBuffer[11].c_str());
+  //dirAntSweepNumber = atof(navDataBuffer[12].c_str());
+  //dirAntLevel = atof(navDataBuffer[13].c_str());
+  autoMoveStatus = atof(navDataBuffer[12].c_str());
+  pdMotorStatus = atof(navDataBuffer[13].c_str());
+  angOnly = atof(navDataBuffer[14].c_str());
+  arduinoCycleTime = atof(navDataBuffer[15].c_str());
+  
   // use this to check the timing of arduino data
   /*  ros::Time current_time = ros::Time::now();
     double dtROS_ = current_time.toSec() - local_last_time.toSec();

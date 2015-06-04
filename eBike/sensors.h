@@ -80,6 +80,8 @@ class SensorData : public RobotSensor
           gyro_stabilizer.readAccel(&xAcc, &yAcc, &zAcc); //, &compassHeading);
           
           AUTONOMOUS_SERIAL_PORT.print("navdata");
+          AUTONOMOUS_SERIAL_PORT.print(dataCounter_);
+          AUTONOMOUS_SERIAL_PORT.print(", ");
           AUTONOMOUS_SERIAL_PORT.print(gyro_stabilizer.readGyro());
           AUTONOMOUS_SERIAL_PORT.print(", ");
           rightWheelEncoder_ = encoder_spi[getEncoderNumber(RIGHT_ENCODER_SELECT_PIN)].readEncoder();
@@ -104,12 +106,14 @@ class SensorData : public RobotSensor
           AUTONOMOUS_SERIAL_PORT.print(", ");
           AUTONOMOUS_SERIAL_PORT.print(robotPause_);
           AUTONOMOUS_SERIAL_PORT.print(", ");
+          /*
           AUTONOMOUS_SERIAL_PORT.print(dirAnt.getMaxAngle());
           AUTONOMOUS_SERIAL_PORT.print(", ");
           AUTONOMOUS_SERIAL_PORT.print(dirAnt.getSweepNumber());
           AUTONOMOUS_SERIAL_PORT.print(", ");
           AUTONOMOUS_SERIAL_PORT.print(dirAnt.getLevel());
           AUTONOMOUS_SERIAL_PORT.print(", ");
+          */
           AUTONOMOUS_SERIAL_PORT.print(robot_base.getAutoMoveMode());
           AUTONOMOUS_SERIAL_PORT.print(", ");
           AUTONOMOUS_SERIAL_PORT.print( motion_pd.getPickerUpperCommand() || motion_pd.getDropbarCommand() || motion_pd.getBinshadeCommand() );
@@ -117,8 +121,9 @@ class SensorData : public RobotSensor
           AUTONOMOUS_SERIAL_PORT.print(robot_base.getAngOnly());
           AUTONOMOUS_SERIAL_PORT.print(", ");
           AUTONOMOUS_SERIAL_PORT.print(loopTime);
-          AUTONOMOUS_SERIAL_PORT.print(", ");
-          AUTONOMOUS_SERIAL_PORT.print(dataCounter_);          
+          AUTONOMOUS_SERIAL_PORT.println(", ");
+          dataCounter_++;
+          /*
           #ifdef BAT_MON_SERIAL_PORT
           if (!(dataCounter_ % 1500)) // check the battery once every 30 seconds
           {
@@ -137,7 +142,8 @@ class SensorData : public RobotSensor
           //AUTONOMOUS_SERIAL_PORT.print(", ");
           //AUTONOMOUS_SERIAL_PORT.print(gyro_stabilizer.getYawTotal());
           //AUTONOMOUS_SERIAL_PORT.println(", ");
-          dataCounter_++;
+          */
+          
         }
       #endif // AUTONOMOUS_SERIAL_PORT  
     }

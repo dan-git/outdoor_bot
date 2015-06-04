@@ -13,7 +13,7 @@
 #define LEFT_RADAR_HOME_DISTANCE 1.47	// when at home, distances in meters for radar rangers
 #define RIGHT_RADAR_HOME_DISTANCE 2.17
 
-#define RADAR_WAIT_TIME 0.2
+#define RADAR_WAIT_TIME 0.5
 #define HOME_RADAR_SEPARATION 1900. // distance between radars on home platform, in mm
 #define BOT_RADAR_SEPARATION 1092.
 

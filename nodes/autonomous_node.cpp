@@ -443,13 +443,13 @@ bool callAccelerometersService()
 		accelX_ = resp.accelX;
 		accelY_ = resp.accelY;
 		accelZ_ = resp.accelZ;	
-		yaw_ = resp.yaw; // radians
+		yaw_ = resp.yaw * 57.3; // degrees
 		x_ = resp.x; // meters
 		y_ = resp.y;	
 		odomDistanceToHome_ = sqrt((x_ * x_) + (y_ * y_));	
 	}
 	cout << "accels, x, y, z = " << accelX_ << ", " << accelY_ << ", " << accelZ_ << endl;
-	cout << "x, y, yaw (radians), yaw (degrees), odomDistanceToHome_ (meters)  = " << x_ << ", " << y_ << ", " << yaw_ << ", " << yaw_ * 57.3 << ", " << odomDistanceToHome_ << endl;
+	cout << "x, y, yaw (radians), yaw (degrees), odomDistanceToHome_ (meters)  = " << x_ << ", " << y_ << ", " << yaw_ / 57.3 << ", " << yaw_ << ", " << odomDistanceToHome_ << endl;
 	//if (fabs(accelZ_) > 3.) return true;
 	return true;
 }
@@ -1535,9 +1535,8 @@ int on_update_MoveToFirstTargetState()
 			{
 				msg.command = "autoMove";
 			   msg.speed = 1000.;
-			   //*********************************************** yaw is in radians, real ops, use degrees
-			   msg.angle = -yaw_ + (sgn(yaw_) * 2);  // we turn a little extra to compensate for drift away from the target.  we could calculate this better*****************
-				//**************************************************************************************************
+			   msg.angle = -yaw_ + (sgn(yaw_) * 2);  // we turn a little extra to compensate for having moved forward with yaw drift.  we could calculate this better
+				//***************************
 				
 				cout << "turning to zero yaw = " << msg.angle << " degrees" << endl;
 				turning_ = true;
@@ -2480,7 +2479,7 @@ int on_update_PickupTargetState()
    		movementComplete_ = false;
 	      cout << "driving forward 1m to push target into scoop" << endl;
 		   msg.command = "autoMove";
-		   msg.distance = 300;
+		   msg.distance = 500;
 		   msg.angle = 0; 
 		   msg.speed = 1000;  	  
    		movement_pub_.publish(msg);
@@ -2615,12 +2614,12 @@ void on_enter_PhaseOneHomeState()
 		msg.angle = 180.;
 		msg.speed = 20.;
 	}
-//	movementComplete_ = true;	**************************************** real ops
+	movementComplete_ = false;	
 	  
    cout << "turning toward home after retrieving target, angle = " << msg.angle << endl;
    msg.command = "autoMove";
    msg.distance = 0;  
-//	movement_pub_.publish(msg); **************************************** real ops
+   movement_pub_.publish(msg);
 }
 
 int on_update_PhaseOneHomeState()

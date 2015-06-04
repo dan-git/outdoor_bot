@@ -895,7 +895,7 @@ public:
       robot_base.setAutoMoveMode(true);
       robot_base.setAutonomousCommandMode(false);
       ping.resetTimeout();
-      //if (DEBUG)
+      if (DEBUG)
       {
         DEBUG_SERIAL_PORT.print("autoMove command received: ");
         DEBUG_SERIAL_PORT.print(autoDistance);
