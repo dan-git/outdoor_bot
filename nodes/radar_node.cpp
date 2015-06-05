@@ -192,24 +192,19 @@ double getAngleToStagingPoint() { return angleToStagingPoint_; }
 
 void getRadarRanges()
 {
-	ros::Time last_time;
-   ros::Time current_time = ros::Time::now();
+	ros::Duration duration(RADAR_WAIT_TIME);
    
    distanceFromLeftToLeft_ = leftRanger_.getRange(LEFT_RADAR_NUMBER);
-	last_time = ros::Time::now();
-	while ( current_time.toSec() - last_time.toSec() < RADAR_WAIT_TIME) current_time = ros::Time::now(); // delay needed for radars to get data
+   duration.sleep();
 
 	distanceFromLeftToRight_ = leftRanger_.getRange(RIGHT_RADAR_NUMBER);
-	last_time = ros::Time::now();
-	while ( current_time.toSec() - last_time.toSec() < RADAR_WAIT_TIME) current_time = ros::Time::now(); 
+	duration.sleep();
 	
 	distanceFromRightToLeft_ = rightRanger_.getRange(LEFT_RADAR_NUMBER);
-	last_time = ros::Time::now();
-	while ( current_time.toSec() - last_time.toSec() < RADAR_WAIT_TIME) current_time = ros::Time::now(); 
+	duration.sleep();
 	
 	distanceFromRightToRight_ = rightRanger_.getRange(RIGHT_RADAR_NUMBER);
-	last_time = ros::Time::now();
-	while ( current_time.toSec() - last_time.toSec() < RADAR_WAIT_TIME) current_time = ros::Time::now();
+	duration.sleep();
 }
 
 /*
