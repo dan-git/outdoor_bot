@@ -13,7 +13,7 @@
 #define LEFT_RADAR_HOME_DISTANCE 1.47	// when at home, distances in meters for radar rangers
 #define RIGHT_RADAR_HOME_DISTANCE 2.17
 
-#define RADAR_WAIT_TIME 0.5
+#define RADAR_WAIT_TIME 0.4
 #define HOME_RADAR_SEPARATION 1900. // distance between radars on home platform, in mm
 #define BOT_RADAR_SEPARATION 1092.
 
@@ -149,7 +149,7 @@ void getLocation()
 	distanceToHome_ /= 1000.; // convert to meters
 	distanceToStagingPoint_ /= 1000.;
 	
-
+	/*
 	cout << "cosLeftHomeToLeftBot (angle a) = " << cosLeftHomeToLeftBot << ", an angle of " << acos(cosLeftHomeToLeftBot) * 57.3 << " degrees" << endl;
 	cout << "cosAngleB = " << cosAngleB << ", an angle of " << acos(cosAngleB) * 57.3 << " degrees" << endl;
 	cout << "cosAngleD = " << cosAngleD << ", an angle of " << acos(cosAngleD) * 57.3 << " degrees" << endl;
@@ -170,7 +170,7 @@ void getLocation()
 	cout << "cosAngleM = " << cosAngleToStagingPoint << ", an angle of " << acos(cosAngleToStagingPoint) * 57.3 << endl;
 	cout << "angle to staging point (angles m + j)  = " << angleToStagingPoint_ << " degrees" << endl;
 	cout << "distanceToStagingPoint (distance t) = " << distanceToStagingPoint_ << " meters" << endl;
-		
+	*/	
 	cout << "Home is " << distanceToHome_ << " meters away at an angle = " << angleToHome_ << " degrees" << endl;
 	cout << "Bot's orientation (angle c) with respect to the platform = " << botOrientation_ * 57.3 << " degrees " << endl;
 	cout << "Staging point is " << distanceToStagingPoint_ << " meters away at an angle = " <<

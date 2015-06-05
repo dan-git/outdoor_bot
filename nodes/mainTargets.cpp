@@ -250,7 +250,7 @@ mainTargets(ros::NodeHandle &nh)
        //target_center_pub_.publish(output_msg);
        cout << "webcam image received in MainTargets, cameraName = " << WEBCAM << endl;
        image_received_pub_.publish(imMsg);   // publish that we received a webcam image
-        cout << "published that we received a digcam image" << endl;
+        cout << "published that we received a webcam image" << endl;
      }
      catch (cv_bridge::Exception& e)
      {
