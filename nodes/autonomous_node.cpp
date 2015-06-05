@@ -2492,16 +2492,14 @@ int on_update_PickupTargetState()
    // here we do final staging, which means line up with the target and drive straight to it and 
    // proceed with picking it up
    
-   static double minTime = 15., maxTime = 30.; // initialize with the scooper down times, since it started moving during on_enter
-   static ros::Time last_time = ros::Time::now();
-   ros::Time current_time;
+   static ros::Time timeIn = ros::Time::now() + ros::Duration(15); 
+   static ros::Time timeOut = ros::Time::now() + ros::Duration(30); // initialize with the scooper down times, since it started moving during on_enter
+
 	outdoor_bot::movement_msg msg;   
    msg.command = "PDmotorAuto";
-    
-   current_time = ros::Time::now(); 
    
-   if ( (!movementComplete_ || current_time.toSec() - last_time.toSec()  < minTime) // need min times because the arduino serial data
-   	&& current_time.toSec() - last_time.toSec() < maxTime) // is getting corrupted during PDmotorAuto moves.  Waiting for the move to finish
+   if ( (!movementComplete_ || ros::Time::now() < timeIn ) // need min times because the arduino serial data
+   	&& ros::Time::now() < timeOut) //Waiting for the move to finish
    {
    	ros::spinOnce();			   
    	return PickupTargetState_;
@@ -2518,9 +2516,8 @@ int on_update_PickupTargetState()
 		   msg.distance = 2000;	// mm
 		   msg.angle = 0;			// degrees
 		   msg.speed = 800;   	// mm/sec or deg/sec 
-		   minTime = 5.;
-		   maxTime = 30.; 
-		   last_time = ros::Time::now();
+		   timeIn = ros::Time::now() + ros::Duration(5);
+		   timeOut = ros::Time::now() + ros::Duration(30); 
    		movement_pub_.publish(msg);
    		return PickupTargetState_;
    	}
@@ -2533,13 +2530,12 @@ int on_update_PickupTargetState()
    		cout << "dropping bar" << endl;
    	   msg.PDmotorNumber = MOTOR_DROP_BAR;
    		msg.speed = DROP_BAR_DOWN;
-   		minTime = 30.;
-   		maxTime = 60.;
-   		last_time = ros::Time::now();
+   		timeIn = ros::Time::now() + ros::Duration(30);
+		   timeOut = ros::Time::now() + ros::Duration(60); 
    		movement_pub_.publish(msg); 
    		return PickupTargetState_;
    	}
-   	
+  	
    	/*else if (dropping_) // finished dropping bar, now place scooper for scooping
    	{
    		dropping_ = false;
@@ -2563,9 +2559,8 @@ int on_update_PickupTargetState()
 		   msg.distance = 500;
 		   msg.angle = 0; 
 		   msg.speed = 800; 
-		   minTime = 5.;
-		   maxTime = 30.; 
-		   last_time = ros::Time::now(); 	  
+		   timeIn = ros::Time::now() + ros::Duration(5);
+		   timeOut = ros::Time::now() + ros::Duration(30); 	  
    		movement_pub_.publish(msg);
    		return PickupTargetState_;
    	}
@@ -2578,9 +2573,8 @@ int on_update_PickupTargetState()
    		cout << "scooping up target" << endl;
    	   msg.PDmotorNumber = MOTOR_PICKER_UPPER;
    		msg.speed = PICKER_UPPER_UP;
-   		minTime = 15.;
-		   maxTime = 30.; 
-		   last_time = ros::Time::now();
+   		timeIn = ros::Time::now() +ros::Duration(15);
+		   timeOut = ros::Time::now() + ros::Duration(30);
    		movement_pub_.publish(msg);
    		return PickupTargetState_;
    	}
@@ -2593,9 +2587,8 @@ int on_update_PickupTargetState()
    		cout << "retrieving drop bar" << endl;
    	   msg.PDmotorNumber = MOTOR_DROP_BAR;
    		msg.speed = DROP_BAR_UP;
-   		minTime = 30.;
-		   maxTime = 60.; 
-		   last_time = ros::Time::now();
+   		timeIn = ros::Time::now() + ros::Duration(35);
+		   timeOut = ros::Time::now() + ros::Duration(60);
    		movement_pub_.publish(msg); 
    		return PickupTargetState_;  
    	} 
@@ -2609,9 +2602,8 @@ int on_update_PickupTargetState()
 		   msg.distance = 2000;	// mm
 		   msg.angle = 0;			// degrees
 		   msg.speed = -800;   	// mm/sec or deg/sec 
-		   minTime = 5.;
-		   maxTime = 30.; 
-		   last_time = ros::Time::now(); 
+		   timeIn = ros::Time::now() + ros::Duration(5);
+		   timeOut = ros::Time::now() + ros::Duration(30); 
    		movement_pub_.publish(msg);
    		return PickupTargetState_;  
    	}
@@ -2638,6 +2630,7 @@ int on_update_PickupTargetState()
 			approxRangeToTarget_ = 20.;
 			return NewTargetState_;
 		}
+		
    }  
 }		
 
@@ -2864,7 +2857,7 @@ int on_update_HeadForHomeState()
    {
    	movementComplete_ = false;
    	
-   	if (usingRadar_)
+   	//if (usingRadar_)
    	{
    		// we need to let the radars gather data with the robot not moving
    		// so we wait a while between moves.  it takes 2 seconds to get brand new radar data
@@ -3071,9 +3064,9 @@ int on_update_HeadForHomeState()
 			}
 			else if (distanceToHomeRadar_ > PARKING_DISTANCE)
 			{
-				cout << " we are moving onto the platform = " << (distanceToHomeRadar_ + 0.5 - PARKING_DISTANCE) * 1000. << " mm" << endl;
+				cout << " we are moving onto the platform = " << (distanceToHomeRadar_ + 1.0 - PARKING_DISTANCE) * 1000. << " mm" << endl;
 				msg.distance = (distanceToHomeRadar_ + 0.5 - PARKING_DISTANCE) * 1000.;
-				msg.speed = 500. * sgn(msg.distance);
+				msg.speed = 650. * sgn(msg.distance);
 				parking_ = true;
 				
 			}
@@ -3100,6 +3093,7 @@ int on_update_HeadForHomeState()
 		pastStagingPoint_ = false;
 		return SearchForHomeState_; // something went wrong, look again for home		
 	}
+	return HeadForHomeState_; 
 	
    	
 
@@ -3137,8 +3131,8 @@ int on_update_HeadForHomeState()
 	}
 	alreadyTurned_ = true;
 */
-
-	msg.command = "move"; 
+/*
+	msg.command = "autoMove"; 
 	if (distanceToHomeRadar_ > 0.01)	range_ = distanceToHomeRadar_;
 	else 
 	{
@@ -3153,7 +3147,7 @@ int on_update_HeadForHomeState()
    
    cout << "Heading for Home, range = " << range_ << endl;  
   
-/*   if (range_ > 30.)
+   if (range_ > 30.)
    {
       //move forward 10m and turn by the angle needed to center the target in X
       msg.command = "move";
@@ -3174,7 +3168,6 @@ int on_update_HeadForHomeState()
       ROS_INFO("moving forward 5m");
    }
    else
-   */
     if (range_ > 12.)
    {
       //move forward 3 m
@@ -3184,13 +3177,13 @@ int on_update_HeadForHomeState()
       msg.distance = 1.0;	// ******move in meters, autoMove im mm **************
       msg.angle = 0.;
       
-      /*
-      cout << "moving to target1 pose " << endl;
-      msg.command = "pose";
-      msg.poseX = target1_X;
-      msg.poseY = target1_Y;
-      msg.poseThetaDegrees = 0.; //plat1_Yaw * (3.14/180.);
-      */
+      
+      //cout << "moving to target1 pose " << endl;
+      //msg.command = "pose";
+      //msg.poseX = target1_X;
+      //msg.poseY = target1_Y;
+      //msg.poseThetaDegrees = 0.; //plat1_Yaw * (3.14/180.);
+     
       movement_pub_.publish(msg);
       moving_ = true;
       movementComplete_ = false;
@@ -3206,6 +3199,7 @@ int on_update_HeadForHomeState()
    }
    
    return HeadForHomeState_;  
+   */
    
 }
 
@@ -3577,6 +3571,7 @@ int main(int argc, char* argv[])
 {
    ros::init(argc, argv, "autonomous_node");
    ros::NodeHandle nh;
+   
    obstacle_detector_ = new OutdoorBot::Navigation::ObstacleDetector;
 	obstacle_avoider_ = new OutdoorBot::Navigation::WallFollower;
 	
@@ -3625,15 +3620,17 @@ int main(int argc, char* argv[])
    
       // now we keep updating and nicely move through the states
    
+   ros::Rate updateRate(100); // update at 100 Hz
    while (nh.ok())
    {
       ros::spinOnce();
-      struct timespec ts;
-      ts.tv_sec = 0;
-      ts.tv_nsec = 10000000;
-      nanosleep(&ts, NULL); // update every 10 ms
-      //cout << "state before update = " << fsm_.current_state() << endl;
       fsm_.update();
+      updateRate.sleep();
+      //struct timespec ts;
+      //ts.tv_sec = 0;
+      //ts.tv_nsec = 10000000;
+      //nanosleep(&ts, NULL); // update every 10 ms
+      //cout << "state before update = " << fsm_.current_state() << endl;
       //cout << "current state = " << fsm_.current_state() << endl;
       //ros::Time last_time = ros::Time::now();
 		//while ( ros::Time::now().toSec() - last_time.toSec() < 0.01) ros::spinOnce(); // delay a bit

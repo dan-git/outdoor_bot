@@ -475,29 +475,35 @@ void parseNavData(std::string data)
   vYaw = atof(navDataBuffer[1].c_str()) / 57.3; // convert from degrees/sec to rads/sec
   EncoderTicksRight = atof(navDataBuffer[2].c_str());
   EncoderTicksLeft = atof(navDataBuffer[3].c_str());
-  //EncoderPickerUpper = atof(navDataBuffer[4].c_str());
-  //EncoderBinShade = atof(navDataBuffer[5].c_str());
-  //EncoderDropBar = atof(navDataBuffer[6].c_str());
+  EncoderPickerUpper = atof(navDataBuffer[4].c_str());
+  EncoderBinShade = atof(navDataBuffer[5].c_str());
+  EncoderDropBar = atof(navDataBuffer[6].c_str());
   //EncoderExtra = atof(navDataBuffer[6].c_str());
-  unsigned long secondArduinoDataCounter = atof(navDataBuffer[4].c_str());
+  unsigned long secondArduinoDataCounter = atof(navDataBuffer[7].c_str());
   if (arduinoDataCounter != secondArduinoDataCounter) 
   {
   		ROS_WARN("badly corrupted arduino serial data string");
   		return;
   }
-  pauseState = atof(navDataBuffer[5].c_str());
+  pauseState = atof(navDataBuffer[8].c_str());
   //dirAntMaxAngle = atof(navDataBuffer[11].c_str());
   //dirAntSweepNumber = atof(navDataBuffer[12].c_str());
   //dirAntLevel = atof(navDataBuffer[13].c_str());
-  autoMoveStatus = atof(navDataBuffer[6].c_str());
-  battery = atof(navDataBuffer[7].c_str());
-  pdMotorStatus = atof(navDataBuffer[8].c_str());
-  accelX = atof(navDataBuffer[9].c_str());
-  accelY = atof(navDataBuffer[10].c_str());
-  accelZ = atof(navDataBuffer[11].c_str());
-  angOnly = atof(navDataBuffer[12].c_str());
-  arduinoCycleTime = atof(navDataBuffer[13].c_str());
-  unsigned long thirdArduinoDataCounter = atoi(navDataBuffer[14].c_str());
+  autoMoveStatus = atof(navDataBuffer[9].c_str());
+  battery = atof(navDataBuffer[10].c_str());
+  if (battery != 99)
+  {
+  	ROS_WARN("arudino data corrupted just before reporting pdMotorStatus");
+  	cout << "values reported for battery, pdMotorStatus = " << battery << ", " <<atof(navDataBuffer[11].c_str()) << endl;
+  	return;
+  	}
+  pdMotorStatus = atof(navDataBuffer[11].c_str());
+  accelX = atof(navDataBuffer[12].c_str());
+  accelY = atof(navDataBuffer[13].c_str());
+  accelZ = atof(navDataBuffer[14].c_str());
+  angOnly = atof(navDataBuffer[15].c_str());
+  arduinoCycleTime = atof(navDataBuffer[16].c_str());
+  unsigned long thirdArduinoDataCounter = atoi(navDataBuffer[17].c_str());
   
   sendOutNavData();
   

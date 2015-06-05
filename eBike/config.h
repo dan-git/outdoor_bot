@@ -142,10 +142,10 @@ unsigned long pauseBlinkTime_;
   #define BRAKES_MAX_VALUE 95 // these are 12V motors, so only drive at 75% of our 16V battery
   #define BRAKES_MIN_VALUE -95   
   #define BRAKES_SPEED 85
-  #define BRAKES_APPLY_TIMER 2500
+  #define BRAKES_APPLY_TIMER 2600
   #define BRAKES_RELEASE_TIMER 2000
   #define BRAKES_CURRENT_PIN A3
-  #define BRAKES_CURRENT_THRESHOLD 450
+  #define BRAKES_CURRENT_THRESHOLD 465
   
   #define PICKER_UPPER_DOWN_CONTACT_PIN 8
   #define PICKER_UPPER_UP_CONTACT_PIN 9
@@ -163,8 +163,8 @@ unsigned long pauseBlinkTime_;
   #define BIN_SHADE_UP 1
   #define BIN_SHADE_DOWN -1
   
-  #define DROP_BAR_UP_POSITION -50
-  #define DROP_BAR_DOWN_POSITION -3500
+  #define DROP_BAR_UP_POSITION -100
+  #define DROP_BAR_DOWN_POSITION -3000
   #define DROP_BAR_TIMEOUT  35000
   #define BIN_SHADE_UP_POSITION 0
   #define BIN_SHADE_DOWN_POSITION1 580
