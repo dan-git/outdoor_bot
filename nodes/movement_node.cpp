@@ -44,6 +44,7 @@ sqrt(0.5)	0	0	-sqrt(0.5)	-90° rotation around Z axis
 #define BIN_SHADE_FIRST_LOCATION 106
 #define BIN_SHADE_SECOND_LOCATION 1044
 #define BIN_SHADE_THIRD_LOCATION 1804
+#define PDMOTOR_TIMEOUT 30
 
 
 
@@ -698,12 +699,14 @@ void movementCommandCallback(const outdoor_bot::movement_msg msg)
 		if (pdMotorStatus_ != 0) 
 		{
 			cout << "we are already doing a pd motor move, we will wait for it to complete" << endl;
-			while (pdMotorStatus_) //and then wait for it to complete
+			last_time = ros::Time::now();
+			current_time = ros::Time::now();
+			while (pdMotorStatus_ && current_time.toSec() - last_time.toSec() < PDMOTOR_TIMEOUT) //and then wait for it to complete
 			{
 				ros::spinOnce();
-				last_time = ros::Time::now();
-				current_time = ros::Time::now();
-				while ( current_time.toSec() - last_time.toSec() < 0.01 ) current_time = ros::Time::now();	// arduino only updates every 20 msec, no need to go too fast here
+				ros::Duration duration(0.01);
+   			duration.sleep();
+				// arduino only updates every 20 msec, no need to go too fast here
 			}
 		}
    	int motorNumber = msg.PDmotorNumber;
