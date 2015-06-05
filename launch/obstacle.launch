@@ -1,0 +1,31 @@
+<launch>
+  <!-- AVOIDER PARAMETERS -->
+
+  <!-- Stop if we see an obstacle closer than this distance in front of the robot.  When wall following the wall
+  must also be within this distance or the robot will turn back.-->
+  <param name="autonomous_node/obstacle_avoider/stop_if_obstacle_within_distance" value="1.5" />
+  <!-- The radius of the robot.  An obstacle will be reported if its within stop_if_obstacle_within_distance in front
+  of the robot and this distance to either side (this is a radius so the rectangle being checked for obstacles is twice
+  this width).-->
+  <param name="autonomous_node/obstacle_avoider/robot_radius" value="0.63" />
+  <!-- Once it has stopped for an obstacle, the robot will wait at least this long (longer if the brakes take longer
+  to apply) to see if the obstacle clears out of the way before initiating the avoidance routine.-->
+  <param name="autonomous_node/obstacle_avoider/wait_for_obstacle_clear_duration" value="3.0" />
+  <!-- When wall following, the angle in radians at which to look for a wall on the robot's side.-->
+  <param name="autonomous_node/obstacle_avoider/side_angle" value="1.0" />
+  <!-- The distance the avoider asks the robot to move forward before checking whether it can turn back.-->
+  <param name="autonomous_node/obstacle_avoider/incremental_distance" value="2.0" />
+  <!-- A timeout for forward moves.  A negative number means no timeout.-->
+  <param name="autonomous_node/obstacle_avoider/move_timeout" value="-1.0" />
+  <!-- A timeout for turns.  A negative number means no timeout.-->
+  <param name="autonomous_node/obstacle_avoider/turn_timeout" value="-1.0" />
+
+  <!-- DETECTOR PARAMETERS -->
+
+  <!-- The number of points that must be seen in a single detection to count as an obstacle.-->
+  <param name="autonomous_node/obstacle_detector/min_obstacle_points" value="5" />
+  <!-- The number of detections IN A ROW that must report an obstacle before the detector reports one.  Note that
+  we do not necessarily get a new detection every timestamp - a value of n here means waiting for n laser scans not
+  just n updates.-->
+  <param name="autonomous_node/obstacle_detector/repeat_detections" value="1" />
+</launch>

@@ -141,18 +141,14 @@ class WallFollower
 
   struct MoveForwardData
   {
-    int no_wall_detections;
-    int forward_obstacle_detections;
     ros::WallTime start_time;
-    MoveForwardData() : no_wall_detections(0), forward_obstacle_detections(0) {}
+    MoveForwardData() {}
   } move_forward_data_;
 
   struct WaitForObstacleClearData
   {
     ros::WallTime start_time;
-    int no_obstacle_detections;
-
-    WaitForObstacleClearData() : no_obstacle_detections(0) {}
+    WaitForObstacleClearData() {}
   } wait_for_obstacle_clear_data_;
 
   struct WaitForTurnData
@@ -162,12 +158,10 @@ class WallFollower
 
   struct Params
   {
-    // The dimensions of the rectangle to check for obstacles.  The x parameter is the distance "in front" of the robot
-    // and the y parameter is the distance perpendicular.
-    double obstacle_rect_x, obstacle_rect_y;
-    // In order to decide there is truly an obstacle(not a wall) we must get this many obstacle(clear) detections in a
-    // row.
-    int max_obstacle_detections;
+    // How far ahead or to the side of the robot to look for obstacles.
+    double stop_if_obstacle_within_distance;
+    // The radius of the robot.  This is half of the other dimension of the rectangle used for obstacle detection.
+    double robot_radius;
     // The time to wait and see if obstacles go away.
     double wait_for_obstacle_clear_duration;
     // The angle (in rad) at which to check for obstacles on the side.
@@ -179,9 +173,8 @@ class WallFollower
     // Timeout for turns (-1 for no timeout).
     double turn_timeout;
     Params()
-        : obstacle_rect_x(2.0),
-          obstacle_rect_y(1.3),
-          max_obstacle_detections(3),
+        : stop_if_obstacle_within_distance(1.5),
+          robot_radius(0.63),
           wait_for_obstacle_clear_duration(30.0),
           side_angle(1.0),
           incremental_distance(2.0),

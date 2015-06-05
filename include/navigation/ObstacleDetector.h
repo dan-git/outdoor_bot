@@ -1,6 +1,8 @@
 #ifndef __OUTDOOR_BOT_NAV_OBSTACLE_DETECTOR_H__
 #define __OUTDOOR_BOT_NAV_OBSTACLE_DETECTOR_H__
 
+#include <vector>
+
 #include <boost/thread/mutex.hpp>
 
 #include <ros/ros.h>
@@ -14,6 +16,23 @@ namespace Navigation
 class ObstacleDetector
 {
  public:
+  struct DetectionParams
+  {
+    double xL;
+    double yL;
+    double theta;
+    bool count_misses;
+
+    DetectionParams() : xL(0.0), yL(0.0), theta(0.0), count_misses(false) {}
+    DetectionParams(double xL_, double yL_, double theta_, bool count_misses_)
+        : xL(xL_),
+          yL(yL_),
+          theta(theta_),
+          count_misses(count_misses_)
+    {}
+  };
+  typedef std::vector<DetectionParams> DetectionParamsList;
+ public:
   ObstacleDetector();
 
   /**
@@ -22,7 +41,15 @@ class ObstacleDetector
    * @param distance The distance in front of the robot to check for obstacles.
    * @param robot_radius The radius of the robot (half of the rectangle width).
    */
-  void activate(double distance, double robot_radius);
+  void activate(double distance, double robot_radius)
+  {activate(DetectionParamsList(1, DetectionParams(distance, 2.0 * robot_radius, 0.0, false)));}
+  /**
+   * Starts the any angle obstacle detection.
+   *
+   * @param distance The distance in front of the robot to check for obstacles.
+   * @param robot_radius The radius of the robot (half of the rectangle width).
+   */
+  void activate(const DetectionParamsList& params);
   /**
    * Uses time filtering to decide if there is an obstacle in front of the robot.
    *
@@ -32,6 +59,7 @@ class ObstacleDetector
    * @return True if there is an obstacle in front of the robot.
    */
   bool update();
+  void update(std::vector<bool>* results);
   /**
    * Checks if an obstacle is within a defined rectangle.
    *
@@ -57,11 +85,17 @@ class ObstacleDetector
 
   struct State
   {
-    int front_obstacle_detections;
-    double distance;
-    double robot_radius;
-    State() : front_obstacle_detections(0), distance(0.0), robot_radius(0.0) {}
+    ros::Time last_detection_time;
   } state_;
+
+  struct DetectionState
+  {
+    DetectionParams params;
+    int obstacle_detections_or_misses;
+    explicit DetectionState(const DetectionParams& params) : obstacle_detections_or_misses(0) {}
+  };
+
+  std::vector<DetectionState> detection_states_;
 };
 
 }  // namespace Navigation
