@@ -1,4 +1,6 @@
 #include <math.h>
+#include <vector>
+
 #include <boost/bind.hpp>
 
 #include "navigation/NavUtils.h"
@@ -13,16 +15,6 @@ WallFollower::WallFollower()
     : goal_(Goal::LEFT),
       input_(Input::EXECUTING_COMMAND)
 {
-  ros::NodeHandle private_nh("~");
-  private_nh.param("obstacle_rect_x", params_.obstacle_rect_x, 2.0);
-  private_nh.param("obstacle_rect_y", params_.obstacle_rect_y, 1.3);
-  private_nh.param("max_obstacle_detections", params_.max_obstacle_detections, 3);
-  private_nh.param("wait_for_obstacle_clear_duration", params_.wait_for_obstacle_clear_duration, 3.0);
-  private_nh.param("side_angle", params_.side_angle, 1.0);
-  private_nh.param("incremental_distance", params_.incremental_distance, 2.0);
-  private_nh.param("move_timeout", params_.move_timeout, -1.0);
-  private_nh.param("turn_timeout", params_.turn_timeout, -1.0);
-
   setupFSM();
 }
 
@@ -73,6 +65,26 @@ void WallFollower::setupFSM()
 
 void WallFollower::activate(const Goal& goal)
 {
+  ros::NodeHandle private_nh("~");
+  private_nh.param("obstacle_avoider/stop_if_obstacle_within_distance", params_.stop_if_obstacle_within_distance, 1.5);
+  private_nh.param("obstacle_avoider/robot_radius", params_.robot_radius, 0.63);
+  private_nh.param("obstacle_avoider/wait_for_obstacle_clear_duration", params_.wait_for_obstacle_clear_duration, 30.0);
+  private_nh.param("obstacle_avoider/side_angle", params_.side_angle, 1.0);
+  private_nh.param("obstacle_avoider/incremental_distance", params_.incremental_distance, 2.0);
+  private_nh.param("obstacle_avoider/move_timeout", params_.move_timeout, -1.0);
+  private_nh.param("obstacle_avoider/turn_timeout", params_.turn_timeout, -1.0);
+
+  ROS_INFO("Activating wall follower.  Rectangle x dimension: %f, robot radius: %f, "
+           "wait for obstacle clear duration: %f, side angle: %f, "
+           "incremental forward distance: %f, move timeout: %f, turn timeout: %f",
+           params_.stop_if_obstacle_within_distance,
+           params_.robot_radius,
+           params_.wait_for_obstacle_clear_duration,
+           params_.side_angle,
+           params_.incremental_distance,
+           params_.move_timeout,
+           params_.turn_timeout);
+
   state_ = State();
   goal_ = goal;
   fsm_.set_state(wait_for_obstacle_clear_state_);
@@ -104,38 +116,31 @@ void WallFollower::on_enter_move_forward()
   // Reset the counts in the move forward data.
   move_forward_data_ = MoveForwardData();
   move_forward_data_.start_time = ros::WallTime::now();
-}
-
-int WallFollower::on_update_move_forward()
-{
-  // Are we going to hit an obstacle?
-  if (obstacle_detector_.obstacleInRectangle(params_.obstacle_rect_x, params_.obstacle_rect_y, 0.0))
-  {
-    move_forward_data_.forward_obstacle_detections++;
-  }
-  else
-  {
-    move_forward_data_.forward_obstacle_detections = 0;
-  }
-  // STOOOOOOOOP!  STOOOOOP NOW.
-  if (move_forward_data_.forward_obstacle_detections >= params_.max_obstacle_detections)
-  {
-    return wait_for_obstacle_clear_state_;
-  }
-
-  // Monitor whether there is something next to us or not.
+  ObstacleDetector::DetectionParamsList detection_params(2);
+  // Forwards detection.
+  detection_params[0] = ObstacleDetector::DetectionParams(
+      params_.stop_if_obstacle_within_distance, 2.0 * params_.robot_radius, 0.0, false);
+  // Wall detection.  We want to count misses.
   double angle = params_.side_angle;
   if (goal_.side() == Goal::LEFT)
   {
     angle = params_.side_angle;
   }
-  if (obstacle_detector_.obstacleInRectangle(params_.obstacle_rect_x, params_.obstacle_rect_y, angle))
+  detection_params[1] = ObstacleDetector::DetectionParams(
+      params_.stop_if_obstacle_within_distance, 2.0 * params_.robot_radius, angle, true);
+  obstacle_detector_.activate(detection_params);
+}
+
+int WallFollower::on_update_move_forward()
+{
+  // Update the obstacle detector.
+  std::vector<bool> detections;
+  obstacle_detector_.update(&detections);
+
+  if (detections[0])
   {
-    move_forward_data_.no_wall_detections = 0;
-  }
-  else
-  {
-    move_forward_data_.no_wall_detections++;
+    // STOOOOOOOOP!  STOOOOOP NOW.
+    return wait_for_obstacle_clear_state_;
   }
 
   // Check for timeout.
@@ -151,7 +156,7 @@ int WallFollower::on_update_move_forward()
     return move_forward_state_;
   }
 
-  if (move_forward_data_.no_wall_detections >= params_.max_obstacle_detections)
+  if (detections[1])
   {
     // Wall on the side is gone!  Turn to follow wall.
     return command_turn_into_state_;
@@ -166,20 +171,16 @@ void WallFollower::on_enter_wait_for_obstacle_clear()
   ROS_INFO("WallFollower: Waiting %f seconds to see if obstacle clears.", params_.wait_for_obstacle_clear_duration);
   wait_for_obstacle_clear_data_ = WaitForObstacleClearData();
   wait_for_obstacle_clear_data_.start_time = ros::WallTime::now();
+  // Count obstacle misses.
+  obstacle_detector_.activate(ObstacleDetector::DetectionParamsList(
+      1, ObstacleDetector::DetectionParams(
+          params_.stop_if_obstacle_within_distance, 2.0 * params_.robot_radius, 0.0, true)));
   output_.set_mode(Output::OBSTACLE_AHEAD);
 }
 
 int WallFollower::on_update_wait_for_obstacle_clear()
 {
-  // Is the obstacle gone?
-  if (!obstacle_detector_.obstacleInRectangle(params_.obstacle_rect_x, params_.obstacle_rect_y, 0.0))
-  {
-    wait_for_obstacle_clear_data_.no_obstacle_detections++;
-  }
-  else
-  {
-    wait_for_obstacle_clear_data_.no_obstacle_detections = 0;
-  }
+  bool no_obstacle = obstacle_detector_.update();
 
   // We're still trying to stop.
   if (input_.mode() != Input::READY_FOR_NEW_COMMAND)
@@ -187,7 +188,7 @@ int WallFollower::on_update_wait_for_obstacle_clear()
     return wait_for_obstacle_clear_state_;
   }
 
-  if (wait_for_obstacle_clear_data_.no_obstacle_detections >= params_.max_obstacle_detections)
+  if (no_obstacle)
   {
     // The obstacle left!  Yay.
     if (fabs(state_.current_angle) < 0.1)

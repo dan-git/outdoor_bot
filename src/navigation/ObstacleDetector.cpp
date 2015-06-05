@@ -14,29 +14,80 @@ ObstacleDetector::ObstacleDetector()
 {
   ros::NodeHandle nh;
   laserSub_ = nh.subscribe("scan", 10, &ObstacleDetector::laserCallback, this);
-  ros::NodeHandle private_nh("~");
-  private_nh.param("min_obstacle_points", min_obstacle_points_, 4);
-  private_nh.param("max_obstacle_detections", max_obstacle_detections_, 3);
 }
 
-void ObstacleDetector::activate(double distance, double robot_radius)
+void ObstacleDetector::activate(const DetectionParamsList& params)
 {
+  ros::NodeHandle private_nh("~");
+  private_nh.param("obstacle_detector/min_obstacle_points", min_obstacle_points_, 4);
+  private_nh.param("obstacle_detector/repeat_detections", max_obstacle_detections_, 3);
+
+  ROS_INFO("Obstacle detection: Must see %d points %d times before registering an obstacle.",
+           min_obstacle_points_, max_obstacle_detections_);
+
   state_ = State();
-  state_.distance = distance;
-  state_.robot_radius = robot_radius;
+  detection_states_.clear();
+  detection_states_.reserve(params.size());
+  for (size_t i = 0; i < params.size(); i++)
+  {
+    detection_states_.push_back(DetectionState(params[i]));
+  }
 }
 
 bool ObstacleDetector::update()
 {
-  if (obstacleInRectangle(state_.distance, 2.0 * state_.robot_radius, 0.0))
+  std::vector<bool> results;
+  update(&results);
+  if (results.empty())
   {
-    state_.front_obstacle_detections++;
+    return false;
   }
-  else
+  return results[0];
+}
+
+void ObstacleDetector::update(std::vector<bool>* results)
+{
+  lock_.lock();
+  ros::Time curr_time = lastMsg_.header.stamp;
+  lock_.unlock();
+  results->clear();
+  results->resize(detection_states_.size(), false);
+  for (size_t i = 0; i < detection_states_.size(); i++)
   {
-    state_.front_obstacle_detections = 0;
+    if (curr_time == state_.last_detection_time)
+    {
+      // Nothing has changed.
+      (*results)[i] = (detection_states_[i].obstacle_detections_or_misses >= max_obstacle_detections_);
+      continue;
+    }
+    if (!detection_states_[i].params.count_misses)
+    {
+      // Counting detections - have to have a certain number to return true.
+      if (obstacleInRectangle(
+              detection_states_[i].params.xL, detection_states_[i].params.yL, detection_states_[i].params.theta))
+      {
+        detection_states_[i].obstacle_detections_or_misses++;
+      }
+      else
+      {
+        detection_states_[i].obstacle_detections_or_misses = 0;
+      }
+    }
+    else
+    {
+      // Counting misses.  Have to have a certain number to return true.
+      if (!obstacleInRectangle(
+              detection_states_[i].params.xL, detection_states_[i].params.yL, detection_states_[i].params.theta))
+      {
+        detection_states_[i].obstacle_detections_or_misses++;
+      }
+      else
+      {
+        detection_states_[i].obstacle_detections_or_misses = 0;
+      }
+    }
+    (*results)[i] = (detection_states_[i].obstacle_detections_or_misses >= max_obstacle_detections_);
   }
-  return state_.front_obstacle_detections > 0; //max_obstacle_detections_; ***************************************************************
 }
 
 bool ObstacleDetector::obstacleInRectangle(double xL, double yL, double theta) const
@@ -58,13 +109,12 @@ bool ObstacleDetector::obstacleInRectangle(double xL, double yL, double theta) c
     // x' and y' are the coordinates of the point in the coordinate system rotated at angle theta to the robot.
     double xp = ranges[i] * cos(phi - theta);
     double yp = ranges[i] * sin(phi - theta);
-   // std::cout << "analyzing points" << std::endl;
     if (fabs(xp) < xL && fabs(yp) < yL / 2.0)
     {
       points_within_rectangle++;
     }
   }
-  return points_within_rectangle >= 5; // min_obstacle_points_;***********************************************************************
+  return points_within_rectangle >= min_obstacle_points_;
 }
 
 void ObstacleDetector::laserCallback(const sensor_msgs::LaserScan msg)
