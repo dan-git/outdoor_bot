@@ -31,7 +31,7 @@ sqrt(0.5)	0	0	-sqrt(0.5)	-90° rotation around Z axis
 #include "outdoor_bot/pmotor_msg.h"
 #include "outdoor_bot/autoMove_msg.h"
 #include "outdoor_bot/radar_service.h"
-#include "outdoor_bot/encoders_service.h"
+//#include "outdoor_bot/encoders_service.h"
 #include "outdoor_bot/autoMove_service.h"
 #include "outdoor_bot/radar_msg.h"
 //#include "rcmRadar/radar.h"
@@ -56,7 +56,7 @@ class movementControl
 private:
 
    ros::NodeHandle nh_;
-   ros::ServiceClient encoders_client_, autoMove_client_;
+   ros::ServiceClient autoMove_client_;
    ros::Publisher cmd_vel_pub_, complete_pub_, pmotor_pub_, autoMove_pub_;
    // we subscribe motion and keyboard commands publishers
    ros::Subscriber keyboardCommandsSub_, motionCommandsSub_, movementCommandsSub_, radar_sub_, autoMoveStatus_sub_, pdMotorStatus_sub_;
@@ -66,7 +66,7 @@ private:
    MoveBaseClient *ac_;
 
    int distance_, angle_, map_or_bot_, numObjectsGathered_;
-   int encoderPickerUpper_, encoderDropBar_, encoderBinShade_;
+   //int encoderPickerUpper_, encoderDropBar_, encoderBinShade_;
    int quatX_, quatY_, quatZ_, quatW_;
    std::string command_;
    int autoMoveStatus_, pdMotorStatus_;
@@ -113,9 +113,9 @@ public:
    quatZ_ = 0;
    quatW_ = 0;
    command_ = "";
-   encoderPickerUpper_ = 0;
-   encoderDropBar_ = 0;
-   encoderBinShade_= 0;
+   //encoderPickerUpper_ = 0;
+   //encoderDropBar_ = 0;
+   //encoderBinShade_= 0;
    numObjectsGathered_ = 0;
    distanceToHomeRadar_ = 0.;
    angleToHomeRadar_ = 0.;
@@ -129,7 +129,7 @@ public:
    radar_sub_ = nh.subscribe("radar", 5, &movementControl::radarCallback, this);
    autoMoveStatus_sub_ = nh.subscribe("autoMove_status", 2, &movementControl::autoMoveStatusCallback, this);
    pdMotorStatus_sub_ = nh.subscribe("pdMotor_status", 2, &movementControl::pdMotorStatusCallback, this);
-   encoders_client_ = nh.serviceClient<outdoor_bot::encoders_service>("encoders_service");
+   //encoders_client_ = nh.serviceClient<outdoor_bot::encoders_service>("encoders_service");
    autoMove_client_ = nh.serviceClient<outdoor_bot::autoMove_service>("autoMove_service");
    complete_pub_ = nh.advertise<std_msgs::String>("movement_complete", 4);
    pmotor_pub_ = nh.advertise<outdoor_bot::pmotor_msg>("pmotor_cmd", 5);
@@ -171,7 +171,7 @@ bool callRadarService()	// this gets the latest radar data that robotPose has ga
    return false;
 }
 */
-
+/*
 bool callEncodersService()
 {
 	outdoor_bot::encoders_service::Request req;
@@ -188,7 +188,7 @@ bool callEncodersService()
    }
    return false;
 }   
-
+*/
 bool callAutoMoveService()
 {
 	outdoor_bot::autoMove_service::Request req;

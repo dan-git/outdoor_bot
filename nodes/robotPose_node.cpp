@@ -475,22 +475,34 @@ void parseNavData(std::string data)
   vYaw = atof(navDataBuffer[1].c_str()) / 57.3; // convert from degrees/sec to rads/sec
   EncoderTicksRight = atof(navDataBuffer[2].c_str());
   EncoderTicksLeft = atof(navDataBuffer[3].c_str());
-  EncoderPickerUpper = atof(navDataBuffer[4].c_str());
-  EncoderBinShade = atof(navDataBuffer[5].c_str());
-  EncoderDropBar = atof(navDataBuffer[6].c_str());
+  //EncoderPickerUpper = atof(navDataBuffer[4].c_str());
+  //EncoderBinShade = atof(navDataBuffer[5].c_str());
+  //EncoderDropBar = atof(navDataBuffer[6].c_str());
   //EncoderExtra = atof(navDataBuffer[6].c_str());
-  accelX = atof(navDataBuffer[7].c_str());
-  accelY = atof(navDataBuffer[8].c_str());
-  accelZ = atof(navDataBuffer[9].c_str());
-  battery = atof(navDataBuffer[10].c_str());
-  pauseState = atof(navDataBuffer[11].c_str());
+  unsigned long secondArduinoDataCounter = atof(navDataBuffer[4].c_str());
+  if (arduinoDataCounter != secondArduinoDataCounter) 
+  {
+  		ROS_WARN("badly corrupted arduino serial data string");
+  		return;
+  }
+  pauseState = atof(navDataBuffer[5].c_str());
   //dirAntMaxAngle = atof(navDataBuffer[11].c_str());
   //dirAntSweepNumber = atof(navDataBuffer[12].c_str());
   //dirAntLevel = atof(navDataBuffer[13].c_str());
-  autoMoveStatus = atof(navDataBuffer[12].c_str());
-  pdMotorStatus = atof(navDataBuffer[13].c_str());
-  angOnly = atof(navDataBuffer[14].c_str());
-  arduinoCycleTime = atof(navDataBuffer[15].c_str());
+  autoMoveStatus = atof(navDataBuffer[6].c_str());
+  battery = atof(navDataBuffer[7].c_str());
+  pdMotorStatus = atof(navDataBuffer[8].c_str());
+  accelX = atof(navDataBuffer[9].c_str());
+  accelY = atof(navDataBuffer[10].c_str());
+  accelZ = atof(navDataBuffer[11].c_str());
+  angOnly = atof(navDataBuffer[12].c_str());
+  arduinoCycleTime = atof(navDataBuffer[13].c_str());
+  unsigned long thirdArduinoDataCounter = atoi(navDataBuffer[14].c_str());
+  
+  sendOutNavData();
+  
+   if (arduinoDataCounter != thirdArduinoDataCounter) ROS_WARN("corrupted second half of arduino serial data string");
+  
   
   // use this to check the timing of arduino data
   /*  ros::Time current_time = ros::Time::now();
@@ -506,7 +518,8 @@ void parseNavData(std::string data)
     if (dtROS_ > 0.025 || dtROS_ < 0.005 ) sensors_pub.publish(dataTiming); 
    */ 
 
-   sendOutNavData();
+  
+   
 } 
 
 //Process ROS message, detect if it is nav data, if so, publish transform and odom
@@ -607,14 +620,15 @@ bool setPose_service_send(outdoor_bot::setPose_service::Request  &req, outdoor_b
    return true;
 }
 
+/*
 bool encoders_service_send(outdoor_bot::encoders_service::Request  &req, outdoor_bot::encoders_service::Response &res)
 {
-   res.encoderPickerUpper = EncoderPickerUpper;
-   res.encoderDropBar = EncoderDropBar;
-   res.encoderBinShade = EncoderBinShade;   
+   res.encoderPick = EncoderPickerUpper;
+   res.encoderDrop = EncoderDropBar;
+   res.encoderBin = EncoderBinShade;   
    return true;
 }
-
+*/
 bool autoMove_service_send(outdoor_bot::autoMove_service::Request  &req, outdoor_bot::autoMove_service::Response &res)
 {
 	res.autoMoveStatus = autoMoveStatus;
@@ -689,7 +703,7 @@ int main(int argc, char** argv){
   imu_pub = n.advertise<sensor_msgs::Imu>("imu_data", 50);  //advertise imu
   sensors_pub = n.advertise<std_msgs::String>("sensor_readings", 50);
   pause_pub = n.advertise<std_msgs::Int32>("pause_state", 50);
-  encoders_serv = n.advertiseService("encoders_service", encoders_service_send);
+  //encoders_serv = n.advertiseService("encoders_service", encoders_service_send);
   autoMove_serv = n.advertiseService("automove_service", autoMove_service_send);
   autoMove_pub = n.advertise<std_msgs::Int32>("autoMove_status", 2);
   pdMotor_pub = n.advertise<std_msgs::Int32>("pdMotor_status", 2);

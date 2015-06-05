@@ -96,14 +96,6 @@ class SensorData : public RobotSensor
           AUTONOMOUS_SERIAL_PORT.print(", ");
           AUTONOMOUS_SERIAL_PORT.print(encoder_spi[getEncoderNumber(DROP_BAR_ENCODER_SELECT_PIN)].readEncoder());
           AUTONOMOUS_SERIAL_PORT.print(", ");
-          AUTONOMOUS_SERIAL_PORT.print(xAcc); 
-          AUTONOMOUS_SERIAL_PORT.print(", ");
-          AUTONOMOUS_SERIAL_PORT.print(yAcc);
-          AUTONOMOUS_SERIAL_PORT.print(", ");
-          AUTONOMOUS_SERIAL_PORT.print(zAcc);
-          AUTONOMOUS_SERIAL_PORT.print(", ");
-          AUTONOMOUS_SERIAL_PORT.print(battery_monitor.checkBattery());
-          AUTONOMOUS_SERIAL_PORT.print(", ");
           AUTONOMOUS_SERIAL_PORT.print(robotPause_);
           AUTONOMOUS_SERIAL_PORT.print(", ");
           /*
@@ -114,8 +106,16 @@ class SensorData : public RobotSensor
           AUTONOMOUS_SERIAL_PORT.print(dirAnt.getLevel());
           AUTONOMOUS_SERIAL_PORT.print(", ");
           */
-          AUTONOMOUS_SERIAL_PORT.print(robot_base.getAutoMoveMode());
+          AUTONOMOUS_SERIAL_PORT.print(robot_base.getAutoMoveMode());          
           AUTONOMOUS_SERIAL_PORT.print(", ");
+          AUTONOMOUS_SERIAL_PORT.print(xAcc); 
+          AUTONOMOUS_SERIAL_PORT.print(", ");
+          AUTONOMOUS_SERIAL_PORT.print(yAcc);
+          AUTONOMOUS_SERIAL_PORT.print(", ");
+          AUTONOMOUS_SERIAL_PORT.print(zAcc);
+          AUTONOMOUS_SERIAL_PORT.print(", ");
+          AUTONOMOUS_SERIAL_PORT.print(battery_monitor.checkBattery());
+          AUTONOMOUS_SERIAL_PORT.print(", ");          
           AUTONOMOUS_SERIAL_PORT.print( motion_pd.getPickerUpperCommand() || motion_pd.getDropbarCommand() || motion_pd.getBinshadeCommand() );
           AUTONOMOUS_SERIAL_PORT.print(", ");
           AUTONOMOUS_SERIAL_PORT.print(robot_base.getAngOnly());

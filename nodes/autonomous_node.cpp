@@ -1395,7 +1395,8 @@ void on_enter_SearchForFirstTargetState()
 			}		   
 		   cout << "no target with the zoom digcam, we'll try the regular digcam" << endl;
 		   triedZoomDigcamAlready_ = true;
-		   searchCounter_ = 0;
+		   searchCounter_ = 1;	// we take this image at 0 pan and then will pan camera
+		   //*******************************************untested change*********
 		   currentServoDegrees_ = 0;
 		}
 		
@@ -1565,7 +1566,7 @@ int on_update_MoveToFirstTargetState()
 				
    	if (radarGoodData_ && distanceToHomeRadar_ > 4)
    	{
-   		radarNewData = false;
+   		radarNewData_ = false;
    		distanceToHome = distanceToHomeRadar_;
    	}
    	else distanceToHome = odomDistanceToHome_;
@@ -2432,6 +2433,7 @@ void on_enter_PickupTargetState()
 	outdoor_bot::movement_msg msg;   
    msg.command = "PDmotorAuto";
    msg.PDmotorNumber = MOTOR_PICKER_UPPER;
+   cout << "putting down the scooper" << endl;
    msg.speed = PICKER_UPPER_DOWN; //PICKER_UPPER_DOWN_PREP;************************real ops
    movement_pub_.publish(msg);    
    movementComplete_ = false;   
@@ -2449,10 +2451,17 @@ int on_update_PickupTargetState()
 {
    // here we do final staging, which means line up with the target and drive straight to it and 
    // proceed with picking it up
+   
+   static double minTime = 15., maxTime = 30.; // initialize with the scooper down times, since it started moving during on_enter
+   static ros::Time last_time = ros::Time::now();
+   ros::Time current_time;
 	outdoor_bot::movement_msg msg;   
    msg.command = "PDmotorAuto";
-     
-   if (!movementComplete_) // waiting for the move to finish
+    
+   current_time = ros::Time::now(); 
+   
+   if ( (!movementComplete_ || current_time.toSec() - last_time.toSec()  < minTime) // need min times because the arduino serial data
+   	&& current_time.toSec() - last_time.toSec() < maxTime) // is getting corrupted during PDmotorAuto moves.  Waiting for the move to finish
    {
    	ros::spinOnce();			   
    	return PickupTargetState_;
@@ -2464,11 +2473,14 @@ int on_update_PickupTargetState()
    		prepping_ = false;
    		driving_ = true;
    		movementComplete_ = false;
-	      cout << "driving forward 1m to scoop target" << endl;
+	      cout << "driving forward 2m to place target on the front of the scooper" << endl;
 		   msg.command = "autoMove";
 		   msg.distance = 2000;	// mm
 		   msg.angle = 0;			// degrees
-		   msg.speed = 800;   	// mm/sec or deg/sec  
+		   msg.speed = 800;   	// mm/sec or deg/sec 
+		   minTime = 5.;
+		   maxTime = 30.; 
+		   last_time = ros::Time::now();
    		movement_pub_.publish(msg);
    		return PickupTargetState_;
    	}
@@ -2481,31 +2493,39 @@ int on_update_PickupTargetState()
    		cout << "dropping bar" << endl;
    	   msg.PDmotorNumber = MOTOR_DROP_BAR;
    		msg.speed = DROP_BAR_DOWN;
+   		minTime = 30.;
+   		maxTime = 60.;
+   		last_time = ros::Time::now();
    		movement_pub_.publish(msg); 
    		return PickupTargetState_;
    	}
    	
-   	else if (dropping_) // finished dropping bar, now place scooper for scooping
+   	/*else if (dropping_) // finished dropping bar, now place scooper for scooping
    	{
    		dropping_ = false;
    		placing_ = true;
-   		movementComplete_ = true; //false;	//*******use this if we want to only go part way down with the prep placement above	
+   		movementComplete_ = true; //false;	// use this if we want to only go part way down with the prep placement above	
    	   msg.PDmotorNumber = MOTOR_PICKER_UPPER;
    		msg.speed = PICKER_UPPER_DOWN;
    		//movement_pub_.publish(msg); 
    		return PickupTargetState_;
    	}
+   	*/
    	   	
-   	else if (placing_) // finished placing scooper, now push target onto scooper
+   	else if (placing_) // finished dropping the bar, now push target onto scooper
    	{
-   		placing_ = false;
+   		//placing_ = false;
+   		dropping_ = false;
    		pushing_ = true;
    		movementComplete_ = false;
-	      cout << "driving forward 1m to push target into scoop" << endl;
+	      cout << "driving forward 0.5m to push target into scoop" << endl;
 		   msg.command = "autoMove";
 		   msg.distance = 500;
 		   msg.angle = 0; 
-		   msg.speed = 1000;  	  
+		   msg.speed = 800; 
+		   minTime = 5.;
+		   maxTime = 30.; 
+		   last_time = ros::Time::now(); 	  
    		movement_pub_.publish(msg);
    		return PickupTargetState_;
    	}
@@ -2515,8 +2535,12 @@ int on_update_PickupTargetState()
    		pushing_ = false;
    		scooping_ = true;
    		movementComplete_ = false;
+   		cout << "scooping up target" << endl;
    	   msg.PDmotorNumber = MOTOR_PICKER_UPPER;
    		msg.speed = PICKER_UPPER_UP;
+   		minTime = 15.;
+		   maxTime = 30.; 
+		   last_time = ros::Time::now();
    		movement_pub_.publish(msg);
    		return PickupTargetState_;
    	}
@@ -2526,8 +2550,12 @@ int on_update_PickupTargetState()
    		scooping_ = false;
    		retrieving_ = true;
    		movementComplete_ = false;
+   		cout << "retrieving drop bar" << endl;
    	   msg.PDmotorNumber = MOTOR_DROP_BAR;
    		msg.speed = DROP_BAR_UP;
+   		minTime = 30.;
+		   maxTime = 60.; 
+		   last_time = ros::Time::now();
    		movement_pub_.publish(msg); 
    		return PickupTargetState_;  
    	} 
@@ -2540,7 +2568,10 @@ int on_update_PickupTargetState()
 		   msg.command = "autoMove";
 		   msg.distance = 2000;	// mm
 		   msg.angle = 0;			// degrees
-		   msg.speed = -800;   	// mm/sec or deg/sec  
+		   msg.speed = -800;   	// mm/sec or deg/sec 
+		   minTime = 5.;
+		   maxTime = 30.; 
+		   last_time = ros::Time::now(); 
    		movement_pub_.publish(msg);
    		return PickupTargetState_;  
    	}
@@ -2775,15 +2806,15 @@ int on_update_HeadForHomeState()
 			ros::Time current_time = ros::Time::now();
 			while ( current_time.toSec() - last_time.toSec() < 2.0) 
 			{
-				spinOnce();
+				ros::spinOnce();
 				current_time = ros::Time::now(); // delay a bit
 			}
 			radarNewData_ = false;
 			last_time = ros::Time::now();
 			current_time = ros::Time::now();
-			while ( current_time.toSec() - last_time.toSec() < 4.0 && (!radarNewData)) 
+			while ( current_time.toSec() - last_time.toSec() < 4.0 && (!radarNewData_)) 
 			{
-				spinOnce(); // check messages, wait for new data
+				ros::spinOnce(); // check messages, wait for new data
 				current_time = ros::Time::now(); // delay a bit
 			}		
 		

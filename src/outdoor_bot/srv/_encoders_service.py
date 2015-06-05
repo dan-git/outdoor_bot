@@ -92,18 +92,18 @@ import struct
 
 
 class encoders_serviceResponse(genpy.Message):
-  _md5sum = "3c3c064ecdf145ec1c9b97f691a5cc63"
+  _md5sum = "c2232934ec6ad2326ca2cc512118e294"
   _type = "outdoor_bot/encoders_serviceResponse"
   _has_header = False #flag to mark the presence of a Header object
-  _full_text = """int32 encoderPickerUpper
-int32 encoderDropBar
-int32 encoderBinShade
+  _full_text = """int32 encoderPick
+int32 encoderDrop
+int32 encoderBin
 int32 encoderExtra
 
 
 
 """
-  __slots__ = ['encoderPickerUpper','encoderDropBar','encoderBinShade','encoderExtra']
+  __slots__ = ['encoderPick','encoderDrop','encoderBin','encoderExtra']
   _slot_types = ['int32','int32','int32','int32']
 
   def __init__(self, *args, **kwds):
@@ -114,7 +114,7 @@ int32 encoderExtra
     changes.  You cannot mix in-order arguments and keyword arguments.
 
     The available fields are:
-       encoderPickerUpper,encoderDropBar,encoderBinShade,encoderExtra
+       encoderPick,encoderDrop,encoderBin,encoderExtra
 
     :param args: complete set of field values, in .msg order
     :param kwds: use keyword arguments corresponding to message field names
@@ -123,18 +123,18 @@ int32 encoderExtra
     if args or kwds:
       super(encoders_serviceResponse, self).__init__(*args, **kwds)
       #message fields cannot be None, assign default values for those that are
-      if self.encoderPickerUpper is None:
-        self.encoderPickerUpper = 0
-      if self.encoderDropBar is None:
-        self.encoderDropBar = 0
-      if self.encoderBinShade is None:
-        self.encoderBinShade = 0
+      if self.encoderPick is None:
+        self.encoderPick = 0
+      if self.encoderDrop is None:
+        self.encoderDrop = 0
+      if self.encoderBin is None:
+        self.encoderBin = 0
       if self.encoderExtra is None:
         self.encoderExtra = 0
     else:
-      self.encoderPickerUpper = 0
-      self.encoderDropBar = 0
-      self.encoderBinShade = 0
+      self.encoderPick = 0
+      self.encoderDrop = 0
+      self.encoderBin = 0
       self.encoderExtra = 0
 
   def _get_types(self):
@@ -150,7 +150,7 @@ int32 encoderExtra
     """
     try:
       _x = self
-      buff.write(_struct_4i.pack(_x.encoderPickerUpper, _x.encoderDropBar, _x.encoderBinShade, _x.encoderExtra))
+      buff.write(_struct_4i.pack(_x.encoderPick, _x.encoderDrop, _x.encoderBin, _x.encoderExtra))
     except struct.error as se: self._check_types(struct.error("%s: '%s' when writing '%s'" % (type(se), str(se), str(_x))))
     except TypeError as te: self._check_types(ValueError("%s: '%s' when writing '%s'" % (type(te), str(te), str(_x))))
 
@@ -164,7 +164,7 @@ int32 encoderExtra
       _x = self
       start = end
       end += 16
-      (_x.encoderPickerUpper, _x.encoderDropBar, _x.encoderBinShade, _x.encoderExtra,) = _struct_4i.unpack(str[start:end])
+      (_x.encoderPick, _x.encoderDrop, _x.encoderBin, _x.encoderExtra,) = _struct_4i.unpack(str[start:end])
       return self
     except struct.error as e:
       raise genpy.DeserializationError(e) #most likely buffer underfill
@@ -178,7 +178,7 @@ int32 encoderExtra
     """
     try:
       _x = self
-      buff.write(_struct_4i.pack(_x.encoderPickerUpper, _x.encoderDropBar, _x.encoderBinShade, _x.encoderExtra))
+      buff.write(_struct_4i.pack(_x.encoderPick, _x.encoderDrop, _x.encoderBin, _x.encoderExtra))
     except struct.error as se: self._check_types(struct.error("%s: '%s' when writing '%s'" % (type(se), str(se), str(_x))))
     except TypeError as te: self._check_types(ValueError("%s: '%s' when writing '%s'" % (type(te), str(te), str(_x))))
 
@@ -193,7 +193,7 @@ int32 encoderExtra
       _x = self
       start = end
       end += 16
-      (_x.encoderPickerUpper, _x.encoderDropBar, _x.encoderBinShade, _x.encoderExtra,) = _struct_4i.unpack(str[start:end])
+      (_x.encoderPick, _x.encoderDrop, _x.encoderBin, _x.encoderExtra,) = _struct_4i.unpack(str[start:end])
       return self
     except struct.error as e:
       raise genpy.DeserializationError(e) #most likely buffer underfill
@@ -202,6 +202,6 @@ _struct_I = genpy.struct_I
 _struct_4i = struct.Struct("<4i")
 class encoders_service(object):
   _type          = 'outdoor_bot/encoders_service'
-  _md5sum = '3c3c064ecdf145ec1c9b97f691a5cc63'
+  _md5sum = 'c2232934ec6ad2326ca2cc512118e294'
   _request_class  = encoders_serviceRequest
   _response_class = encoders_serviceResponse
