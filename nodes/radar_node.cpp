@@ -363,7 +363,7 @@ void testDataRadarRanges()
 	leftBotRadarLocation_Y = (botDistance * sin(botAngle / 57.3)) - angularPart_Y;
 	rightBotRadarLocation_Y = (botDistance * sin(botAngle / 57.3)) + angularPart_Y;
 	
-	cout << "bot distance, angle, orientation = " << botDistance << ", " << botAngle << ", " << botOrientation << endl;
+	//cout << "bot distance, angle, orientation = " << botDistance << ", " << botAngle << ", " << botOrientation << endl;
 
 	/*
 	// direct inputs
@@ -397,11 +397,12 @@ void testDataRadarRanges()
 		sqrt((rightBotRadarLocation_X - rightHomeRadarLocation_X) * (rightBotRadarLocation_X - rightHomeRadarLocation_X)
 		+ (rightBotRadarLocation_Y - rightHomeRadarLocation_Y) * (rightBotRadarLocation_Y - rightHomeRadarLocation_Y));  
 
+	/*
 	cout << "leftBotRadarLocation_X, leftBotRadarLocation_Y = " << leftBotRadarLocation_X << ", " << leftBotRadarLocation_Y << endl;
 	cout << "rightBotRadarLocation_X, rightBotRadarLocation_Y = " << rightBotRadarLocation_X << ", " << rightBotRadarLocation_Y << endl;		
 	cout << "distanceFromLeftToLeft_, distanceFromLeftToRight_ = " << distanceFromLeftToLeft_ << ", " << distanceFromLeftToRight_ << endl;
 	cout << "distanceFromRightToLeft_, distanceFromRightToRight_ = " << distanceFromRightToLeft_ << ", " << distanceFromRightToRight_ << endl;	
-	
+	*/
 	// inputs from data
 	// robot distance, angle, orientation were approx 12m, -20, 0
 	//distanceFromLeftToLeft_ = 12391.;
@@ -514,6 +515,7 @@ int main(int argc, char** argv)
 
 		radar_pub_.publish(radarData);
 		
+		/*
 		if (radarData.goodData) cout << "GoodData is true, ";
 		else cout << "goodData is false, ";
 		if (radarData.goodLocation) cout << "goodLocation is true" << endl;
@@ -522,9 +524,11 @@ int main(int argc, char** argv)
 			<< myRadar.getAngleToHome() << " degrees, " << myRadar.getOrientation() << " degrees, with respect to the platform" << endl;
 		cout << "distanceToStagingPoint, angleToStagingPoint = " << myRadar.getDistanceToStagingPoint() << " meters, " << myRadar.getAngleToStagingPoint() << " degrees" << endl;
 		cout << "runningAverageDistanceToHome, runningAverageAngleToHome = " << runningAverageDistanceToHome << " meters, " << runningAverageAngleToHome << " degrees" << endl;
+		*/
 		cout << "ranges from Bot Left to home left, right = " << myRadar.getDistanceFromLeftToLeft() << ", " << myRadar.getDistanceFromLeftToRight() << std::endl;
 		cout << "ranges from Bot Right to home left, right = " << myRadar.getDistanceFromRightToLeft() << ", " << myRadar.getDistanceFromRightToRight() << std::endl;
 		cout << endl << endl;
+		
 	   
 	}
 	return EXIT_SUCCESS;
