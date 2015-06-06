@@ -28,8 +28,8 @@ using namespace cv;
 #define RED 1
 #define BLUE_RED 2
 //#define ZOOM_DIGCAM_FIRST_TARGET_ZOOM5_RANGE_PARAMETER 175000.
-#define ZOOM_DIGCAM_FIRST_TARGET_ZOOM6_RANGE_PARAMETER 70000. // check this
-//#define REGULAR_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER 58000. // ratio of area to distance
+//#define ZOOM_DIGCAM_FIRST_TARGET_ZOOM6_RANGE_PARAMETER 70000. // check this
+#define REGULAR_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER 58000. // ratio of area to distance
 #define REGULAR_DIGCAM_FIRST_TARGET_ZOOM5_RANGE_PARAMETER 40000.	// need to figure this out
 #define WEBCAM_FIRST_TARGET_RANGE_PARAMETER 4000.
 
@@ -514,7 +514,7 @@ bool detectBlobs(Mat im_original, bool firstTarget)
          {
          	cout << "ZOOM_DIGCAM ";
          	/*
-         	if (approxRange_ > 0.5) predictedArea = ZOOM_DIGCAM_FIRST_TARGET_ZOOM6_RANGE_PARAMETER / approxRange_;
+         	if (approxRange_ > 0.5) predictedArea = ZOOM_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER / approxRange_;
          	if (predictedArea / 2. < MIN_FIRST_TARGET_AREA_ZOOM_DIGCAM || predictedArea * 5 > MAX_FIRST_TARGET_AREA_ZOOM_DIGCAM)
          	{
          		params.minArea = MIN_FIRST_TARGET_AREA_ZOOM_DIGCAM;
@@ -528,7 +528,7 @@ bool detectBlobs(Mat im_original, bool firstTarget)
 				*/
 				predictedArea = 20000.;
 				params.minArea = 5000.;
-				params.maxArea = 40000.;
+				params.maxArea = 1000000.;
 			}         	         
         
          else if (cameraName_ == REGULAR_DIGCAM) 
@@ -538,7 +538,7 @@ bool detectBlobs(Mat im_original, bool firstTarget)
          	{
 					predictedArea = 20000.;
 					params.minArea = 5000.;
-					params.maxArea = 40000.;
+					params.maxArea = 70000.;
 				} 
 				/*
 				else
@@ -778,7 +778,7 @@ bool detectBlobs(Mat im_original, bool firstTarget)
          if (cameraName_ == ZOOM_DIGCAM)
          {
          	cout << "setting range for zoomcam" << endl;
-         	 rangeByArea = ZOOM_DIGCAM_FIRST_TARGET_ZOOM6_RANGE_PARAMETER / maxKeypointArea;
+         	 rangeByArea = ZOOM_DIGCAM_FIRST_TARGET_ZOOM7_RANGE_PARAMETER / maxKeypointArea;
          }
          else if (cameraName_ == REGULAR_DIGCAM)
         {

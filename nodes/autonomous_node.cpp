@@ -971,8 +971,8 @@ void on_enter_BootupState()
    triedWebcamAlready_ = false;
    triedZoomDigcamAlready_ = false;	
    triedRegularDigcamAlready_ = false;
-   zoomDigcamZoom_ = ZOOM_DIGCAM_ZOOM6;		// these get set together
-   zoomDigcamFOV_ = ZOOM_DIGCAM_ZOOM6_FOV;	// these two	
+   zoomDigcamZoom_ = ZOOM_DIGCAM_ZOOM7;		// these get set together
+   zoomDigcamFOV_ = ZOOM_DIGCAM_ZOOM7_FOV;	// these two	
    regularDigcamZoom_ = REGULAR_DIGCAM_ZOOM5;	// these get set together
    regularDigcamFOV_ = REGULAR_DIGCAM_ZOOM5_FOV;		// these two
    recoverTurnedAlready_ = false;
@@ -1126,7 +1126,7 @@ void on_exit_BootupState()
 void on_enter_CheckLinedUpState()
 {
    // start by capturing an image using fsm
-   tAF_.set_acquireCamName(WEBCAM);	// if we change here, also change in on_update below
+   tAF_.set_acquireCamName(ZOOM_DIGCAM);	// if we change here, also change in on_update below
    tAF_.set_camCommand("capture");
    tAF_.set_firstTarget(true);
    tAF_.set_homeTarget(false);
@@ -1156,6 +1156,8 @@ int on_update_CheckLinedUpState()
    }
    else cout << "no target found yet" << endl; 
    
+   
+   
    cout << "Do you want to move on to autonomous ops or retry LineUp?" << endl;
    if (askUserForGo())
    {  	
@@ -1165,7 +1167,7 @@ int on_update_CheckLinedUpState()
    }
    
    // decided to try again, so we will capture an image using fsm
-   tAF_.set_acquireCamName(WEBCAM);			//if we change here , change above in on_enter too
+   tAF_.set_acquireCamName(ZOOM_DIGCAM);			//if we change here , change above in on_enter too
    tAF_.set_camCommand("capture");
    tAF_.set_firstTarget(true);
    tAF_.set_homeTarget(false);
@@ -1482,7 +1484,8 @@ int on_update_MoveToFirstTargetState()
    if (obstacle_detector_->update())
    {
       // We've seen an obstacle!
-     return AvoidObstacleState_;
+      cout << "obstacle detected in moveToFirstTargetState" << endl;
+    // return AvoidObstacleState_; ************change for real ops to have an action *************
    }
 
    // check to see if we have arrived at the new pose   
@@ -1956,7 +1959,8 @@ int on_update_NewTargetState()
    	if (obstacle_detector_->update())
    	{
       	// We've seen an obstacle!
-     		return AvoidObstacleState_;
+      	cout << "obstacle detected in NewTargetState" << endl;
+ //    		return AvoidObstacleState_;  // ***************uncomment for real ops**********************8
    	} 
    	return NewTargetState_;
    }
@@ -2214,7 +2218,8 @@ int on_update_MoveToTargetState()
    if (obstacle_detector_->update())
    {
      // We've seen an obstacle!
-     return AvoidObstacleState_;
+     cout << "obstacle detected in MoveToTargetState" << endl;
+//     return AvoidObstacleState_; // uncomment for real ops ************************
    }
 
    // check to see if we have arrived at the new pose   
@@ -2535,22 +2540,9 @@ int on_update_PickupTargetState()
    		movement_pub_.publish(msg); 
    		return PickupTargetState_;
    	}
-  	
-   	/*else if (dropping_) // finished dropping bar, now place scooper for scooping
-   	{
-   		dropping_ = false;
-   		placing_ = true;
-   		movementComplete_ = true; //false;	// use this if we want to only go part way down with the prep placement above	
-   	   msg.PDmotorNumber = MOTOR_PICKER_UPPER;
-   		msg.speed = PICKER_UPPER_DOWN;
-   		//movement_pub_.publish(msg); 
-   		return PickupTargetState_;
-   	}
-   	*/
    	   	
-   	else if (placing_) // finished dropping the bar, now push target onto scooper
+   	else if (dropping_) // finished dropping the bar, now push target onto scooper
    	{
-   		//placing_ = false;
    		dropping_ = false;
    		pushing_ = true;
    		movementComplete_ = false;
@@ -2946,7 +2938,11 @@ int on_update_HeadForHomeState()
    		// if we are too close to the staging point, we get large angles and don't want to go there.
    		if (distanceToRadarStagingPoint_ > 2. 
    			&& fabs(fabs(angleToRadarStagingPoint_) - fabs(angleToHomeRadar_) ) < 20. ) msg.angle = angleToRadarStagingPoint_;
-   		else msg.angle = angleToHomeRadar_ * 1.2;	// go a little past, to maintain an approach intercept
+   		else 
+   		{
+   			msg.angle = angleToHomeRadar_ * 1.2;	// go a little past, to maintain an approach intercept
+   			cout << "we are too close to the staging point to turn there, we will instead turn for home with an angle of angleToHomeRadar * 1.2 = " << msg.angle << endl;
+   		}
    		
    		// untested change **********************************
    		
@@ -2954,7 +2950,7 @@ int on_update_HeadForHomeState()
    		
    		if (fabs(msg.angle) < 5.  || (!radarGoodAngle_) || distanceToRadarStagingPoint_ < 1.) // no need to turn	// untested change ***********
    		{
-		      //if (fabs(msg.angle) > 90.) pastStagingPoint_ = true;	// untested change*******************************
+		      if (fabs(msg.angle) > 90. && fabs(distanceToRadarStagingPoint_) < 8) pastStagingPoint_ = true;
 		      turning_ = true;
 		      movementComplete_ = true;
 		      if (radarGoodAngle_) cout << " turn toward home was small enough to skip, it was = " << msg.angle << endl;
