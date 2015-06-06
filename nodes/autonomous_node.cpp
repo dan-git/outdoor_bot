@@ -1204,7 +1204,8 @@ int on_update_PhaseTwoFirstState()
 			centerX_ = -1;
 			firstMoveToFirstTarget_ = true;
 			cout << "finshed initial move and turn in phase two" << endl;
-			return MoveToFirstTargetState_;
+			pauseCommanded_ = true;
+			return PauseState_;
 		}
 	}
 	moving_ = false;
@@ -1924,8 +1925,9 @@ void on_enter_NewTargetState()
    
    // have to clear the area of the target
    
-	// start by turning downhill 
-	double targetAngle = 0.;
+	// start by turning 180 degrees
+	double targetAngle = 180.;
+	/*
 	if (callAccelerometersService())
 	{
 		double downhillDirection;
@@ -1939,6 +1941,7 @@ void on_enter_NewTargetState()
 		cout << "downhill direction = " << downhillDirection << endl;
 		targetAngle = ANGLE_FROM_DOWNHILL_TO_TARGET - downhillDirection;
 	}
+	*/
 	outdoor_bot::movement_msg msg;
 	msg.command = "autoMove";
 	msg.angle = targetAngle;
@@ -1975,8 +1978,9 @@ int on_update_NewTargetState()
 			centerX_ = -1;
 			firstMoveToFirstTarget_ = true;
 			cout << "finshed initial move and turn in phase two" << endl;
-			if (numTargets_ > 4 || secondsRemaining_ < 1800) return HeadForHomeState_;
-			return CheckTargetState_;
+			if (numTargets_ > 3 || secondsRemaining_ < 1800) return HeadForHomeState_;
+			pauseCommanded_ = true;
+			return PauseState_;
 		}
 	}
 	turning_ = false;
@@ -3238,7 +3242,7 @@ int on_update_UserCommandState()
    if (pauseCommanded_)
    {
       previousState_ = UserCommandState_;	// recovery states should come back to here
-      // note we do not updat cuurentSection_, as we want to keep that value.
+      // note we do not update curentSection_, as we want to keep that value.
       // pause will return here as long as userCommandReceived_ = true;
       return PauseState_;
    }
@@ -3267,7 +3271,7 @@ int on_update_UserCommandState()
    outdoor_bot::movement_msg msg;
    
    cout << "doing user commanded action step " << currentUserCommandNumber_ << endl;
-   cout << "distancce, angle, speed, pickup: " << endl;
+   cout << "distance, angle, speed, pickup: " << endl;
    cout << userCmdDistance_[currentUserCommandNumber_] << ", " << userCmdTurn_[currentUserCommandNumber_]; 
    cout << ", " << userCmdSpeed_[currentUserCommandNumber_] << ", " << userCmdPickup_[currentUserCommandNumber_] << endl;
    
@@ -3415,6 +3419,7 @@ void on_enter_PauseState()
   
 int on_update_PauseState()
 {
+   ros::spinOnce();
    if (pauseCommanded_) return PauseState_;  
    if (userCommandReceived_) return UserCommandState_;
    if (currentSection_ == BOOTUP) return BootupState_;
