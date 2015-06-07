@@ -2892,7 +2892,7 @@ void on_enter_SearchForHomeState()
 		searchCounter_++;
 		tAF_.set_servoDegrees(currentServoDegrees_);
 		
-		tAF_.set_servoNumber(WEBCAM_PAN);
+		tAF_.set_servoNumber(FRONT_WEBCAM_PAN);
 		tAF_.set_acquireCamName(WEBCAM);
 		tAF_.set_state(tAF_.getMoveCameraState());
 }
@@ -2926,7 +2926,7 @@ void on_enter_HeadForHomeState()
 	 }
 	 */
    // if ((lastCamName_ == REGULAR_DIGCAM || lastCamName_ == ZOOM_DIGCAM ) && 
-   if (abs(currentServoDegrees_) > 0.1)) // need to put servo back to the center
+   if (abs(currentServoDegrees_) > 0.1) // need to put servo back to the center
    {
 	   searchCounter_ = 0;
 	   tAF_.set_servoDegrees(0);
@@ -2946,6 +2946,7 @@ int on_update_HeadForHomeState()
    {
    	movementComplete_ = false;
    	
+   	usingRadar_ = false;
    	//if (usingRadar_)
    	{
    		// we need to let the radars gather data with the robot not moving
@@ -2967,6 +2968,7 @@ int on_update_HeadForHomeState()
 			}		
 		
 		}
+		
    	if (moving_)
    	{
    		moving_ = false;
@@ -3015,13 +3017,13 @@ int on_update_HeadForHomeState()
    // now move or turn
    outdoor_bot::movement_msg msg;
    
-   if (usingRadar_)
+   /*if (usingRadar_)
    {
    	if ((!turning_) && (!alreadyTurned_) && (!pastStagingPoint_))
    	{
    		// send turn command to center the target
    		
-   		usingDirAnt_ = false;	// real ops change *******************************
+   		usingDirAnt_ = true;
    		
    		if (usingDirAnt_) usingDirAnt_ = updateDirectionalAntenna();
    		if (usingDirAnt_)
@@ -3186,20 +3188,19 @@ int on_update_HeadForHomeState()
 		pastStagingPoint_ = false;
 		return SearchForHomeState_; // something went wrong, look again for home		
 	}
-	return HeadForHomeState_; 
-	
-   	
+	*/  	
 
-/*
-	if (centerX_ > 0 && (!turning_) && (!alreadyTurned))	
+
+	if (centerX_ > 0 && (!turning_) && (!alreadyTurned_))	
 	{
    	// center the target and move forward
    	offsetX_ = ((double) ((totalX_ / 2) - centerX_)) / ((double) totalX_);  // fraction that the image is off-center
     	centerX_ = -1;   	// only want to turn once for each pass through HeadForHomeState
    	cout << "center offset ratio = " << offsetX_ << endl;
    	if (lastCamName_ == WEBCAM) offsetX_ *= WEBCAM_FOV;
-   	else if (lastCamName_ == REGULAR_DIGCAM) offsetX_ *= regularDigcamFOV_;
-   	else if (lastCamName_ == ZOOM_DIGCAM) offsetX_ *= ZOOM_DIGCAM_FOV;
+   	//************************************************************real ops put in HOME_DIGCAM_FOV
+   	else if (lastCamName_ == REGULAR_DIGCAM) offsetX_ *= REGULAR_DIGCAM_ZOOM5_FOV;
+   	else if (lastCamName_ == ZOOM_DIGCAM) offsetX_ *= ZOOM_DIGCAM_ZOOM6_FOV;
    	else offsetX_ = 0.;
    	cout << "center offset degrees = " << offsetX_ << endl;
    	double servoOffset = currentServoDegrees_;
@@ -3208,11 +3209,12 @@ int on_update_HeadForHomeState()
    	//double offsetY = ((double) (totalY_ - centerY_)) / ((double) totalY_);
    	offsetX_ += servoOffset;
    	cout << "total offset degrees = " << offsetX_;
-   	if (fabs(offsetX_) > 10.)
+   	if (fabs(offsetX_) > 3.)
    	{
    		// send turn command to center the target
-      	msg.command = "turn";
+      	msg.command = "autoMove";
       	msg.angle = offsetX_;
+      	msg.speed = 20 * sgn(offsetX_);
       	msg.distance = 0.;
    			// positive offset means turn to the left, negative to the right.
    		movement_pub_.publish(msg);
@@ -3223,9 +3225,8 @@ int on_update_HeadForHomeState()
    	}
 	}
 	alreadyTurned_ = true;
-*/
-/*
-	msg.command = "autoMove"; 
+	turning_ = false;
+
 	if (distanceToHomeRadar_ > 0.01)	range_ = distanceToHomeRadar_;
 	else 
 	{
@@ -3239,48 +3240,47 @@ int on_update_HeadForHomeState()
    }
    
    cout << "Heading for Home, range = " << range_ << endl;  
-  
+   moving_ = true;
+   msg.command = "autoMove"; 
+   movementComplete_ = false;
+   
    if (range_ > 30.)
    {
-      //move forward 10m and turn by the angle needed to center the target in X
-      msg.command = "move";
+      //move forward 10m 
+   	msg.angle = 0;
+   	msg.speed = 1000;
+   	msg.distance = 10000.;
+		
+		movement_pub_.publish(msg);      
       ROS_INFO("moving forward 15m");
    }
    else if (range_ > 15.)
    {
-      //move forward 10m
-      moveCmd[0] = 'n';
-      moveCmd[1] = 0; // end with null character
-     // msgMovement.data = cmd;
-     // movement_pub_.publish(msgMotion);
-      ROS_INFO("moving forward 10m");
+      //move forward 5m
+   	msg.angle = 0;
+   	msg.speed = 1000;
+   	msg.distance = 5000.;
+		
+		movement_pub_.publish(msg); 
+      ROS_INFO("moving forward 5m");
    }
    else if (range_ > 10.)
    {
-      //move forward 5 m
-      ROS_INFO("moving forward 5m");
+      //move forward 2 m
+   	msg.angle = 0;
+   	msg.speed = 1000;
+   	msg.distance = 2000.;		
+		movement_pub_.publish(msg); 
+      ROS_INFO("moving forward 2m");
    }
-   else
-    if (range_ > 12.)
+   else if (range_ > 5)
    {
-      //move forward 3 m
-      
-      cout << "moving forward 1m, range_ = " << range_ << endl;
-      msg.command = "move";
-      msg.distance = 1.0;	// ******move in meters, autoMove im mm **************
-      msg.angle = 0.;
-      
-      
-      //cout << "moving to target1 pose " << endl;
-      //msg.command = "pose";
-      //msg.poseX = target1_X;
-      //msg.poseY = target1_Y;
-      //msg.poseThetaDegrees = 0.; //plat1_Yaw * (3.14/180.);
-     
-      movement_pub_.publish(msg);
-      moving_ = true;
-      movementComplete_ = false;
-
+      //move forward 1 m
+   	msg.angle = 0;
+   	msg.speed = 1000;
+   	msg.distance = 2000.;		
+		movement_pub_.publish(msg); 
+      ROS_INFO("moving forward 2m");
       
    }
    else if (range_ > 0.01)
@@ -3292,7 +3292,6 @@ int on_update_HeadForHomeState()
    }
    
    return HeadForHomeState_;  
-   */
    
 }
 
