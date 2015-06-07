@@ -40,7 +40,8 @@
 // camera names, cannot overlap camera numbers
 #define REGULAR_DIGCAM 2
 #define ZOOM_DIGCAM 3
-#define HOMECAM 4
+#define HOME_DIGCAM 4
+#define HOMECAM 5
 
 #define WEBCAM_TILT_DOWN -25.	// degrees to point webcam down when the target is close
 #define WEBCAM_TILT_LEVEL 0.

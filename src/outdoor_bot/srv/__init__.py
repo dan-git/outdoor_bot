@@ -10,4 +10,5 @@ from ._autoMove_service import *
 from ._digcams_service import *
 from ._test import *
 from ._NavTargets_service import *
+from ._obstacle_service import *
 from ._accelerometers_service import *

@@ -23,15 +23,15 @@ using namespace std;
 //#define TARGET_HEIGHT_CM 78. //19.
 
 #define NUM_VERTICES 6
-#define MAX_MATCH_VALUE 0.05
+#define MAX_MATCH_VALUE 0.1
 #define BIGGEST_SMALL_ANGLE_COS 0.42
 #define SMALLEST_SMALL_ANGLE_COS 0.28
 #define BIGGEST_BIG_ANGLE_COS 0.63
 #define SMALLEST_BIG_ANGLE_COS 0.50
-#define MIN_AREA 5000.
-#define MAX_AREA 3000000.
-#define MIN_RATIO_AREA_ARCLENGTH 10.
-#define MAX_RATIO_AREA_ARCLENGTH 120.
+#define MIN_AREA 800.
+#define MAX_AREA 12000.
+#define MIN_RATIO_AREA_ARCLENGTH 5. //10.
+#define MAX_RATIO_AREA_ARCLENGTH 120. 
 #define MIN_ASPECT_RATIO 0.55
 #define MAX_ASPECT_RATIO 0.75
 
@@ -497,20 +497,20 @@ bool GetNavTargets(Mat NavImage, int numVertices, double MaxMatchValue,
             }
             numTargetsFound++;
 
-            //cout << "area, ratio = " << areaContour << ", " << areaContour / arc_length << endl;
-            //cout << "aspect ratio = " << aspectRatio << endl;
-            //cout << "angles: small, big = " << smallAngles / 2. << ", " << bigAngles / 4. << endl;
-            //cout << "match value = " << match_value << endl;
-            //Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
-            //drawContours( img, contours, i, color, 1, 8, vector<Vec4i>(), 0, Point() );
-            //circle(img, centerContour, (int) radiusContour, color, 2, 8, 0);
-            //rectangle(img, boundRect.tl(), boundRect.br(), color, 2, 8, 0);
+            cout << "area, ratio = " << areaContour << ", " << areaContour / arc_length << endl;
+            cout << "aspect ratio = " << aspectRatio << endl;
+            cout << "angles: small, big = " << smallAngles / 2. << ", " << bigAngles / 4. << endl;
+            cout << "match value = " << match_value << endl;
+            Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
+            drawContours( img, contours, i, color, 1, 8, vector<Vec4i>(), 0, Point() );
+            circle(img, centerContour, (int) radiusContour, color, 2, 8, 0);
+            rectangle(img, boundRect.tl(), boundRect.br(), color, 2, 8, 0);
             // draw the individual vertex points
-            //for (int j=0; j < numVertices; j++)
-            //{
-            //  circle(img, contours_poly[j], 5, color, 2, 8, 0);
-            //   //printf("vertex coordinates are: %d, %d \n", contours_poly[j].x, contours_poly[j].y);
-            //}                       
+            for (int j=0; j < numVertices; j++)
+            {
+              circle(img, contours_poly[j], 5, color, 2, 8, 0);
+               printf("vertex coordinates are: %d, %d \n", contours_poly[j].x, contours_poly[j].y);
+            }                       
          }
       }
    }
