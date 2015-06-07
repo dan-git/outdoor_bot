@@ -522,6 +522,24 @@ bool getUserInput()
    return false;
 }
 
+void readSensors()
+{
+  outdoor_bot::ObstacleParams_msg params;
+  // Look for obstacles within 45 degrees to either side.
+  params.min_angle = -0.707;
+  params.max_angle = 0.707;
+  std::vector<outdoor_bot::Obstacle_msg> obstacles;
+  obstacle_detector_->getObstacles(params, &obstacles);
+  nearestObstacle_ = -1.0;
+  for (size_t i = 0; i < obstacles.size(); i++)
+  {
+    if (nearestObstacle_ < 0.0 || obstacles[i].distance < nearestObstacle_)
+    {
+      nearestObstacle_ = obstacles[i].distance;
+    }
+  }
+}
+
 
 void imageCapture(string command, int camName, bool writeFile)
 {   
@@ -2959,6 +2977,12 @@ int on_update_HeadForHomeState()
       return PauseState_;
    }
    
+   if (parking_ && (nearestObstacle_ < 0.5))
+   {
+   	cout << "laser sees the back of the platform is < 1 meter away, time to stop " << endl;
+   	return AllDoneState_;
+   }
+   
    if ((!movementComplete_)  && (moving_ || turning_ || platforming_ || parking_)) //|| orienting_ )
    {
    	ros::spinOnce();
@@ -3238,6 +3262,10 @@ int on_update_HeadForHomeState()
 	}
 	alreadyTurned_ = 0;
 	turning_ = false;
+	
+	readSensors();
+	
+	cout << "range estimates: radar, optical, laser = " << distanceToHomeRadar_ << ", " << homeCameraRange_ << ", " << nearestObstacle_ << endl;
 
 	if (distanceToHomeRadar_ > 0.01)	range_ = distanceToHomeRadar_;
 	else 
@@ -3293,6 +3321,8 @@ int on_update_HeadForHomeState()
    	msg.distance = 1000.;		
 		movement_pub_.publish(msg); 
       ROS_INFO("moving forward 2m");
+      readSensors();
+      cout << "with a range_ of > 5 meters, laser sees the platform is at a distance = " << nearestObstacle_ << endl;
       
    }
    else
@@ -3303,6 +3333,9 @@ int on_update_HeadForHomeState()
 		if (distanceToHomeRadar_ > PLATFORM_DISTANCE && (!atPlatform_))
 		{
 			cout << " using radar to go to the front of the platform  = " << (distanceToHomeRadar_ - PLATFORM_DISTANCE) * 1000. << " mm" << endl;
+			readSensors();
+			cout << "laser sees the platform barrier at a range = " << nearestObstacle_ << endl;
+			
 			if ( distanceToHomeRadar_ - PLATFORM_DISTANCE < 1.0)
 			{
 				atPlatform_ = true;
@@ -3338,8 +3371,6 @@ int on_update_HeadForHomeState()
 				return HeadForHomeState_;
 			}					
 		}				
-		movement_pub_.publish(msg);
-		movementComplete_ = false;
 		return HeadForHomeState_;  
 	} 
    /*
@@ -3727,23 +3758,6 @@ void setupStates()
 
 }
 
-void readSensors()
-{
-  outdoor_bot::ObstacleParams_msg params;
-  // Look for obstacles within 45 degrees to either side.
-  params.min_angle = -0.707;
-  params.max_angle = 0.707;
-  std::vector<outdoor_bot::Obstacle_msg> obstacles;
-  obstacle_detector_->getObstacles(params, &obstacles);
-  nearestObstacle_ = -1.0;
-  for (size_t i = 0; i < obstacles.size(); i++)
-  {
-    if (nearestObstacle_ < 0.0 || obstacles[i].distance < nearestObstacle_)
-    {
-      nearestObstacle_ = obstacles[i].distance;
-    }
-  }
-}
 
 int main(int argc, char* argv[])
 {
