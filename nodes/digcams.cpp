@@ -10,8 +10,9 @@
 #define POWERSHOT --camera="Canon PowerShot A520 (PTP mode)" --port usb:
 #define CHECK(f) {int res = f; if (res < 0) {printf ("ERROR: %s\n", gp_result_as_string (res)); return (1);}} 
 
-#define ZOOM_DIGCAM_NUMBER 1
-#define REGULAR_DIGCAM_NUMBER 0
+#define ZOOM_DIGCAM_NUMBER 2
+#define REGULAR_DIGCAM_NUMBER 1
+#define HOME_DIGCAM_NUMBER 0
 
 using namespace cv;
 using namespace std;
@@ -105,6 +106,7 @@ public:
       int camNum;
       if (camName == ZOOM_DIGCAM) camNum = ZOOM_DIGCAM_NUMBER;
       else if (camName == REGULAR_DIGCAM) camNum = REGULAR_DIGCAM_NUMBER;
+      else if (camName == HOME_DIGCAM) camNum = HOME_DIGCAM_NUMBER;
       else
       {
       	cout << "invalid digital camera requested in digcams capture.  camera number = " << camName << endl;
@@ -184,9 +186,16 @@ public:
       	cout << "sending zoom = " << regularCurrentZoom_ << endl;
       	imgHeader.frame_id = "regularDigcam";
       }
-      else
+      else if (camName == HOME_DIGCAM)
       {
-      	cout << "invalid digital camera requested in digcams capture.  camera number = " << camName << endl;
+      	camNum = HOME_DIGCAM_NUMBER;
+      	imgHeader.seq = regularCurrentZoom_;
+      	cout << "sending zoom = " << regularCurrentZoom_ << endl;
+      	imgHeader.frame_id = "regularDigcam";
+      }
+      else 
+      {
+      	ROS_WARN("invalid camera number requested for capture in digcams");
       	return;
       }
 	   imgHeader.stamp = ros::Time::now();
@@ -252,6 +261,7 @@ bool setZoom(int camName, float value)
       int camNum;
       if (camName == ZOOM_DIGCAM) camNum = ZOOM_DIGCAM_NUMBER;
       else if (camName == REGULAR_DIGCAM) camNum = REGULAR_DIGCAM_NUMBER;
+      else if (camName == HOME_DIGCAM) camNum = HOME_DIGCAM_NUMBER;
       else
       {
       	cout << "invalid digital camera requested in digcams zoom.  camera number = " << camName << endl;
@@ -456,7 +466,7 @@ bool setZoom(int camName, float value)
          if (!cameraCommand.compare("cap_home")) cap_home_ = true;
          else cap_home_ = false;
          int cameraName = msg->cameraName;
-         if (cameraName == ZOOM_DIGCAM || cameraName == REGULAR_DIGCAM)
+         if (cameraName == ZOOM_DIGCAM || cameraName == REGULAR_DIGCAM || cameraName == HOME_DIGCAM)
          {
             if (msg->write_file) capture(cameraName, true);
             else capture(cameraName, false);

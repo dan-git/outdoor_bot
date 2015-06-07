@@ -524,18 +524,8 @@ bool getUserInput()
 
 
 void imageCapture(string command, int camName, bool writeFile)
-{
-  if (camName == WEBCAM)
-   {
-      cout << "publishing command for webcam capture" << endl;
-      webcam_command_.command = command;
-      webcam_command_.camera_number = camName;
-      webcam_command_.tilt = webcamTilt_;
-      if (writeFile) webcam_command_.write_file = true;
-      else webcam_command_.write_file = false;
-      webcam_pub_.publish(webcam_command_);
-   }
-   else if (camName == ZOOM_DIGCAM || camName == REGULAR_DIGCAM)
+{   
+   if (camName == ZOOM_DIGCAM || camName == REGULAR_DIGCAM || camName == HOME_DIGCAM)
    {
       cout << "publishing command to capture image from  ";
       if (camName == ZOOM_DIGCAM)
@@ -548,12 +538,28 @@ void imageCapture(string command, int camName, bool writeFile)
       	digcam_command_.zoom = regularDigcamZoom_;
       	cout << "REGULAR_DIGCAM" << endl;
       }
+      else if (camName == HOME_DIGCAM)
+      {
+      	//digcam_command_.zoom = regularDigcamZoom_;  //************real ops setup home digcam zoom stuff
+      	cout << "HOME_DIGCAM" << endl;
+      }
+      
       else cout << "unknown camera" << endl;
       digcam_command_.command = command;
       digcam_command_.cameraName = camName;
       if (writeFile) digcam_command_.write_file = true;
       else digcam_command_.write_file = false;
       digcam_pub_.publish(digcam_command_); 
+   }
+   else if (camName == WEBCAM)
+   {
+      cout << "publishing command for webcam capture" << endl;
+      webcam_command_.command = command;
+      webcam_command_.camera_number = camName;
+      webcam_command_.tilt = webcamTilt_;
+      if (writeFile) webcam_command_.write_file = true;
+      else webcam_command_.write_file = false;
+      webcam_pub_.publish(webcam_command_);
    }
    else cout << "request made for capture from unknown camera, camera number = " << camName << endl;
 }     
@@ -587,6 +593,14 @@ void testCameras()
    {
    	cout << "capturing another image on right digcam..." << endl;
    	imageCapture("capture", REGULAR_DIGCAM, fileWrite);
+   }
+   
+   cout << "capturing image on home digcam..." << endl;
+   imageCapture("capture", HOME_DIGCAM, fileWrite);
+   while (!askUser()) 
+   {
+   	cout << "capturing another image on home digcam..." << endl;
+   	imageCapture("capture", HOME_DIGCAM, fileWrite);
    }
    
    // the webcams:
@@ -773,7 +787,7 @@ void targetCenterCallback(const outdoor_bot::mainTargets_msg::ConstPtr &msg)
 void mainTargetImageReceivedCallback(const std_msgs::Int32::ConstPtr& msg)
 {
    int cameraName = msg->data;
-   if (cameraName == REGULAR_DIGCAM || cameraName == ZOOM_DIGCAM) 
+   if (cameraName == REGULAR_DIGCAM || cameraName == ZOOM_DIGCAM || cameraName == 1) 
    {
    	newMainTargetDigcamImageReceived_ = true;
    	cout << "digcam image was received by mainTargets" << endl;
