@@ -77,6 +77,8 @@ using namespace std;
 #define WEBCAM_DISTANCE_LIMIT 2.
 #define TARGET_DISTANCE_FOR_WEBCAM_TILT_DOWN 2.
 
+#define VERIFYING_LIMIT 3
+
 #define REGULAR_DIGCAM_FAR_ZOOM 10
 #define REGULAR_DIGCAM_ZOOM5 5
 #define REGULAR_DIGCAM_SHORT_ZOOM 0
@@ -119,7 +121,8 @@ int maxSearchPan_ = PAN_CAMERA_SEARCH_MAX, maxSearchTilt_ = TILT_CAMERA_SEARCH_M
 int lastCamName_ = WEBCAM, camName_ = WEBCAM;
 std::string movementResult_;
 //int encoderPickerUpper_, encoderDropBar_, encoderBinShade_;
-bool prepping_, placing_, driving_, pushing_, scooping_, dropping_, retrieving_, verifying_, alreadyTriedVerifying_, binShading_;
+bool prepping_, placing_, driving_, pushing_, scooping_, dropping_, retrieving_, verifying_, binShading_;
+int alreadyTriedVerifying_;
 ros::Time overallTimer_;
 double startTime_, totalTime_, secondsRemaining_, numTargets_;
 double userCmdDistance_[32], userCmdTurn_[32], userCmdSpeed_[32], userCmdPickup_[32];
@@ -1017,7 +1020,7 @@ void on_enter_BootupState()
    firstMoveToTarget_ = false;
    finalMoveToTarget_ = false;
    verifying_ = false;
-   alreadyTriedVerifying_ = false;
+   alreadyTriedVerifying_ = 0;
    distanceToHomeRadar_ = 0.;
    orientationToHomeRadar_ = 0;
    angleToHomeRadar_ = 0.; 
@@ -1280,12 +1283,12 @@ void on_enter_CheckFirstTargetState()
    // start by capturing an image using fsm
    centerX_ = -1;
    cout << "entering CheckFirstTargetState, approximate range to target = " << approxRangeToTarget_ << endl;
-   if (!triedZoomDigcamAlready_ && !verifying_)
+   if (!triedZoomDigcamAlready_)
    {
 		tAF_.set_acquireCamName(ZOOM_DIGCAM);
 		lastCamName_ = ZOOM_DIGCAM;		
    }
-   else if (!triedRegularDigcamAlready_ && !verifying_) //approxRangeToTarget_ > WEBCAM_DISTANCE_LIMIT)  // too far for webcam *****************might add for real ops to avoid false positives
+   else if (!triedRegularDigcamAlready_) //approxRangeToTarget_ > WEBCAM_DISTANCE_LIMIT)  // too far for webcam *****************might add for real ops to avoid false positives
    {
    	tAF_.set_acquireCamName(REGULAR_DIGCAM);
    	lastCamName_ = REGULAR_DIGCAM;
@@ -1309,12 +1312,12 @@ int on_update_CheckFirstTargetState()
    if (centerX_ > 0)
    {
       cout << "possible target found: x, y, range = " << centerX_ << ", " << centerY_ << ", " << targetRange_ << endl;
-      if (lastCamName_ == WEBCAM)	// once we got it in the webcam, no need to search with other cameras
+      if (lastCamName_ == WEBCAM && (!verifying_))	// once we got it in the webcam, no need to search with other cameras
       {
       	triedZoomDigcamAlready_ = true;
       	triedRegularDigcamAlready_ = true;
       }
-      else if (lastCamName_ == REGULAR_DIGCAM) triedZoomDigcamAlready_ = true;  // one we got it in the regular digcam, no need to check the zoom digcam
+      else if (lastCamName_ == REGULAR_DIGCAM && (!verifying_)) triedZoomDigcamAlready_ = true;  // one we got it in the regular digcam, no need to check the zoom digcam
       else // if it was found with the zoom digcam, the we still want to try them all
       {
          triedZoomDigcamAlready_ = false;
@@ -1342,7 +1345,7 @@ int on_update_CheckFirstTargetState()
    	if (verifying_)	// we were checking to see if we left the target on the ground, but we did not see it, so hopefully we got it
    	{
    		verifying_ = false;
-   		alreadyTriedVerifying_ = false;
+   		alreadyTriedVerifying_ = 0;
    		finalMoveToTarget_ = false;
    		return PhaseOneHomeState_;
    	}
@@ -2051,12 +2054,12 @@ int on_update_NewTargetState()
    // start by capturing an image using fsm
    centerX_ = -1;
    cout << "entering CheckTargetState, approximate range to target = " << approxRangeToTarget_ << endl;
-   if (!triedZoomDigcamAlready_ && !verifying_)
+   if (!triedZoomDigcamAlready_)
    {
 		tAF_.set_acquireCamName(ZOOM_DIGCAM);
 		lastCamName_ = ZOOM_DIGCAM;		
    }
-   else if (!triedRegularDigcamAlready_ && !verifying_) //approxRangeToTarget_ > WEBCAM_DISTANCE_LIMIT)  // too far for webcam *****************might add for real ops to avoid false positives
+   else if (!triedRegularDigcamAlready_) //approxRangeToTarget_ > WEBCAM_DISTANCE_LIMIT)  // too far for webcam *****************might add for real ops to avoid false positives
    {
    	tAF_.set_acquireCamName(REGULAR_DIGCAM);
    	lastCamName_ = REGULAR_DIGCAM;
@@ -2113,7 +2116,7 @@ int on_update_CheckTargetState()
    	if (verifying_)	// we were checking to see if we left the target on the ground, but we did not see it, so hopefully we got it
    	{
    		verifying_ = false;
-   		alreadyTriedVerifying_ = false;
+   		alreadyTriedVerifying_ = 0;
    		finalMoveToTarget_ = false;
    		return PhaseOneHomeState_;
    	}
@@ -2633,14 +2636,14 @@ int on_update_PickupTargetState()
    		movement_pub_.publish(msg); 
    		return PickupTargetState_;  
    	} 
-   	else if (retrieving_ && !alreadyTriedVerifying_) // we hope we got the target in the bin, we'll back up a bit and check to see if it is still on the ground
+   	else if (retrieving_ && alreadyTriedVerifying_ < VERIFYING_LIMIT) // we hope we got the target in the bin, we'll back up a bit and check to see if it is still on the ground
    	{
    		retrieving_ = false;
    		verifying_ = true;
    		movementComplete_ = false;
-	      cout << "driving backwards 1m to check that we got the target" << endl;
+	      cout << "driving backwards 2m to check that we got the target" << endl;
 		   msg.command = "autoMove";
-		   msg.distance = 1000;	// mm
+		   msg.distance = 2000;	// mm
 		   msg.angle = 0;			// degrees
 		   msg.speed = -800;   	// mm/sec or deg/sec 
 		   timeIn = ros::Time::now() + ros::Duration(5);
@@ -2648,16 +2651,16 @@ int on_update_PickupTargetState()
    		movement_pub_.publish(msg);
    		return PickupTargetState_;  
    	}
-   	else if (verifying_ && !alreadyTriedVerifying_)
+   	else if (verifying_ && alreadyTriedVerifying_ < VERIFYING_LIMIT)
    	{
    		 finalMoveToTarget_ = true;
-   		 alreadyTriedVerifying_ = true;
+   		 alreadyTriedVerifying_++;
    		 return CheckFirstTargetState_;
    	}	
    	else if (phase1_)
    	{
    		verifying_ = false;
-   		alreadyTriedVerifying_ = false;
+   		alreadyTriedVerifying_ = 0;
    		finalMoveToTarget_ = false;
    		currentSection_ = HOME; 
    		return PhaseOneHomeState_;
