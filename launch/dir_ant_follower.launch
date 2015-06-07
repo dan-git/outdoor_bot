@@ -1,0 +1,10 @@
+<launch>
+  <!-- The timeout on waiting for the directional antenna.  Less than zero is no timeout. -->
+  <param name="autonomous_node/dir_ant_follower/dir_ant_timeout" value="-1.0" />
+  <!-- The amount to move on each increment. -->
+  <param name="autonomous_node/dir_ant_follower/incremental_distance" value="10.0" />
+  <!-- If the absolute value of the angle is less than this (in DEGREES), the follower will skip the turn. -->
+  <param name="autonomous_node/dir_ant_follower/min_angle" value="0.5" />
+  <!-- The follower will wait this amount of time between the turn and the move.  Set to less than zero for no wait. -->
+  <param name="autonomous_node/dir_ant_follower/wait_before_move_duration" value="2.0" />
+</launch>
