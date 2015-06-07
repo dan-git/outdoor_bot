@@ -6,7 +6,7 @@ from ._digcams_custom import *
 from ._servo_msg import *
 from ._FibonacciAction import *
 from ._autoMove_msg import *
-from ._mainTargets_msg import *
+from ._ObstacleDetectorFeedback_msg import *
 from ._webcams_custom import *
 from ._pmotor_msg import *
 from ._test import *
@@ -14,6 +14,7 @@ from ._Obstacle_msg import *
 from ._mainTargets_imageReceived_msg import *
 from ._FibonacciActionResult import *
 from ._FibonacciFeedback import *
+from ._mainTargets_msg import *
 from ._ObstacleParams_msg import *
 from ._radar_msg import *
 from ._mainTargetsCommand_msg import *

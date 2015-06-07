@@ -2723,6 +2723,7 @@ void on_enter_PhaseOneHomeState()
 	}
 	
 	outdoor_bot::movement_msg msg; 
+	alreadyTurned_ = 0;
 	
 	if (callAccelerometersService())
 	{
@@ -2854,7 +2855,7 @@ void on_enter_CheckHomeState()
    // start by capturing an image using fsm
    currentSection_ = HOME;
    centerX_ = -1;
-  // if (!triedWebcamAlready_)
+   //if (!triedWebcamAlready_)
    {
    	tAF_.set_acquireCamName(WEBCAM);
    	triedWebcamAlready_ = true;
@@ -2925,45 +2926,52 @@ int on_update_SearchForHomeState()
 
 void on_enter_HeadForHomeState()
 {
-   /* if (usingRadar_)
-    {
-		moving_ = false;
-		turning_ = false;
-		alreadyTurned_ = false;
-		pastStagingPoint_ = false;
-		platforming_ = false;
-		atPlatform_ = false; 
-		orienting_ = false;
-		alreadyOriented_ = false;
-		parking_ = false;
-		movementComplete_ = false;
-		return;
-	 }
-	 */
-   // if ((lastCamName_ == REGULAR_DIGCAM || lastCamName_ == ZOOM_DIGCAM ) && 
-   if (abs(currentServoDegrees_) > 0.1) // need to put servo back to the center
-   {
-	   searchCounter_ = 0;
-	   tAF_.set_servoDegrees(0);
-	   tAF_.set_state(tAF_.getMoveCameraState());	
-	   if (abs(currentServoDegrees_) > PAN_CAMERA_SEARCH_MAX) currentServoDegrees_ = 0;	// we don't want to center on this servo pan setting   
-	} 
-	triedWebcamAlready_ = false;
+	currentSection_ = HOME;
 	moving_ = false;
 	turning_ = false;
 	alreadyTurned_ = false;
+	pastStagingPoint_ = false;
+	platforming_ = false;
+	atPlatform_ = false; 
+	orienting_ = false;
+	alreadyOriented_ = false;
+	parking_ = false;
 	movementComplete_ = false;
+   if ((lastCamName_ != HOME_DIGCAM) && abs(currentServoDegrees_) > 0.1) // need to put servo back to the center
+   {
+	   searchCounter_ = 0;
+	   tAF_.set_servoDegrees(0);
+	   tAF_.set_state(tAF_.getMoveCameraState());	        		   
+		while (tAF_.current_state() != tAF_.getAcquireDoneState()) 
+		{
+			tAF_.update();
+			ros::spinOnce();
+		}
+	   if (abs(currentServoDegrees_) > PAN_CAMERA_SEARCH_MAX) currentServoDegrees_ = 0;	// we don't want to center on this servo pan setting   
+	} 
+	triedWebcamAlready_ = false;
 }
 
 int on_update_HeadForHomeState()
 {
-   if (movementComplete_)
+  if (pauseCommanded_)	// we go here as the very first step in autonomous ops
+   {
+      return PauseState_;
+   }
+   
+   if ((!movementComplete_)  && (moving_ || turning_ || platforming_ || parking_)) //|| orienting_ )
+   {
+   	ros::spinOnce();
+   	return HeadForHomeState_;
+   }
+   
+   else
    {
    	movementComplete_ = false;
    	
    	usingRadar_ = false;
    	//if (usingRadar_)
-   	{
+   	//{
    		// we need to let the radars gather data with the robot not moving
    		// so we wait a while between moves.  it takes 2 seconds to get brand new radar data
    		ros::Time last_time = ros::Time::now();
@@ -2981,20 +2989,21 @@ int on_update_HeadForHomeState()
 				ros::spinOnce(); // check messages, wait for new data
 				current_time = ros::Time::now(); // delay a bit
 			}		
-		
-		}
+		//}
 		
    	if (moving_)
    	{
    		moving_ = false;
-			if (usingRadar_) cout << "radar move finished, range to staging = " << distanceToRadarStagingPoint_ << endl;
+   		return CheckHomeState_;
+			//if (usingRadar_) cout << "radar move finished, range to staging = " << distanceToRadarStagingPoint_ << endl;
 		}
 		else if (turning_)
 		{
 			turning_ = false;
-    		cout << "turn finished, angle to staging = " << angleToRadarStagingPoint_ << endl;
+			return CheckHomeState_;
+    		//cout << "turn finished, angle to staging = " << angleToRadarStagingPoint_ << endl;
     	}
-    	
+    /*	
     	else if (orienting_)
     	{
     		orienting_ = false;
@@ -3002,6 +3011,7 @@ int on_update_HeadForHomeState()
     		if (radarGoodAngle_) cout << "angle to home = " << angleToHomeRadar_ << endl;
     		else cout << "but not getting radar localizations right now " << endl;
     	}
+    	*/
     	
     	else if (platforming_)
     	{
@@ -3018,26 +3028,24 @@ int on_update_HeadForHomeState()
     		if (radarGoodData_) cout << "range to home = " << distanceToHomeRadar_ << endl;
     		else cout << "but not getting radar range right now " << endl;
     	}
+    	
     	if (radarGoodData_ && distanceToHomeRadar_ < PARKING_DISTANCE) 
 		{
 			cout << " we are in parking position, shut it down at a distance  = " << distanceToHomeRadar_ << " meters" << endl;
 			return AllDoneState_;
 		}
    }
-   if (moving_ || turning_ || orienting_ || platforming_ || parking_)
-   {
-   	ros::spinOnce();
-   	return HeadForHomeState_;
-	}  
+
    // now move or turn
    outdoor_bot::movement_msg msg;
    
    usingRadar_ = false;
+   /*
    {
    	if ((!turning_) && (!alreadyTurned_) && (!pastStagingPoint_))
    	{
-   		alreadyTurned_ = true;
-   		if (!usingRadar_) return CheckHomeState_;	// go get another image
+   		
+   		if (!usingRadar_) return CheckHomeState_;	// go get another image and we will turn using that
 			
 			if (usingRadar_) // send turn command to center the target
 			{			
@@ -3054,6 +3062,7 @@ int on_update_HeadForHomeState()
 				{
 				   if (fabs(msg.angle) > 90. && fabs(distanceToRadarStagingPoint_) < 8) pastStagingPoint_ = true;
 				   turning_ = true;
+				   alreadyTurned_ = true;
 				   movementComplete_ = true;
 				   if (radarGoodAngle_) cout << " turn toward home was small enough to skip, it was = " << msg.angle << endl;
 				   else cout << "missed a radar data point when about to turn, wait for another one" << endl;
@@ -3192,9 +3201,8 @@ int on_update_HeadForHomeState()
 		pastStagingPoint_ = false;
 		return SearchForHomeState_; // something went wrong, look again for home		
 	} 	
-
-
-	if (centerX_ > 0 && (!turning_) && (!alreadyTurned_))	
+	*/
+	if (centerX_ > 0 && (!turning_) && (alreadyTurned_ < 2))	
 	{
    	// center the target and move forward
    	offsetX_ = ((double) ((totalX_ / 2) - centerX_)) / ((double) totalX_);  // fraction that the image is off-center
@@ -3222,12 +3230,13 @@ int on_update_HeadForHomeState()
    			// positive offset means turn to the left, negative to the right.
    		movement_pub_.publish(msg);
          turning_ = true;
+         alreadyTurned_++;
          movementComplete_ = false;
    		ROS_INFO("centering target");
    		return HeadForHomeState_;
    	}
 	}
-	alreadyTurned_ = true;
+	alreadyTurned_ = 0;
 	turning_ = false;
 
 	if (distanceToHomeRadar_ > 0.01)	range_ = distanceToHomeRadar_;
@@ -3281,7 +3290,65 @@ int on_update_HeadForHomeState()
       //move forward 1 m
    	msg.angle = 0;
    	msg.speed = 1000;
-   	msg.distance = 2000.;		
+   	msg.distance = 1000.;		
+		movement_pub_.publish(msg); 
+      ROS_INFO("moving forward 2m");
+      
+   }
+   else
+   { 
+		// move forward a bit until we are there
+		msg.command = "autoMove";
+		msg.angle = 0;
+		if (distanceToHomeRadar_ > PLATFORM_DISTANCE && (!atPlatform_))
+		{
+			cout << " using radar to go to the front of the platform  = " << (distanceToHomeRadar_ - PLATFORM_DISTANCE) * 1000. << " mm" << endl;
+			if ( distanceToHomeRadar_ - PLATFORM_DISTANCE < 1.0)
+			{
+				atPlatform_ = true;
+				msg.distance = (distanceToHomeRadar_ - PLATFORM_DISTANCE) * 1000.;
+			}
+			else msg.distance = 1000.;
+			platforming_ = true;
+			msg.speed = 500. * sgn(msg.distance);
+			movement_pub_.publish(msg);
+			movementComplete_ = false;
+			return HeadForHomeState_;
+		}
+		else if (distanceToHomeRadar_ > PARKING_DISTANCE)
+		{
+			cout << " we are moving onto the platform = " << (distanceToHomeRadar_ + 1.0 - PARKING_DISTANCE) * 1000. << " mm" << endl;
+			msg.distance = (distanceToHomeRadar_ + 0.5 - PARKING_DISTANCE) * 1000.;
+			msg.speed = 800. * sgn(msg.distance);
+			parking_ = true;
+			
+		}
+		else
+		{
+			if (radarGoodData_) 
+			{
+				cout << " we are in parking position, shut it down at a distance  = " << distanceToHomeRadar_ << " meters" << endl;
+				return AllDoneState_;
+			}
+			else
+			{
+				cout << "missed a radar data point, wait for the next one" << endl;
+				parking_ = true;
+				movementComplete_ = true;
+				return HeadForHomeState_;
+			}					
+		}				
+		movement_pub_.publish(msg);
+		movementComplete_ = false;
+		return HeadForHomeState_;  
+	} 
+   /*
+   else if (range_ > 2)
+   {
+      //move forward 0.5 m
+   	msg.angle = 0;
+   	msg.speed = 1000;
+   	msg.distance = 500.;		
 		movement_pub_.publish(msg); 
       ROS_INFO("moving forward 2m");
       
@@ -3293,7 +3360,7 @@ int on_update_HeadForHomeState()
       currentSection_ = PLATFORM;
       return MoveOntoPlatformState_;
    }
-   
+   */
    return HeadForHomeState_;  
    
 }
