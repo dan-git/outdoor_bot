@@ -22,10 +22,16 @@ DirAntFollower::DirAntFollower()
 
 void DirAntFollower::setupFSM()
 {
+  wait_for_first_turn_state_ = fsm_.add_state();
   wait_for_angle_state_ = fsm_.add_state();
   turn_state_ = fsm_.add_state();
+  wait_before_move_state_ = fsm_.add_state();
   move_state_ = fsm_.add_state();
   timeout_state_ = fsm_.add_state();
+
+  fsm_.set_entry_function(wait_for_first_turn_state_, boost::bind(&DirAntFollower::on_enter_wait_for_first_turn, this));
+  fsm_.set_update_function(
+      wait_for_first_turn_state_, boost::bind(&DirAntFollower::on_update_wait_for_first_turn, this));
 
   fsm_.set_entry_function(wait_for_angle_state_, boost::bind(&DirAntFollower::on_enter_wait_for_angle, this));
   fsm_.set_update_function(
@@ -33,6 +39,9 @@ void DirAntFollower::setupFSM()
 
   fsm_.set_entry_function(turn_state_, boost::bind(&DirAntFollower::on_enter_turn, this));
   fsm_.set_update_function(turn_state_, boost::bind(&DirAntFollower::on_update_turn, this));
+
+  fsm_.set_entry_function(wait_before_move_state_, boost::bind(&DirAntFollower::on_enter_wait_before_move, this));
+  fsm_.set_update_function(wait_before_move_state_, boost::bind(&DirAntFollower::on_update_wait_before_move, this));
 
   fsm_.set_entry_function(move_state_, boost::bind(&DirAntFollower::on_enter_move, this));
   fsm_.set_update_function(move_state_, boost::bind(&DirAntFollower::on_update_move, this));
@@ -46,12 +55,22 @@ void DirAntFollower::activate()
   ros::NodeHandle private_nh("~");
   private_nh.param("dir_ant_follower/dir_ant_timeout", params_.dir_ant_timeout, -1.0);
   private_nh.param("dir_ant_follower/incremental_distance", params_.incremental_distance, 10.0);
+  private_nh.param("dir_ant_follower/min_angle", params_.min_angle, 0.5);
+  private_nh.param("dir_ant_follower/wait_before_move_duration", params_.wait_before_move_duration, 2.0);
 
-  ROS_INFO("Activating directional antenna follower.  The timeout on the antenna is %f and the incremental forward"
-           " distance is %f.",
+  if (params_.min_angle < 0.5)
+  {
+    ROS_ERROR("DirAntFollower: Cannot turn less than 0.5 degrees.  Setting min angle to 0.5.");
+    params_.min_angle = 0.5;
+  }
+
+  ROS_INFO("Activating directional antenna follower.  The timeout on the antenna is %f, the incremental forward"
+           " distance is %f, the minimum turn is %f degrees, and we will wait %f seconds before starting a move.",
            params_.dir_ant_timeout,
-           params_.incremental_distance);
-  fsm_.set_state(wait_for_angle_state_);
+           params_.incremental_distance,
+           params_.min_angle,
+           params_.wait_before_move_duration);
+  fsm_.set_state(wait_for_first_turn_state_);
 }
 
 DirAntFollower::Output DirAntFollower::update(const Input& input)
@@ -60,6 +79,20 @@ DirAntFollower::Output DirAntFollower::update(const Input& input)
   output_ = Output();
   fsm_.update();
   return output_;
+}
+
+void DirAntFollower::on_enter_wait_for_first_turn()
+{
+  ROS_INFO("DirAntFollower: Waiting for first turn (from accelerometers presumably) to be completed.");
+}
+
+int DirAntFollower::on_update_wait_for_first_turn()
+{
+  if (input_.mode() == Input::READY_FOR_NEW_COMMAND)
+  {
+    return wait_for_angle_state_;
+  }
+  return wait_for_first_turn_state_;
 }
 
 void DirAntFollower::on_enter_wait_for_angle()
@@ -98,6 +131,10 @@ int DirAntFollower::on_update_wait_for_angle()
   }
   // Finished sweep.  Turn.
   turn_data_.angle = resp.dirAntMaxAngle;
+  if (fabs(turn_data_.angle) < params_.min_angle)
+  {
+    return move_state_;
+  }
   return turn_state_;
 }
 
@@ -114,7 +151,27 @@ int DirAntFollower::on_update_turn()
   {
     return turn_state_;
   }
+  if (params_.wait_before_move_duration > 0)
+  {
+    return wait_before_move_state_;
+  }
   return move_state_;
+}
+
+void DirAntFollower::on_enter_wait_before_move()
+{
+  ROS_INFO("DirAntFollower: Waiting before we move (probably for laser).");
+  wait_before_move_data_.start_time = ros::Time::now();
+}
+
+int DirAntFollower::on_update_wait_before_move()
+{
+  output_.set_mode(Output::STOP);
+  if (ros::Time::now() - wait_before_move_data_.start_time > ros::Duration(params_.wait_before_move_duration))
+  {
+    return move_state_;
+  }
+  return wait_before_move_state_;
 }
 
 void DirAntFollower::on_enter_move()

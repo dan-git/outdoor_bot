@@ -76,11 +76,17 @@ class DirAntFollower
  private:
   void setupFSM();
 
+  void on_enter_wait_for_first_turn();
+  int on_update_wait_for_first_turn();
+
   void on_enter_wait_for_angle();
   int on_update_wait_for_angle();
 
   void on_enter_turn();
   int on_update_turn();
+
+  void on_enter_wait_before_move();
+  int on_update_wait_before_move();
 
   void on_enter_move();
   int on_update_move();
@@ -89,8 +95,10 @@ class DirAntFollower
   int on_update_timeout();
 
   FBFSM fsm_;
+  int wait_for_first_turn_state_;
   int wait_for_angle_state_;
   int turn_state_;
+  int wait_before_move_state_;
   int move_state_;
   int timeout_state_;
 
@@ -107,12 +115,21 @@ class DirAntFollower
     TurnData() : angle(0.0) {}
   } turn_data_;
 
+  struct WaitBeforeMoveData
+  {
+    ros::Time start_time;
+  } wait_before_move_data_;
+
   struct Params
   {
     // A timeout on waiting for the directional antenna.
     double dir_ant_timeout;
     // How far to move forward each time.
     double incremental_distance;
+    // If we're supposed to turn less than this, we skip the turn and go directly to the move state.
+    double min_angle;
+    // The time to wait before moving (usually for radar data).
+    double wait_before_move_duration;
   } params_;
 
   ros::Publisher dir_ant_pub_;

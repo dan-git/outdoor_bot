@@ -73,17 +73,19 @@ void WallFollower::activate(const Goal& goal)
   private_nh.param("obstacle_avoider/incremental_distance", params_.incremental_distance, 2.0);
   private_nh.param("obstacle_avoider/move_timeout", params_.move_timeout, -1.0);
   private_nh.param("obstacle_avoider/turn_timeout", params_.turn_timeout, -1.0);
+  private_nh.param("obstacle_avoider/always_turn_back", params_.always_turn_back, true);
 
   ROS_INFO("Activating wall follower.  Rectangle x dimension: %f, robot radius: %f, "
            "wait for obstacle clear duration: %f, side angle: %f, "
-           "incremental forward distance: %f, move timeout: %f, turn timeout: %f",
+           "incremental forward distance: %f, move timeout: %f, turn timeout: %f, always turn back: %d",
            params_.stop_if_obstacle_within_distance,
            params_.robot_radius,
            params_.wait_for_obstacle_clear_duration,
            params_.side_angle,
            params_.incremental_distance,
            params_.move_timeout,
-           params_.turn_timeout);
+           params_.turn_timeout,
+           params_.always_turn_back);
 
   state_ = State();
   goal_ = goal;
@@ -156,7 +158,7 @@ int WallFollower::on_update_move_forward()
     return move_forward_state_;
   }
 
-  if (detections[1])
+  if (params_.always_turn_back || detections[1])
   {
     // Wall on the side is gone!  Turn to follow wall.
     return command_turn_into_state_;
