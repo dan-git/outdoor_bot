@@ -3,6 +3,7 @@
 #include "std_msgs/Int32.h"
 #include "outdoor_bot/NavTargets_service.h"
 #include "outdoor_bot/NavTargets_msg.h"
+#include "outdoor_bot/navTargetsCommand_msg.h"
 #include "outdoor_bot_defines.h"
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
@@ -32,6 +33,10 @@ using namespace std;
 #define MAX_AREA 12000.
 #define MIN_RATIO_AREA_ARCLENGTH 5. //10.
 #define MAX_RATIO_AREA_ARCLENGTH 120. 
+#define MIN_AREA_HOME_DIGCAM 1000.
+#define MAX_AREA_HOME_DIGCAM 1000000.
+#define MIN_RATIO_AREA_ARCLENGTH_HOME_DIGCAM 1. //5. //10.
+#define MAX_RATIO_AREA_ARCLENGTH_HOME_DIGCAM 1000. //120. 
 #define MIN_ASPECT_RATIO 0.55
 #define MAX_ASPECT_RATIO 0.75
 
@@ -47,6 +52,7 @@ private:
 	//void FindNavTargets(int numVertices, double MinAngle, double MaxAngle, int MinArea, int MaxArea);
 	double angle_( Point* pt1, Point* pt2, Point* pt0 );
    float range_;
+   int cameraName_;
 	int centerX_, centerY_, height_, width_, areaAvg_, numPolygons_;
 	int circleCenterX_, circleCenterY_;
 	bool foundMultipleTargets_, newHomeImageReceived_;
@@ -119,16 +125,36 @@ void homeImageCallback(const sensor_msgs::ImageConstPtr& msg)
 }
 
 
-void commandCallback(const std_msgs::String::ConstPtr& msg)
+void commandCallback(const outdoor_bot::navTargetsCommand_msg msg)
 {
-        cout << "analysing image for home target in NavTargets" << endl;
-        newHomeImageReceived_ = false;
+      cout << "analysing image for home target in NavTargets" << endl;
+      newHomeImageReceived_ = false;
+      cameraName_ = msg.cameraName;
+      int minArea = MIN_AREA, maxArea = MAX_AREA;
+      int minRatioAreaArclength = MIN_RATIO_AREA_ARCLENGTH, maxRatioAreaArclength = MAX_RATIO_AREA_ARCLENGTH;
+		if (cameraName_ == HOME_DIGCAM )
+      {
+			minArea = MIN_AREA_HOME_DIGCAM;
+         maxArea = MAX_AREA_HOME_DIGCAM;
+         minRatioAreaArclength = MIN_RATIO_AREA_ARCLENGTH_HOME_DIGCAM;
+         maxRatioAreaArclength = MAX_RATIO_AREA_ARCLENGTH_HOME_DIGCAM;
+         ROS_INFO("navTargets is using a webcam image via image transport.");
+      }
+      else if (cameraName_ == WEBCAM)
+      {
+
+         minArea = MIN_AREA;
+         maxArea = MAX_AREA;
+         minRatioAreaArclength = MIN_RATIO_AREA_ARCLENGTH;
+         maxRatioAreaArclength = MAX_RATIO_AREA_ARCLENGTH;
+         ROS_INFO("navTargets is using a webcam image via image transport.");
+      }
         
         //if (GetNavTargets(newHomeImage_, 6, 0.05, 0.42, 0.28, 0.63, 0.50, 5000., 3000000.,10., 120., 0.55, 0.75, false, false))
         
         if (GetNavTargets(newHomeImage_, NUM_VERTICES, MAX_MATCH_VALUE, BIGGEST_SMALL_ANGLE_COS,
 	SMALLEST_SMALL_ANGLE_COS, BIGGEST_BIG_ANGLE_COS, SMALLEST_BIG_ANGLE_COS,
-	MIN_AREA, MAX_AREA, MIN_RATIO_AREA_ARCLENGTH, MAX_RATIO_AREA_ARCLENGTH,
+	minArea, maxArea, minRatioAreaArclength, maxRatioAreaArclength,
 	MIN_ASPECT_RATIO, MAX_ASPECT_RATIO, false, false))
         {
            ROS_INFO("Found home target: (x,y), range = (%d, %d), %f", centerX_, centerY_, range_);

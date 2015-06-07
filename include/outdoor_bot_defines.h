@@ -38,9 +38,9 @@
 #define LAPTOP_HAS_BUILTIN_WEBCAM 1	// 1 if it has a built in webcam, 0 if not
 
 // camera names, cannot overlap camera numbers
-#define REGULAR_DIGCAM 2
+#define REGULAR_DIGCAM 4
 #define ZOOM_DIGCAM 3
-#define HOME_DIGCAM 4
+#define HOME_DIGCAM 2
 #define HOMECAM 5
 
 #define WEBCAM_TILT_DOWN -25.	// degrees to point webcam down when the target is close

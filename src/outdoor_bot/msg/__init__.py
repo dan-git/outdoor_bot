@@ -4,6 +4,7 @@ from ._digital_cams_custom import *
 from ._movement_msg import *
 from ._digcams_custom import *
 from ._servo_msg import *
+from ._dirAnt_msg import *
 from ._FibonacciAction import *
 from ._autoMove_msg import *
 from ._ObstacleDetectorFeedback_msg import *
@@ -21,4 +22,4 @@ from ._mainTargetsCommand_msg import *
 from ._NavTargets_msg import *
 from ._FibonacciActionFeedback import *
 from ._FibonacciGoal import *
-from ._dirAnt_msg import *
+from ._navTargetsCommand_msg import *

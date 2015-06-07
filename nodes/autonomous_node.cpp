@@ -8,6 +8,7 @@
 #include "outdoor_bot/mainTargets_service.h"
 #include "outdoor_bot/mainTargets_msg.h"
 #include "outdoor_bot/mainTargetsCommand_msg.h"
+#include "outdoor_bot/navTargetsCommand_msg.h"
 #include "outdoor_bot/radar_msg.h"
 #include "outdoor_bot/dirAnt_msg.h"
 #include "outdoor_bot/dirAnt_service.h"
@@ -35,6 +36,9 @@
 #include <boost/function.hpp>
 
 using namespace std;
+
+#define HOME_DIGCAM_ZOOM7	7
+#define HOME_DIGCAM_ZOOM7_FOV 21
 
 #define PHASE_TWO_TIME_LIMIT 7200   //  7200 seconds in two hours-- phase two challenge
 #define PHASE_ONE_TIME_LIMIT 1800 // 1800 seconds in 30 min-- phase one challenge
@@ -102,7 +106,7 @@ int distanceToFirstTarget_, distanceToFirstTargetStaging_;
 int centerX_, centerY_, totalX_, moving_, turning_, alreadyTurned_, picking_, orienting_, alreadyOriented_, parking_, totalMoveToFirstTarget_ = 0;
 int home_image_height_, home_image_width_;
 bool homeCenterUpdated_, movementComplete_, triedWebcamAlready_, triedZoomDigcamAlready_, triedRegularDigcamAlready_;
-double range_, approxRangeToTarget_, targetRange_, homeCameraRange_, offsetX_, webcamTilt_, regularDigcamZoom_, zoomDigcamZoom_, regularDigcamFOV_;
+double range_, approxRangeToTarget_, targetRange_, homeCameraRange_, offsetX_, webcamTilt_, regularDigcamZoom_, zoomDigcamZoom_, regularDigcamFOV_, homeDigcamZoom_, homeDigcamFOV_;
 double accelX_, accelY_, accelZ_, x_, y_, yaw_, odomDistanceToHome_;
 bool zoomResult_, writeFileResult_, newMainTargetDigcamImageReceived_, newMainTargetWebcamImageReceived_, rangeUnknown_;
 bool targetCenterUpdated_, newNavTargetImageReceived_;
@@ -192,7 +196,7 @@ class targetAquireFSM
       void on_enter_CaptureImage()
       {
          if (homeTarget_) newNavTargetImageReceived_ = false;
-         else if (acquireCamName_ == REGULAR_DIGCAM || acquireCamName_ == ZOOM_DIGCAM) newMainTargetDigcamImageReceived_ = false;
+         else if (acquireCamName_ == REGULAR_DIGCAM || acquireCamName_ == ZOOM_DIGCAM || acquireCamName_ == HOME_DIGCAM) newMainTargetDigcamImageReceived_ = false;
          else newMainTargetWebcamImageReceived_ = false;
          imageCapture(camCommand_, acquireCamName_, fileWrite_);  // command an image capture
          //cout << "image capture commanded for camera " << acquireCamName_ << ", fileWrite_ =" << fileWrite_ << endl;
@@ -202,7 +206,7 @@ class targetAquireFSM
       {
             if (!homeTarget_)
             {
-            	if ( (newMainTargetDigcamImageReceived_ && (acquireCamName_ == REGULAR_DIGCAM || acquireCamName_ == ZOOM_DIGCAM) )
+            	if ( (newMainTargetDigcamImageReceived_ && (acquireCamName_ == REGULAR_DIGCAM || acquireCamName_ == ZOOM_DIGCAM || acquireCamName_ == HOME_DIGCAM) )
             		|| (newMainTargetWebcamImageReceived_ && acquireCamName_ == WEBCAM) ) return analyzeImageState_; // image received by mainTargets
             }
             else if (newNavTargetImageReceived_) return analyzeImageState_; // image analyzed by NavTargets
@@ -217,9 +221,14 @@ class targetAquireFSM
          if (homeTarget_)
          {
          	cout << "sending command to analyze image for home target" << endl;
-         	newNavTargetImageReceived_ = false;
-         	std_msgs::String msg;
-         	msg.data = "home";
+         	newNavTargetImageReceived_ = false;		      
+		      outdoor_bot::navTargetsCommand_msg msg; 
+		      msg.cameraName = acquireCamName_;
+		      msg.approxRange = distanceToHomeRadar_;
+		      //if (acquireCamName_ == REGULAR_DIGCAM) msg.regularDigcamZoom = regularDigcamZoom_;
+		      //else if (acquireCamName_ == ZOOM_DIGCAM) msg.zoomDigcamZoom = zoomDigcamZoom_;
+		      //else if (acquireCamName_ == HOME_DIGCAM) 
+		      msg.homeDigcamZoom = homeDigcamZoom_;
          	NavTargetsCommand_pub_.publish(msg); 
          }
          else
@@ -233,6 +242,7 @@ class targetAquireFSM
 		      msg.approxRange = approxRangeToTarget_;
 		      if (acquireCamName_ == REGULAR_DIGCAM) msg.regularDigcamZoom = regularDigcamZoom_;
 		      else if (acquireCamName_ == ZOOM_DIGCAM) msg.zoomDigcamZoom = zoomDigcamZoom_;
+		      else if (acquireCamName_ == HOME_DIGCAM) msg.homeDigcamZoom = homeDigcamZoom_;
 		      mainTargetsCommand_pub_.publish(msg);
 		   }
       }  
@@ -561,7 +571,7 @@ void imageCapture(string command, int camName, bool writeFile)
       }
       else if (camName == HOME_DIGCAM)
       {
-      	//digcam_command_.zoom = regularDigcamZoom_;  //************real ops setup home digcam zoom stuff
+      	digcam_command_.zoom = homeDigcamZoom_; 
       	cout << "HOME_DIGCAM" << endl;
       }
       
@@ -598,7 +608,7 @@ void testCameras()
    cout << "testing cameras" << endl;
    // the digital cams:
    
-   bool fileWrite = true;
+   bool fileWrite = false;
    
    cout << "capturing image on zoom digcam..." << endl;
    imageCapture("capture", ZOOM_DIGCAM, fileWrite);
@@ -660,6 +670,14 @@ void testCameras()
    	cout << "setting zoom again on right digital camera to " << regularDigcamZoom_ << endl;
    	setZoom(REGULAR_DIGCAM, (float) regularDigcamZoom_);
    }	
+   
+   cout << "setting zoom on home digital camera to " << regularDigcamZoom_ << endl;
+    setZoom(HOME_DIGCAM, (float) homeDigcamZoom_);
+   while (!askUser())
+   {
+   	cout << "setting zoom again on home digital camera to " << regularDigcamZoom_ << endl;
+   	setZoom(HOME_DIGCAM, (float) homeDigcamZoom_);
+   }	
       
    cout << "capturing image on zoom digcam..." << endl;
    imageCapture("capture", ZOOM_DIGCAM, fileWrite);
@@ -675,6 +693,14 @@ void testCameras()
    {
    	cout << "capturing another image on right digcam..." << endl;
    	imageCapture("capture", REGULAR_DIGCAM, fileWrite);
+   }
+   
+   cout << "capturing image on home digcam..." << endl;
+   imageCapture("capture", HOME_DIGCAM, fileWrite);
+   while (!askUser()) 
+   {
+   	cout << "capturing another image on home digcam..." << endl;
+   	imageCapture("capture", HOME_DIGCAM, fileWrite);
    }
 }  
 
@@ -808,7 +834,7 @@ void targetCenterCallback(const outdoor_bot::mainTargets_msg::ConstPtr &msg)
 void mainTargetImageReceivedCallback(const std_msgs::Int32::ConstPtr& msg)
 {
    int cameraName = msg->data;
-   if (cameraName == REGULAR_DIGCAM || cameraName == ZOOM_DIGCAM || cameraName == 1) 
+   if (cameraName == REGULAR_DIGCAM || cameraName == ZOOM_DIGCAM || cameraName == HOME_DIGCAM) 
    {
    	newMainTargetDigcamImageReceived_ = true;
    	cout << "digcam image was received by mainTargets" << endl;
@@ -824,7 +850,7 @@ void mainTargetImageReceivedCallback(const std_msgs::Int32::ConstPtr& msg)
 void navTargetImageReceivedCallback(const std_msgs::Int32::ConstPtr& msg)
 {
 	int cameraName = msg->data;
-	if (cameraName == HOMECAM)
+	if (cameraName == HOMECAM || cameraName == HOME_DIGCAM || cameraName == WEBCAM)
    {
    	newNavTargetImageReceived_ = true;
    	cout << "image was received by NavTargets, cameraName = " << cameraName << endl;
@@ -1015,6 +1041,8 @@ void on_enter_BootupState()
    zoomDigcamFOV_ = ZOOM_DIGCAM_ZOOM7_FOV;	// these two	
    regularDigcamZoom_ = REGULAR_DIGCAM_ZOOM5;	// these get set together
    regularDigcamFOV_ = REGULAR_DIGCAM_ZOOM5_FOV;		// these two
+   homeDigcamZoom_ = HOME_DIGCAM_ZOOM7;	// these get set together
+   homeDigcamFOV_ = HOME_DIGCAM_ZOOM7_FOV;		// these two
    recoverTurnedAlready_ = false;
    firstMoveToFirstTarget_ = true;
    firstMoveToTarget_ = false;
@@ -1166,7 +1194,7 @@ void on_exit_BootupState()
 void on_enter_CheckLinedUpState()
 {
    // start by capturing an image using fsm
-   tAF_.set_acquireCamName(ZOOM_DIGCAM);	// if we change here, also change in on_update below
+   tAF_.set_acquireCamName(HOME_DIGCAM);	// if we change here, also change in on_update below
    tAF_.set_camCommand("capture");
    tAF_.set_firstTarget(true);
    tAF_.set_homeTarget(false);
@@ -1207,7 +1235,7 @@ int on_update_CheckLinedUpState()
    }
    
    // decided to try again, so we will capture an image using fsm
-   tAF_.set_acquireCamName(ZOOM_DIGCAM);			//if we change here , change above in on_enter too
+   tAF_.set_acquireCamName(HOME_DIGCAM);			//if we change here , change above in on_enter too
    tAF_.set_camCommand("capture");
    tAF_.set_firstTarget(true);
    tAF_.set_homeTarget(false);
@@ -2877,18 +2905,18 @@ void on_enter_CheckHomeState()
    // start by capturing an image using fsm
    currentSection_ = HOME;
    centerX_ = -1;
-   //if (!triedWebcamAlready_)
+   if (!triedWebcamAlready_)
    {
    	tAF_.set_acquireCamName(WEBCAM);
    	triedWebcamAlready_ = true;
    	lastCamName_ = WEBCAM;
    }
-  /* else
+   else
    {
    	tAF_.set_acquireCamName(HOME_DIGCAM);
    	lastCamName_ = HOME_DIGCAM;
    }
-   */
+   
    tAF_.set_camCommand("cap_home");
    tAF_.set_homeTarget(true);
    tAF_.set_firstTarget(false);
@@ -2926,7 +2954,11 @@ void on_enter_SearchForHomeState()
 {
    	deltaServoDegrees_ = -deltaServoDegrees_; // switch directions each time
 		currentServoDegrees_ += deltaServoDegrees_ * searchCounter_;
-		if (abs(currentServoDegrees_) > PAN_CAMERA_SEARCH_MAX) return; // can't find the target, so center the camera and then move ahead a bit
+		if (abs(currentServoDegrees_) > PAN_CAMERA_SEARCH_MAX)
+		{
+			if (lastCamName_ == HOME_DIGCAM) return; // can't find the target, so center the camera and then move ahead a bit
+			triedWebcamAlready_ = true;
+		}
 		searchCounter_++;
 		tAF_.set_servoDegrees(currentServoDegrees_);
 		
@@ -2937,10 +2969,7 @@ void on_enter_SearchForHomeState()
 
 int on_update_SearchForHomeState()
 {
-   if (abs(currentServoDegrees_) > PAN_CAMERA_SEARCH_MAX)
-   {
-      return HeadForHomeState_; // can't find the target, so move ahead a bit 
-   }
+   if (abs(currentServoDegrees_) > PAN_CAMERA_SEARCH_MAX || lastCamName_ == HOME_DIGCAM) return HeadForHomeState_; // can't find the target, so move ahead a bit 
    tAF_.update();
    if (tAF_.current_state() != tAF_.getAcquireDoneState()) return SearchForHomeState_; // waiting for servo delay
    return CheckHomeState_; // go see if there is a target in this camera direction
@@ -3786,7 +3815,7 @@ int main(int argc, char* argv[])
    //pmotor_pub_ = nh.advertise<outdoor_bot::pmotor_msg>("pmotor_cmd", 5);
    movement_pub_ = nh.advertise<outdoor_bot::movement_msg>("movement_command", 2);
    mainTargetsCommand_pub_ = nh.advertise<outdoor_bot::mainTargetsCommand_msg>("mainTargets_cmd", 25);
-   NavTargetsCommand_pub_ = nh.advertise<std_msgs::String>("NavTargets_cmd", 5);
+   NavTargetsCommand_pub_ = nh.advertise<outdoor_bot::navTargetsCommand_msg>("NavTargets_cmd", 5);
    target_center_sub_ = nh.subscribe("target_center", 10, targetCenterCallback);
    home_center_sub_ = nh.subscribe("Home_target_center", 10, homeCenterCallback); 
    move_complete_sub_ = nh.subscribe("movement_complete", 4, moveCompleteCallback);

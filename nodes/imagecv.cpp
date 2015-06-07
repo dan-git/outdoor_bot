@@ -339,12 +339,12 @@ int main(int argc, char* argv[])
    cv::namedWindow("digcam");
    cv::namedWindow("webcam");
    cv::namedWindow("homecam");
-   cv::namedWindow("user_image");
+   //cv::namedWindow("user_image");
    cv::startWindowThread();
    
    
    //setMouseCallback("user_image", uIC.userCallBack, NULL);  // this is now setup inside the class
-
+/*
    
        // Read image from file 
    //string filenm = "/home/dbarry/Dropbox/outdoor_bot/media/image_processing/digcam/zoom_digcam_zoom7_5m_area_31054.jpg";  
@@ -367,7 +367,7 @@ int main(int argc, char* argv[])
   // string filenm = "/home/dbarry/Dropbox/outdoor_bot/media/image_processing/digcam/zoom_digcam_zoom7_5m_area_31054.jpg";   
    //
    //ic.readImageFile(filenm);
-   
+  */ 
   
    /*
    camName = DIGCAM;
@@ -383,7 +383,7 @@ int main(int argc, char* argv[])
   
    //filenm = "/home/dbarry/Dropbox/outdoor_bot/media/image_processing/webcam/webcam_white_1_1m_area_4000.jpg";
    //ic.readImageFile(filenm);
-   camName = HOMECAM;
+/*   camName = HOMECAM;
    double approxRange = 1.0;
    cout << "ready to publish?" << endl;
    ic.askUser();		// have to have a delay in here or the message does not publish     
@@ -392,7 +392,7 @@ int main(int argc, char* argv[])
    ic.askUser();	
    ic.analyzeImage(camName, approxRange, firstTarget, homeTarget);
    ros::spinOnce();
-  
+ */ 
  /*        
    filenm = "/home/dbarry/Dropbox/outdoor_bot/media/image_processing/digcam/digcam__white_zoom7_5m_area_11747.jpg";
    ic.readImageFile(filenm);

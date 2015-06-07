@@ -153,6 +153,12 @@ mainTargets(ros::NodeHandle &nh)
          	ROS_INFO("mainTargets is using a zoom digcam image via image transport.");
          	zoomDigcamZoom_ = msg.zoomDigcamZoom;
          }
+         else if (cameraName_ == HOME_DIGCAM )
+         {
+         	//homeDigcamZoom_ = msg.homeDigcamZoom;
+         	cout << "mainTargets received an image from the home digcam so will not analyze it " << endl;
+      		return;
+         }
          image_ = newDigcamImage_.clone();
          newDigcamImageReceived_ = false;
       }

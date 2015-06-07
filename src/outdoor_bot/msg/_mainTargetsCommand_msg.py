@@ -6,19 +6,20 @@ import struct
 
 
 class mainTargetsCommand_msg(genpy.Message):
-  _md5sum = "89c932c18b3e94aa4c8385b150b15b95"
+  _md5sum = "b1faa92c8dffb7694c609d94e4e2d116"
   _type = "outdoor_bot/mainTargetsCommand_msg"
   _has_header = False #flag to mark the presence of a Header object
   _full_text = """int32 cameraName
 int32 regularDigcamZoom
 int32 zoomDigcamZoom
+int32 homeDigcamZoom
 float32 approxRange
 bool firstTarget
 
 
 """
-  __slots__ = ['cameraName','regularDigcamZoom','zoomDigcamZoom','approxRange','firstTarget']
-  _slot_types = ['int32','int32','int32','float32','bool']
+  __slots__ = ['cameraName','regularDigcamZoom','zoomDigcamZoom','homeDigcamZoom','approxRange','firstTarget']
+  _slot_types = ['int32','int32','int32','int32','float32','bool']
 
   def __init__(self, *args, **kwds):
     """
@@ -28,7 +29,7 @@ bool firstTarget
     changes.  You cannot mix in-order arguments and keyword arguments.
 
     The available fields are:
-       cameraName,regularDigcamZoom,zoomDigcamZoom,approxRange,firstTarget
+       cameraName,regularDigcamZoom,zoomDigcamZoom,homeDigcamZoom,approxRange,firstTarget
 
     :param args: complete set of field values, in .msg order
     :param kwds: use keyword arguments corresponding to message field names
@@ -43,6 +44,8 @@ bool firstTarget
         self.regularDigcamZoom = 0
       if self.zoomDigcamZoom is None:
         self.zoomDigcamZoom = 0
+      if self.homeDigcamZoom is None:
+        self.homeDigcamZoom = 0
       if self.approxRange is None:
         self.approxRange = 0.
       if self.firstTarget is None:
@@ -51,6 +54,7 @@ bool firstTarget
       self.cameraName = 0
       self.regularDigcamZoom = 0
       self.zoomDigcamZoom = 0
+      self.homeDigcamZoom = 0
       self.approxRange = 0.
       self.firstTarget = False
 
@@ -67,7 +71,7 @@ bool firstTarget
     """
     try:
       _x = self
-      buff.write(_struct_3ifB.pack(_x.cameraName, _x.regularDigcamZoom, _x.zoomDigcamZoom, _x.approxRange, _x.firstTarget))
+      buff.write(_struct_4ifB.pack(_x.cameraName, _x.regularDigcamZoom, _x.zoomDigcamZoom, _x.homeDigcamZoom, _x.approxRange, _x.firstTarget))
     except struct.error as se: self._check_types(struct.error("%s: '%s' when writing '%s'" % (type(se), str(se), str(_x))))
     except TypeError as te: self._check_types(ValueError("%s: '%s' when writing '%s'" % (type(te), str(te), str(_x))))
 
@@ -80,8 +84,8 @@ bool firstTarget
       end = 0
       _x = self
       start = end
-      end += 17
-      (_x.cameraName, _x.regularDigcamZoom, _x.zoomDigcamZoom, _x.approxRange, _x.firstTarget,) = _struct_3ifB.unpack(str[start:end])
+      end += 21
+      (_x.cameraName, _x.regularDigcamZoom, _x.zoomDigcamZoom, _x.homeDigcamZoom, _x.approxRange, _x.firstTarget,) = _struct_4ifB.unpack(str[start:end])
       self.firstTarget = bool(self.firstTarget)
       return self
     except struct.error as e:
@@ -96,7 +100,7 @@ bool firstTarget
     """
     try:
       _x = self
-      buff.write(_struct_3ifB.pack(_x.cameraName, _x.regularDigcamZoom, _x.zoomDigcamZoom, _x.approxRange, _x.firstTarget))
+      buff.write(_struct_4ifB.pack(_x.cameraName, _x.regularDigcamZoom, _x.zoomDigcamZoom, _x.homeDigcamZoom, _x.approxRange, _x.firstTarget))
     except struct.error as se: self._check_types(struct.error("%s: '%s' when writing '%s'" % (type(se), str(se), str(_x))))
     except TypeError as te: self._check_types(ValueError("%s: '%s' when writing '%s'" % (type(te), str(te), str(_x))))
 
@@ -110,12 +114,12 @@ bool firstTarget
       end = 0
       _x = self
       start = end
-      end += 17
-      (_x.cameraName, _x.regularDigcamZoom, _x.zoomDigcamZoom, _x.approxRange, _x.firstTarget,) = _struct_3ifB.unpack(str[start:end])
+      end += 21
+      (_x.cameraName, _x.regularDigcamZoom, _x.zoomDigcamZoom, _x.homeDigcamZoom, _x.approxRange, _x.firstTarget,) = _struct_4ifB.unpack(str[start:end])
       self.firstTarget = bool(self.firstTarget)
       return self
     except struct.error as e:
       raise genpy.DeserializationError(e) #most likely buffer underfill
 
 _struct_I = genpy.struct_I
-_struct_3ifB = struct.Struct("<3ifB")
+_struct_4ifB = struct.Struct("<4ifB")
