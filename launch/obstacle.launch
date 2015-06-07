@@ -19,6 +19,9 @@
   <param name="autonomous_node/obstacle_avoider/move_timeout" value="-1.0" />
   <!-- A timeout for turns.  A negative number means no timeout.-->
   <param name="autonomous_node/obstacle_avoider/turn_timeout" value="-1.0" />
+  <!-- Set to true to always just turn to SIDE, move incremental distance, then turn back and not actually try to
+       wall follow.-->
+  <param name="autonomous_node/obstacle_avoider/always_turn_back" value="true" />
 
   <!-- DETECTOR PARAMETERS -->
 

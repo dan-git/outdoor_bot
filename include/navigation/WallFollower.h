@@ -172,6 +172,9 @@ class WallFollower
     double move_timeout;
     // Timeout for turns (-1 for no timeout).
     double turn_timeout;
+    // Don't really try to wall follow.  Instead always turn back after the first 2m move even if we still think there
+    // is a wall there.
+    bool always_turn_back;
     Params()
         : stop_if_obstacle_within_distance(1.5),
           robot_radius(0.63),
@@ -179,7 +182,8 @@ class WallFollower
           side_angle(1.0),
           incremental_distance(2.0),
           move_timeout(-1.0),
-          turn_timeout(-1.0)
+          turn_timeout(-1.0),
+          always_turn_back(true)
     {}
   } params_;
 
