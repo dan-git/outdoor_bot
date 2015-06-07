@@ -2778,15 +2778,15 @@ int on_update_PhaseOneHomeState()
           distance_to_move = distanceToHomeRadar_ - SWITCH_FROM_DIR_ANT_TO_CAMERAS_DISTANCE;
           dir_ant_do_next_move_ = false;  // We want to switch to cameras on the next move.
         }
-        if (distance_to_move < 0.05)
+        if (distance_to_move < 0.5)
         {
-          // 5 cm isn't worth it.  Just switch now.
+          // under 500 cm isn't worth it.  Just switch now.
           return CheckHomeState_;
         }
         msg.command = "autoMove";
         msg.angle = 0.0;
         msg.distance = distance_to_move * 1000;
-        msg.speed = 1000;
+        msg.speed = 1000. * sgn(msg.distance);
         movementComplete_ = false;
         return PhaseOneHomeState_;
       }
@@ -3017,54 +3017,43 @@ int on_update_HeadForHomeState()
    // now move or turn
    outdoor_bot::movement_msg msg;
    
-   /*if (usingRadar_)
+   usingRadar_ = false;
    {
    	if ((!turning_) && (!alreadyTurned_) && (!pastStagingPoint_))
    	{
-   		// send turn command to center the target
-   		
-   		usingDirAnt_ = true;
-   		
-   		if (usingDirAnt_) usingDirAnt_ = updateDirectionalAntenna();
-   		if (usingDirAnt_)
-   		{
-   			cout << "compare directional antenna angle = " <<  dirAntMaxAngle_ << " to radar angle = " <<  angleToHomeRadar_ << endl;
-   		}
-			alreadyTurned_ = true;
+   		alreadyTurned_ = true;
+   		if (!usingRadar_) return CheckHomeState_;	// go get another image
 			
-			// untested change **************************************
+			if (usingRadar_) // send turn command to center the target
+			{			
+				// if we are too close to the staging point, we get large angles and don't want to go there.
+				if (distanceToRadarStagingPoint_ > 2. 
+					&& fabs(fabs(angleToRadarStagingPoint_) - fabs(angleToHomeRadar_) ) < 20. ) msg.angle = angleToRadarStagingPoint_;
+				else 
+				{
+					msg.angle = angleToHomeRadar_ * 1.2;	// go a little past, to maintain an approach intercept
+					cout << "we are too close to the staging point to turn there, we will instead turn for home with an angle of angleToHomeRadar * 1.2 = " << msg.angle << endl;
+				}
 			
-   		// if we are too close to the staging point, we get large angles and don't want to go there.
-   		if (distanceToRadarStagingPoint_ > 2. 
-   			&& fabs(fabs(angleToRadarStagingPoint_) - fabs(angleToHomeRadar_) ) < 20. ) msg.angle = angleToRadarStagingPoint_;
-   		else 
-   		{
-   			msg.angle = angleToHomeRadar_ * 1.2;	// go a little past, to maintain an approach intercept
-   			cout << "we are too close to the staging point to turn there, we will instead turn for home with an angle of angleToHomeRadar * 1.2 = " << msg.angle << endl;
-   		}
-   		
-   		// untested change **********************************
-   		
-   		
-   		
-   		if (fabs(msg.angle) < 5.  || (!radarGoodAngle_) || distanceToRadarStagingPoint_ < 1.) // no need to turn	// untested change ***********
-   		{
-		      if (fabs(msg.angle) > 90. && fabs(distanceToRadarStagingPoint_) < 8) pastStagingPoint_ = true;
+				if (fabs(msg.angle) < 5.  || (!radarGoodAngle_) || distanceToRadarStagingPoint_ < 1.) // no need to turn	// untested change ***********
+				{
+				   if (fabs(msg.angle) > 90. && fabs(distanceToRadarStagingPoint_) < 8) pastStagingPoint_ = true;
+				   turning_ = true;
+				   movementComplete_ = true;
+				   if (radarGoodAngle_) cout << " turn toward home was small enough to skip, it was = " << msg.angle << endl;
+				   else cout << "missed a radar data point when about to turn, wait for another one" << endl;
+				   return HeadForHomeState_;
+		      }            			 
+		   	msg.command = "autoMove";
+		   	msg.distance = 0.;
+		   	msg.speed = 20. * sgn(msg.angle);
+					// positive offset means turn to the left (ccw), negative to the right.
+				movement_pub_.publish(msg);
 		      turning_ = true;
-		      movementComplete_ = true;
-		      if (radarGoodAngle_) cout << " turn toward home was small enough to skip, it was = " << msg.angle << endl;
-		      else cout << "missed a radar data point when about to turn, wait for another one" << endl;
-		      return HeadForHomeState_;
-         }            			 
-      	msg.command = "autoMove";
-      	msg.distance = 0.;
-      	msg.speed = 20. * sgn(msg.angle);
-   			// positive offset means turn to the left (ccw), negative to the right.
-   		movement_pub_.publish(msg);
-         turning_ = true;
-         movementComplete_ = false;
-   		cout << "using radar to turn toward staging point, turning " << angleToRadarStagingPoint_ << " degrees" << endl;
-   		return HeadForHomeState_;
+		      movementComplete_ = false;
+				cout << "using radar to turn toward staging point, turning " << angleToRadarStagingPoint_ << " degrees" << endl;
+				return HeadForHomeState_;
+			}
    	}	
 	   // send move command to go to staging  point
    	else if ((!moving_) && (!pastStagingPoint_))
@@ -3187,8 +3176,7 @@ int on_update_HeadForHomeState()
 		usingRadar_ = false;
 		pastStagingPoint_ = false;
 		return SearchForHomeState_; // something went wrong, look again for home		
-	}
-	*/  	
+	} 	
 
 
 	if (centerX_ > 0 && (!turning_) && (!alreadyTurned_))	
