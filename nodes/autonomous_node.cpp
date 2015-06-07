@@ -59,7 +59,7 @@ using namespace std;
 //#define DISTANCE_TO_FIRST_TARGET_STAGING 2.0
 //#define DISTANCE_TO_FIRST_TARGET 12.0
 #define TARGET_STAGING_DISTANCE 10.
-#define INCREMENTAL_MOVE_TO_TARGET 1.0 //10.0
+#define INCREMENTAL_MOVE_TO_TARGET 10.0
 #define INCREMENTAL_TURN_TO_FIND_TARGET -20.0
 #define SHORT_MOVE_TO_TARGET 1.0
 //#define FIRST_MOVE_REMAINING_DISTANCE 10.0
@@ -567,22 +567,22 @@ void testCameras()
    cout << "testing cameras" << endl;
    // the digital cams:
    
-   bool fileWrite = false;
+   bool fileWrite = true;
    
    cout << "capturing image on zoom digcam..." << endl;
-   imageCapture("capture", ZOOM_DIGCAM);
+   imageCapture("capture", ZOOM_DIGCAM, fileWrite);
    while (!askUser())
    {
    	cout << "capturing another image on zoom digcam..." << endl;
-   	imageCapture("capture", ZOOM_DIGCAM);
+   	imageCapture("capture", ZOOM_DIGCAM, fileWrite);
    }
    
    cout << "capturing image on right digcam..." << endl;
-   imageCapture("capture", REGULAR_DIGCAM);
+   imageCapture("capture", REGULAR_DIGCAM, fileWrite);
    while (!askUser()) 
    {
    	cout << "capturing another image on right digcam..." << endl;
-   	imageCapture("capture", REGULAR_DIGCAM);
+   	imageCapture("capture", REGULAR_DIGCAM, fileWrite);
    }
    
    // the webcams:
@@ -940,10 +940,10 @@ void on_enter_BootupState()
 {
 	currentSection_ = BOOTUP;
 	numTargets_ = 0;
-	approxRangeToTarget_ = 5; //15.; // change to 70 for real ops *****************************************
-   targetRange_ = 0.; //15.; // change to 70 for real ops *************************************************
+	approxRangeToTarget_ = 65; 
+   targetRange_ = 65;
    homeCameraRange_ = 10.;
-   range_ = 5.; //15;	// change to 70 for real ops ******************************************************
+   range_ = 65;
    x_ = 0.;
    y_ = 0.;
    yaw_ = 0.;
@@ -971,8 +971,8 @@ void on_enter_BootupState()
    triedWebcamAlready_ = false;
    triedZoomDigcamAlready_ = false;	
    triedRegularDigcamAlready_ = false;
-   zoomDigcamZoom_ = ZOOM_DIGCAM_ZOOM6;		// these get set together
-   zoomDigcamFOV_ = ZOOM_DIGCAM_ZOOM6_FOV;	// these two	
+   zoomDigcamZoom_ = ZOOM_DIGCAM_ZOOM7;		// these get set together
+   zoomDigcamFOV_ = ZOOM_DIGCAM_ZOOM7_FOV;	// these two	
    regularDigcamZoom_ = REGULAR_DIGCAM_ZOOM5;	// these get set together
    regularDigcamFOV_ = REGULAR_DIGCAM_ZOOM5_FOV;		// these two
    recoverTurnedAlready_ = false;
@@ -1126,7 +1126,7 @@ void on_exit_BootupState()
 void on_enter_CheckLinedUpState()
 {
    // start by capturing an image using fsm
-   tAF_.set_acquireCamName(WEBCAM);	// if we change here, also change in on_update below
+   tAF_.set_acquireCamName(ZOOM_DIGCAM);	// if we change here, also change in on_update below
    tAF_.set_camCommand("capture");
    tAF_.set_firstTarget(true);
    tAF_.set_homeTarget(false);
@@ -1156,6 +1156,8 @@ int on_update_CheckLinedUpState()
    }
    else cout << "no target found yet" << endl; 
    
+   
+   
    cout << "Do you want to move on to autonomous ops or retry LineUp?" << endl;
    if (askUserForGo())
    {  	
@@ -1165,7 +1167,7 @@ int on_update_CheckLinedUpState()
    }
    
    // decided to try again, so we will capture an image using fsm
-   tAF_.set_acquireCamName(WEBCAM);			//if we change here , change above in on_enter too
+   tAF_.set_acquireCamName(ZOOM_DIGCAM);			//if we change here , change above in on_enter too
    tAF_.set_camCommand("capture");
    tAF_.set_firstTarget(true);
    tAF_.set_homeTarget(false);
@@ -1175,72 +1177,64 @@ int on_update_CheckLinedUpState()
 
 void on_enter_PhaseTwoFirstState()
 {
-	// start by sensing which direction the platform is leaning
-	double targetAngle = 0.;
-	if (callAccelerometersService())
-	{
-		double downhillDirection;
-		if (fabs(accelX_) > 0.01) downhillDirection = atan(accelY_ / accelX_) * 57.3;
-		else downhillDirection = 90.;
-		cout << "downhill direction = " << downhillDirection << endl;
-		targetAngle = ANGLE_FROM_DOWNHILL_TO_TARGET - downhillDirection;
-	} 
-	
-	if (fabs(targetAngle) > 5. && fabs(targetAngle) < 60.) // ********check which servo is being set*********
-	{
-		tAF_.set_acquireCamName(ZOOM_DIGCAM);
-		tAF_.set_servoDegrees(targetAngle);
-		currentServoDegrees_ = targetAngle;
-		tAF_.set_state(tAF_.getMoveCameraState());         		   
-		while (tAF_.current_state() != tAF_.getAcquireDoneState()) 
-		{
-			tAF_.update();
-			ros::spinOnce();	// just to stop CPU from maxxing out with these updates
-		}
-	}
-	// capture an image
-   centerX_ = -1;
-   if (!triedZoomDigcamAlready_)
-   {
-		tAF_.set_acquireCamName(ZOOM_DIGCAM);
-		tAF_.set_camCommand("capture");
-		tAF_.set_firstTarget(true);
-		tAF_.set_homeTarget(false);
-		tAF_.set_state(tAF_.getCaptureImageState());
-		
-   }
+	// start by just moving off the platform 5 meters
+	currentSection_ = FIRST_TARGET_MOVE;
+	outdoor_bot::movement_msg msg;
+	msg.command = "autoMove";
+	msg.angle = 0.;
+	msg.speed = 1000.;
+	msg.distance = 5000.;
+	cout << "starting blind move, distance = " << msg.distance << " mm" << endl;
+	moving_ = true;
+	movement_pub_.publish(msg);
+	movementComplete_ = false;
 }
 
 int on_update_PhaseTwoFirstState()
 {
-   tAF_.update();
-   //cout << "current acquire target state = " << tAF_.current_state() << endl;
-   if (tAF_.current_state() != tAF_.getAcquireDoneState())
-   {
-   	//ros::spinOnce();
-   	return PhaseTwoFirstState_;  // check to see if the image got analyzed 
-   }
-
-   searchCounter_ = 0;
-   tAF_.set_servoDegrees(0);
-	tAF_.set_state(tAF_.getMoveCameraState());
-	while (tAF_.current_state() != tAF_.getAcquireDoneState()) 
+   if (!movementComplete_) return PhaseTwoFirstState_;
+   
+   if (moving_ || turning_)	//  move is complete
+   {	      	      
+		if (turning_)	// we have completed the first move and the downhill turn
+		{
+			turning_ = false;
+			movementComplete_ = false;
+			approxRangeToTarget_ = 60.;
+			centerX_ = -1;
+			firstMoveToFirstTarget_ = true;
+			cout << "finshed initial move and turn in phase two" << endl;
+			pauseCommanded_ = true;
+			return PauseState_;
+		}
+	}
+	moving_ = false;
+	
+	// now we turn downhill
+	double targetAngle = 0.;
+	if (callAccelerometersService())
 	{
-		tAF_.update();
-		ros::spinOnce();
-	}	
-   	          
-   if (centerX_ > 0)
-   {
-      cout << "possible target found: x, y, range = " << centerX_ << ", " << centerY_ << ", " << targetRange_ << endl;
-      triedZoomDigcamAlready_ = false;
-      triedRegularDigcamAlready_ = false;
-      return MoveToFirstTargetState_;
-   }
-   // did not see a target, so go to the usual procedure
-   currentServoDegrees_ = 0.;
-   firstMoveToFirstTarget_ = true;
-	return MoveToFirstTargetState_;
+		double downhillDirection;
+		if (accelX_ > 0.01) downhillDirection = atan(accelY_ / accelX_) * 57.3;
+		else if (accelX_ < -0.01)
+		{
+			if (accelY_ >= 0) downhillDirection = 180 - (atan(accelY_ / -accelX_) * 57.3);
+			else downhillDirection = -180 + (atan(accelY_ / -accelX_) * 57.3);
+		}
+		else downhillDirection = 90. * sgn(accelY_);
+		cout << "downhill direction = " << downhillDirection << endl;
+		targetAngle = ANGLE_FROM_DOWNHILL_TO_TARGET - downhillDirection;
+	}
+	outdoor_bot::movement_msg msg;
+	msg.command = "autoMove";
+	msg.angle = targetAngle;
+	msg.speed = 20.;
+	msg.distance = 0.;
+	cout << "starting blind turn, angle = " << msg.angle << " degrees" << endl;
+	turning_ = true;
+	movement_pub_.publish(msg);
+	movementComplete_ = false; 
+   return PhaseTwoFirstState_;  // check to see if the image got analyzed 
 }
 
 void on_enter_CheckFirstTargetState()
@@ -1491,7 +1485,8 @@ int on_update_MoveToFirstTargetState()
    if (obstacle_detector_->update())
    {
       // We've seen an obstacle!
-     return AvoidObstacleState_;
+      cout << "obstacle detected in moveToFirstTargetState" << endl;
+    // return AvoidObstacleState_; ************change for real ops to have an action *************
    }
 
    // check to see if we have arrived at the new pose   
@@ -1548,8 +1543,9 @@ int on_update_MoveToFirstTargetState()
 			if (fabs(yaw_) > 3.0 && alreadyTurned_ < 1)
 			{
 				msg.command = "autoMove";
-			   msg.speed = 1000.;
-			   msg.angle = -yaw_ + (sgn(yaw_) * 2);  // we turn a little extra to compensate for having moved forward with yaw drift.  we could calculate this better
+				msg.distance = 0.;
+			   msg.speed = -20. * sgn(yaw_); // go in the opposite direction of the yaw
+			   msg.angle = yaw_ + (sgn(yaw_) * 2);  // we turn a little extra to compensate for having moved forward with yaw drift.  we could calculate this better
 				//***************************
 				
 				cout << "turning to zero yaw = " << msg.angle << " degrees" << endl;
@@ -1568,6 +1564,7 @@ int on_update_MoveToFirstTargetState()
    	{
    		radarNewData_ = false;
    		distanceToHome = distanceToHomeRadar_;
+   		cout << "radar data is good" << endl;
    	}
    	else distanceToHome = odomDistanceToHome_;
    	if (distanceToHome >= 0)
@@ -1576,12 +1573,17 @@ int on_update_MoveToFirstTargetState()
    		{
    			msg.distance = INCREMENTAL_MOVE_TO_TARGET * 1000.;
    			approxRangeToTarget_ = distanceToFirstTarget_ - (distanceToHome + INCREMENTAL_MOVE_TO_TARGET);
+   			cout << "making incremental move to target, approxRangeToTarget = " << approxRangeToTarget_ << endl;
+   			cout << "odom and radar distances to home = " << odomDistanceToHome_ << ", " << distanceToHomeRadar_ << endl;
+   			cout << " we are using " << distanceToHome << " as our distance to home" << endl;
+   			cout << " with a distance to FirstTarget = " << distanceToFirstTarget_ << endl;
    		}
    		else if (distanceToHome < distanceToFirstTargetStaging_)
    		{
    			msg.distance  = (distanceToFirstTargetStaging_ - distanceToHome) * 1000.;
    			approxRangeToTarget_ = distanceToFirstTarget_ - distanceToFirstTargetStaging_;
    			firstMoveToFirstTarget_ = false;
+   			cout << "we just finished firstMoveToFirstTarget" << endl;
    		}
    		else 
    		{
@@ -1621,6 +1623,7 @@ int on_update_MoveToFirstTargetState()
 			msg.speed = 1000.;
 			msg.distance = INCREMENTAL_MOVE_TO_TARGET * 1000.;
 			cout << "starting blind move, distance = " << msg.distance << " mm" << endl;
+			cout << "approximate range to target = " << approxRangeToTarget_ << endl;
 			moving_ = true;
 			movement_pub_.publish(msg);
 			movementComplete_ = false;
@@ -1921,18 +1924,89 @@ void on_enter_NewTargetState()
 	currentSection_ = TARGETS;
 	firstMoveToTarget_ = true;
 	binShading_ = false;
-	approxRangeToTarget_ = 20.;
+	approxRangeToTarget_ = 40.;
 	startTime_ = ros::Time::now().toSec();
    secondsRemaining_ = totalTime_ - (ros::Time::now().toSec() - startTime_);
    numTargets_++;
    cout << " we have " << secondsRemaining_ << " seconds remaining on the clock" << endl;
    cout << " we have gathered " << numTargets_;
+   
+   // have to clear the area of the target
+   
+	// start by turning 180 degrees
+	double targetAngle = 180.;
+	/*
+	if (callAccelerometersService())
+	{
+		double downhillDirection;
+		if (accelX_ > 0.01) downhillDirection = atan(accelY_ / accelX_) * 57.3;
+		else if (accelX_ < -0.01)
+		{
+			if (accelY_ >= 0) downhillDirection = 180 - (atan(accelY_ / -accelX_) * 57.3);
+			else downhillDirection = -180 + (atan(accelY_ / -accelX_) * 57.3);
+		}
+		else downhillDirection = 90. * sgn(accelY_);
+		cout << "downhill direction = " << downhillDirection << endl;
+		targetAngle = ANGLE_FROM_DOWNHILL_TO_TARGET - downhillDirection;
+	}
+	*/
+	outdoor_bot::movement_msg msg;
+	msg.command = "autoMove";
+	msg.angle = targetAngle;
+	msg.speed = 20.;
+	msg.distance = 0.;
+	cout << "starting blind turn, angle = " << msg.angle << " degrees" << endl;
+	turning_ = true;
+	movement_pub_.publish(msg);
+	movementComplete_ = false; 
+	obstacle_detector_->activate(STOP_IF_OBSTACLE_WITHIN_DISTANCE, ROBOT_RADIUS);
+
 }
 
 int on_update_NewTargetState()
 {
-	return MoveToTargetState_;
+   if (!movementComplete_)
+   {
+   	if (obstacle_detector_->update())
+   	{
+      	// We've seen an obstacle!
+      	cout << "obstacle detected in NewTargetState" << endl;
+ //    		return AvoidObstacleState_;  // ***************uncomment for real ops**********************8
+   	} 
+   	return NewTargetState_;
+   }
+   
+   if (moving_ || turning_)	//  move is complete
+   {	      	      
+		if (moving_)	// we have completed the first move and the downhill turn
+		{
+			moving_ = false;
+			movementComplete_ = false;
+			approxRangeToTarget_ = 20.;
+			centerX_ = -1;
+			firstMoveToFirstTarget_ = true;
+			cout << "finshed initial move and turn in phase two" << endl;
+			if (numTargets_ > 3 || secondsRemaining_ < 1800) return HeadForHomeState_;
+			pauseCommanded_ = true;
+			return PauseState_;
+		}
+	}
+	turning_ = false;
+	
+		
+	outdoor_bot::movement_msg msg;
+	msg.command = "autoMove";
+	msg.angle = 0.;
+	msg.speed = 1000.;
+	msg.distance = 10000.;
+	cout << "starting blind move, distance = " << msg.distance << " mm" << endl;
+	moving_ = true;
+	movement_pub_.publish(msg);
+	movementComplete_ = false;
+
+   return NewTargetState_;  // check to see if the image got analyzed 
 }
+
 
  void on_enter_CheckTargetState()
  {
@@ -2156,7 +2230,8 @@ int on_update_MoveToTargetState()
    if (obstacle_detector_->update())
    {
      // We've seen an obstacle!
-     return AvoidObstacleState_;
+     cout << "obstacle detected in MoveToTargetState" << endl;
+//     return AvoidObstacleState_; // uncomment for real ops ************************
    }
 
    // check to see if we have arrived at the new pose   
@@ -2216,7 +2291,7 @@ int on_update_MoveToTargetState()
    
    outdoor_bot::movement_msg msg;
      
-   // if this is the very first move, we will just move 10m to get away from the previous target location
+   // if this is the very first move, we will just move another 10m to get away from the previous target location
    if (firstMoveToTarget_)
    {
    	msg.distance = 10000.;
@@ -2340,24 +2415,8 @@ int on_update_MoveToTargetState()
    
    cout << "Moving to target, range = " << range_ << endl; 
     
-   /* 
-	if (range_ > 60.)	
-	{
-	   msg.command = "move";
-	   msg.distance = 50.0;
-	   approxRangeToTarget_ -= 50.;
-	   ROS_INFO("moving forward 50m");
-	   
-	   //cout << "moving to target1 pose " << endl;
-	   //msg.command = "pose";
-	   //msg.poseX = target1_X;
-	   //msg.poseY = target1_Y;
-	   //msg.poseThetaDegrees = 0.; //plat1_Yaw * (3.14/180.);
-
-	 }
-	 	
-
-	else if (range_ > 20.)
+   
+	if (range_ > 20.)
 	{
 	   msg.command = "autoMove";
 	   msg.distance = 10000.;
@@ -2375,9 +2434,7 @@ int on_update_MoveToTargetState()
 	   ROS_INFO("moving forward 5m");
 	}
 	
-	else
-	*/
-	 if (range_ > 5.)
+	else if (range_ > 5.)
 	{
 	   msg.command = "autoMove";
 		msg.distance = 1000;	// mm
@@ -2452,16 +2509,14 @@ int on_update_PickupTargetState()
    // here we do final staging, which means line up with the target and drive straight to it and 
    // proceed with picking it up
    
-   static double minTime = 15., maxTime = 30.; // initialize with the scooper down times, since it started moving during on_enter
-   static ros::Time last_time = ros::Time::now();
-   ros::Time current_time;
+   static ros::Time timeIn = ros::Time::now() + ros::Duration(15); 
+   static ros::Time timeOut = ros::Time::now() + ros::Duration(30); // initialize with the scooper down times, since it started moving during on_enter
+
 	outdoor_bot::movement_msg msg;   
    msg.command = "PDmotorAuto";
-    
-   current_time = ros::Time::now(); 
    
-   if ( (!movementComplete_ || current_time.toSec() - last_time.toSec()  < minTime) // need min times because the arduino serial data
-   	&& current_time.toSec() - last_time.toSec() < maxTime) // is getting corrupted during PDmotorAuto moves.  Waiting for the move to finish
+   if ( (!movementComplete_ || ros::Time::now() < timeIn ) // need min times because the arduino serial data
+   	&& ros::Time::now() < timeOut) //Waiting for the move to finish
    {
    	ros::spinOnce();			   
    	return PickupTargetState_;
@@ -2478,9 +2533,8 @@ int on_update_PickupTargetState()
 		   msg.distance = 2000;	// mm
 		   msg.angle = 0;			// degrees
 		   msg.speed = 800;   	// mm/sec or deg/sec 
-		   minTime = 5.;
-		   maxTime = 30.; 
-		   last_time = ros::Time::now();
+		   timeIn = ros::Time::now() + ros::Duration(5);
+		   timeOut = ros::Time::now() + ros::Duration(30); 
    		movement_pub_.publish(msg);
    		return PickupTargetState_;
    	}
@@ -2493,28 +2547,14 @@ int on_update_PickupTargetState()
    		cout << "dropping bar" << endl;
    	   msg.PDmotorNumber = MOTOR_DROP_BAR;
    		msg.speed = DROP_BAR_DOWN;
-   		minTime = 30.;
-   		maxTime = 60.;
-   		last_time = ros::Time::now();
+   		timeIn = ros::Time::now() + ros::Duration(30);
+		   timeOut = ros::Time::now() + ros::Duration(60); 
    		movement_pub_.publish(msg); 
    		return PickupTargetState_;
    	}
-   	
-   	/*else if (dropping_) // finished dropping bar, now place scooper for scooping
-   	{
-   		dropping_ = false;
-   		placing_ = true;
-   		movementComplete_ = true; //false;	// use this if we want to only go part way down with the prep placement above	
-   	   msg.PDmotorNumber = MOTOR_PICKER_UPPER;
-   		msg.speed = PICKER_UPPER_DOWN;
-   		//movement_pub_.publish(msg); 
-   		return PickupTargetState_;
-   	}
-   	*/
    	   	
-   	else if (placing_) // finished dropping the bar, now push target onto scooper
+   	else if (dropping_) // finished dropping the bar, now push target onto scooper
    	{
-   		//placing_ = false;
    		dropping_ = false;
    		pushing_ = true;
    		movementComplete_ = false;
@@ -2523,9 +2563,8 @@ int on_update_PickupTargetState()
 		   msg.distance = 500;
 		   msg.angle = 0; 
 		   msg.speed = 800; 
-		   minTime = 5.;
-		   maxTime = 30.; 
-		   last_time = ros::Time::now(); 	  
+		   timeIn = ros::Time::now() + ros::Duration(5);
+		   timeOut = ros::Time::now() + ros::Duration(30); 	  
    		movement_pub_.publish(msg);
    		return PickupTargetState_;
    	}
@@ -2538,9 +2577,8 @@ int on_update_PickupTargetState()
    		cout << "scooping up target" << endl;
    	   msg.PDmotorNumber = MOTOR_PICKER_UPPER;
    		msg.speed = PICKER_UPPER_UP;
-   		minTime = 15.;
-		   maxTime = 30.; 
-		   last_time = ros::Time::now();
+   		timeIn = ros::Time::now() +ros::Duration(15);
+		   timeOut = ros::Time::now() + ros::Duration(30);
    		movement_pub_.publish(msg);
    		return PickupTargetState_;
    	}
@@ -2553,9 +2591,8 @@ int on_update_PickupTargetState()
    		cout << "retrieving drop bar" << endl;
    	   msg.PDmotorNumber = MOTOR_DROP_BAR;
    		msg.speed = DROP_BAR_UP;
-   		minTime = 30.;
-		   maxTime = 60.; 
-		   last_time = ros::Time::now();
+   		timeIn = ros::Time::now() + ros::Duration(35);
+		   timeOut = ros::Time::now() + ros::Duration(60);
    		movement_pub_.publish(msg); 
    		return PickupTargetState_;  
    	} 
@@ -2569,9 +2606,8 @@ int on_update_PickupTargetState()
 		   msg.distance = 2000;	// mm
 		   msg.angle = 0;			// degrees
 		   msg.speed = -800;   	// mm/sec or deg/sec 
-		   minTime = 5.;
-		   maxTime = 30.; 
-		   last_time = ros::Time::now(); 
+		   timeIn = ros::Time::now() + ros::Duration(5);
+		   timeOut = ros::Time::now() + ros::Duration(30); 
    		movement_pub_.publish(msg);
    		return PickupTargetState_;  
    	}
@@ -2598,6 +2634,7 @@ int on_update_PickupTargetState()
 			approxRangeToTarget_ = 20.;
 			return NewTargetState_;
 		}
+		
    }  
 }		
 
@@ -2685,10 +2722,36 @@ int on_update_PhaseOneHomeState()
 	return CheckHomeState_;
 }
 
+/*
+void on_enter_PhaseTwoHomeState()
+{
+	outdoor_bot::movement_msg msg;
+	usingDirAnt_ = updateDirectionalAntenna();
+	if (usingDirAnt_)
+	{
+		msg.angle = dirAntMaxAngle_;
+		msg.speed = 20 * sgn(maxAngle);
+		msg.command = "autoMove";
+   	msg.distance = 0;  
+   	movementComplete_ = false;	
+   	movement_pub_.publish(msg);
+   }
+   else movementComplete_ = true;
+}
+		
+}
+
+int on_update_PhaseTwoHomeState()
+{
+	if (!movementComplete_) return PhaseTwoHomeState_;	
+	return CheckHomeState_;
+}
+*/
+
 void on_enter_CheckHomeState()
 {
    // start by seeing if we can get a radar range and angle
-   if (radarGoodData_  && radarGoodAngle_) return;
+   if (radarGoodData_) return; //  && radarGoodAngle_) return;
    
    // start by capturing an image using fsm
    currentSection_ = HOME;
@@ -2712,7 +2775,7 @@ void on_enter_CheckHomeState()
 
 int on_update_CheckHomeState()
 {  
-   if (radarGoodData_ && radarGoodAngle_)
+   if (radarGoodData_) // && radarGoodAngle_)
    {
    	usingRadar_ = true;
    	return HeadForHomeState_;
@@ -2798,7 +2861,7 @@ int on_update_HeadForHomeState()
    {
    	movementComplete_ = false;
    	
-   	if (usingRadar_)
+   	//if (usingRadar_)
    	{
    		// we need to let the radars gather data with the robot not moving
    		// so we wait a while between moves.  it takes 2 seconds to get brand new radar data
@@ -2887,7 +2950,11 @@ int on_update_HeadForHomeState()
    		// if we are too close to the staging point, we get large angles and don't want to go there.
    		if (distanceToRadarStagingPoint_ > 2. 
    			&& fabs(fabs(angleToRadarStagingPoint_) - fabs(angleToHomeRadar_) ) < 20. ) msg.angle = angleToRadarStagingPoint_;
-   		else msg.angle = angleToHomeRadar_ * 1.2;	// go a little past, to maintain an approach intercept
+   		else 
+   		{
+   			msg.angle = angleToHomeRadar_ * 1.2;	// go a little past, to maintain an approach intercept
+   			cout << "we are too close to the staging point to turn there, we will instead turn for home with an angle of angleToHomeRadar * 1.2 = " << msg.angle << endl;
+   		}
    		
    		// untested change **********************************
    		
@@ -2895,7 +2962,7 @@ int on_update_HeadForHomeState()
    		
    		if (fabs(msg.angle) < 5.  || (!radarGoodAngle_) || distanceToRadarStagingPoint_ < 1.) // no need to turn	// untested change ***********
    		{
-		      //if (fabs(msg.angle) > 90.) pastStagingPoint_ = true;	// untested change*******************************
+		      if (fabs(msg.angle) > 90. && fabs(distanceToRadarStagingPoint_) < 8) pastStagingPoint_ = true;
 		      turning_ = true;
 		      movementComplete_ = true;
 		      if (radarGoodAngle_) cout << " turn toward home was small enough to skip, it was = " << msg.angle << endl;
@@ -3005,9 +3072,9 @@ int on_update_HeadForHomeState()
 			}
 			else if (distanceToHomeRadar_ > PARKING_DISTANCE)
 			{
-				cout << " we are moving onto the platform = " << (distanceToHomeRadar_ + 0.5 - PARKING_DISTANCE) * 1000. << " mm" << endl;
+				cout << " we are moving onto the platform = " << (distanceToHomeRadar_ + 1.0 - PARKING_DISTANCE) * 1000. << " mm" << endl;
 				msg.distance = (distanceToHomeRadar_ + 0.5 - PARKING_DISTANCE) * 1000.;
-				msg.speed = 500. * sgn(msg.distance);
+				msg.speed = 650. * sgn(msg.distance);
 				parking_ = true;
 				
 			}
@@ -3034,6 +3101,7 @@ int on_update_HeadForHomeState()
 		pastStagingPoint_ = false;
 		return SearchForHomeState_; // something went wrong, look again for home		
 	}
+	return HeadForHomeState_; 
 	
    	
 
@@ -3071,8 +3139,8 @@ int on_update_HeadForHomeState()
 	}
 	alreadyTurned_ = true;
 */
-
-	msg.command = "move"; 
+/*
+	msg.command = "autoMove"; 
 	if (distanceToHomeRadar_ > 0.01)	range_ = distanceToHomeRadar_;
 	else 
 	{
@@ -3087,7 +3155,7 @@ int on_update_HeadForHomeState()
    
    cout << "Heading for Home, range = " << range_ << endl;  
   
-/*   if (range_ > 30.)
+   if (range_ > 30.)
    {
       //move forward 10m and turn by the angle needed to center the target in X
       msg.command = "move";
@@ -3108,7 +3176,6 @@ int on_update_HeadForHomeState()
       ROS_INFO("moving forward 5m");
    }
    else
-   */
     if (range_ > 12.)
    {
       //move forward 3 m
@@ -3118,13 +3185,13 @@ int on_update_HeadForHomeState()
       msg.distance = 1.0;	// ******move in meters, autoMove im mm **************
       msg.angle = 0.;
       
-      /*
-      cout << "moving to target1 pose " << endl;
-      msg.command = "pose";
-      msg.poseX = target1_X;
-      msg.poseY = target1_Y;
-      msg.poseThetaDegrees = 0.; //plat1_Yaw * (3.14/180.);
-      */
+      
+      //cout << "moving to target1 pose " << endl;
+      //msg.command = "pose";
+      //msg.poseX = target1_X;
+      //msg.poseY = target1_Y;
+      //msg.poseThetaDegrees = 0.; //plat1_Yaw * (3.14/180.);
+     
       movement_pub_.publish(msg);
       moving_ = true;
       movementComplete_ = false;
@@ -3140,6 +3207,7 @@ int on_update_HeadForHomeState()
    }
    
    return HeadForHomeState_;  
+   */
    
 }
 
@@ -3182,7 +3250,7 @@ int on_update_UserCommandState()
    if (pauseCommanded_)
    {
       previousState_ = UserCommandState_;	// recovery states should come back to here
-      // note we do not updat cuurentSection_, as we want to keep that value.
+      // note we do not update curentSection_, as we want to keep that value.
       // pause will return here as long as userCommandReceived_ = true;
       return PauseState_;
    }
@@ -3211,7 +3279,7 @@ int on_update_UserCommandState()
    outdoor_bot::movement_msg msg;
    
    cout << "doing user commanded action step " << currentUserCommandNumber_ << endl;
-   cout << "distancce, angle, speed, pickup: " << endl;
+   cout << "distance, angle, speed, pickup: " << endl;
    cout << userCmdDistance_[currentUserCommandNumber_] << ", " << userCmdTurn_[currentUserCommandNumber_]; 
    cout << ", " << userCmdSpeed_[currentUserCommandNumber_] << ", " << userCmdPickup_[currentUserCommandNumber_] << endl;
    
@@ -3359,6 +3427,7 @@ void on_enter_PauseState()
   
 int on_update_PauseState()
 {
+   ros::spinOnce();
    if (pauseCommanded_) return PauseState_;  
    if (userCommandReceived_) return UserCommandState_;
    if (currentSection_ == BOOTUP) return BootupState_;
@@ -3511,6 +3580,7 @@ int main(int argc, char* argv[])
 {
    ros::init(argc, argv, "autonomous_node");
    ros::NodeHandle nh;
+   
    obstacle_detector_ = new OutdoorBot::Navigation::ObstacleDetector;
 	obstacle_avoider_ = new OutdoorBot::Navigation::WallFollower;
 	
@@ -3559,15 +3629,17 @@ int main(int argc, char* argv[])
    
       // now we keep updating and nicely move through the states
    
+   ros::Rate updateRate(100); // update at 100 Hz
    while (nh.ok())
    {
       ros::spinOnce();
-      struct timespec ts;
-      ts.tv_sec = 0;
-      ts.tv_nsec = 10000000;
-      nanosleep(&ts, NULL); // update every 10 ms
-      //cout << "state before update = " << fsm_.current_state() << endl;
       fsm_.update();
+      updateRate.sleep();
+      //struct timespec ts;
+      //ts.tv_sec = 0;
+      //ts.tv_nsec = 10000000;
+      //nanosleep(&ts, NULL); // update every 10 ms
+      //cout << "state before update = " << fsm_.current_state() << endl;
       //cout << "current state = " << fsm_.current_state() << endl;
       //ros::Time last_time = ros::Time::now();
 		//while ( ros::Time::now().toSec() - last_time.toSec() < 0.01) ros::spinOnce(); // delay a bit

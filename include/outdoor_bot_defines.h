@@ -55,11 +55,11 @@
 #define ORBITCAM_FOV	54.	// orbitcam sees 14m at 10m -> has 54 degree FOV
 //#define REGULAR_DIGCAM_ZOOM7_FOV 14.  // powershot digcam with zoom = 7, sees 2.5m wide at 10m -> 14 degree FOV
 #define REGULAR_DIGCAM_ZOOM5_FOV 21.  // with zoom = 5, it sees 2.1 at 5.5m
-//#define ZOOM_DIGCAM_ZOOM7 7
+#define ZOOM_DIGCAM_ZOOM7 7
 #define ZOOM_DIGCAM_ZOOM6 6
 #define ZOOM_DIGCAM_ZOOM6_FOV 11	// with zoom 6 it sees 1m at 5m
 //#define ZOOM_DIGCAM_ZOOM10 10
-//#define ZOOM_DIGCAM_ZOOM7_FOV 8 // zoom = 7, sees 0.66 m wide at 10m, 0.8 at 5m -> 8 degree FOV
+#define ZOOM_DIGCAM_ZOOM7_FOV 8 // zoom = 7, sees 0.66 m wide at 10m, 0.8 at 5m -> 8 degree FOV
 //#define ZOOM_DIGCAM_ZOOM10_FOV 2.5 // this needs to be measured
 //#define FRONT 1
 //#define REAR 0

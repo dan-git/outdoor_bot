@@ -44,7 +44,8 @@ sqrt(0.5)	0	0	-sqrt(0.5)	-90° rotation around Z axis
 #define BIN_SHADE_FIRST_LOCATION 106
 #define BIN_SHADE_SECOND_LOCATION 1044
 #define BIN_SHADE_THIRD_LOCATION 1804
-#define PDMOTOR_TIMEOUT 30
+#define PDMOTOR_TIMEOUT 30.
+#define AUTOMOVE_TIMEOUT 80.	// this will limit how far we can go in an automove
 
 
 
@@ -499,39 +500,43 @@ void keyboardCommandCallback(const std_msgs::String::ConstPtr& msg)
 
 void movementCommandCallback(const outdoor_bot::movement_msg msg)
 {
-   ros::Time last_time;
-   ros::Time current_time = ros::Time::now();  
+   ros::Rate updateRate(100);  // update the loops at 100 Hz
+   ros::Time timeOut;
    string command = msg.command;
    std_msgs::String msgResult;
 		cout << "movement callback in movement node " << endl; 
 		
 	if (!command.compare("autoMove"))   // use arduino to directly implement a move
 	{
-		if (autoMoveStatus_ != 0) 
+		if (autoMoveStatus_) 
 		{
-			cout << "we are already doing an automove, we will overwrite it here" << endl;
+			cout << "we are already doing an automove, we will wait a bit and then overwrite it here" << endl;
+			timeOut = ros::Time::now() + ros::Duration(AUTOMOVE_TIMEOUT);
+			while (autoMoveStatus_ && ros::Time::now() < timeOut)	// waiting for last one to complete
+			{
+				ros::spinOnce();
+				updateRate.sleep();	// arduino only updates every 20 msec, no need to go too fast here
+			}
 		}
 		ROS_INFO("started autoMoving in movement node");
 		outdoor_bot::autoMove_msg autoMoveMsg;
 		autoMoveMsg.distance = msg.distance;	//  mm
 		autoMoveMsg.angle = msg.angle;	// degrees
 		autoMoveMsg.speed = msg.speed;	// mm/sec or deg/sec
+		timeOut = ros::Time::now() + ros::Duration(AUTOMOVE_TIMEOUT);
 		autoMove_pub_.publish(autoMoveMsg);  // send to the arduino
-		while (!autoMoveStatus_)	// first wait for it to acknowledge the move
+		while (!autoMoveStatus_ && ros::Time::now() < timeOut)	// first wait for it to acknowledge the move
 		{
 			//callAutoMoveService();
 			ros::spinOnce();
-			last_time = ros::Time::now();
-			current_time = ros::Time::now();
-	   	while ( current_time.toSec() - last_time.toSec() < 0.01 ) current_time = ros::Time::now();	// arduino only updates every 20 msec, no need to go too fast here
+			updateRate.sleep();	// arduino only updates every 20 msec, no need to go too fast here
 		}
-		while (autoMoveStatus_) //and then wait for it to complete
+		timeOut = ros::Time::now() + ros::Duration(AUTOMOVE_TIMEOUT);
+		while (autoMoveStatus_ && ros::Time::now() < timeOut) //and then wait for it to complete
 		{
 			//callAutoMoveService();
 			ros::spinOnce();
-			last_time = ros::Time::now();
-			current_time = ros::Time::now();
-	   	while ( current_time.toSec() - last_time.toSec() < 0.01 ) current_time = ros::Time::now();	// arduino only updates every 20 msec, no need to go too fast here
+			updateRate.sleep();	// arduino only updates every 20 msec, no need to go too fast here
 		}
 		//last_time = ros::Time::now(); 
 	   //while ( current_time.toSec() - last_time.toSec() < 5.0 + (fabs(msg.distance) / 1000.) ) current_time = ros::Time::now();	// give the arduino 5 secs to complete the task
@@ -699,13 +704,11 @@ void movementCommandCallback(const outdoor_bot::movement_msg msg)
 		if (pdMotorStatus_ != 0) 
 		{
 			cout << "we are already doing a pd motor move, we will wait for it to complete" << endl;
-			last_time = ros::Time::now();
-			current_time = ros::Time::now();
-			while (pdMotorStatus_ && current_time.toSec() - last_time.toSec() < PDMOTOR_TIMEOUT) //and then wait for it to complete
+			timeOut = ros::Time::now() + ros::Duration(PDMOTOR_TIMEOUT);
+			while (pdMotorStatus_ && ros::Time::now() < timeOut) //and then wait for it to complete
 			{
 				ros::spinOnce();
-				ros::Duration duration(0.01);
-   			duration.sleep();
+   			updateRate.sleep();
 				// arduino only updates every 20 msec, no need to go too fast here
 			}
 		}
@@ -716,20 +719,17 @@ void movementCommandCallback(const outdoor_bot::movement_msg msg)
    	pmotorMsg.pmotorNumber = motorNumber;
    	pmotorMsg.pmotorSpeed = motorSpeed;	// this actually only sets the direction, speeds are preset in the arduino
    	pmotor_pub_.publish(pmotorMsg);
-   		
-		while (!pdMotorStatus_)	// first wait for it to acknowledge the move
+   	timeOut = ros::Time::now() + ros::Duration(PDMOTOR_TIMEOUT);	
+		while (!pdMotorStatus_ && ros::Time::now() < timeOut)	// first wait for it to acknowledge the move
 		{
 			ros::spinOnce();
-			last_time = ros::Time::now();
-			current_time = ros::Time::now();
-	   	while ( current_time.toSec() - last_time.toSec() < 0.01 ) current_time = ros::Time::now();	// arduino only updates every 20 msec, no need to go too fast here
+			updateRate.sleep();	// arduino only updates every 20 msec, no need to go too fast here
 		}
-		while (pdMotorStatus_) //and then wait for it to complete
+		timeOut = ros::Time::now() + ros::Duration(PDMOTOR_TIMEOUT);
+		while (pdMotorStatus_ && ros::Time::now() < timeOut) //and then wait for it to complete
 		{
 			ros::spinOnce();
-			last_time = ros::Time::now();
-			current_time = ros::Time::now();
-	   	while ( current_time.toSec() - last_time.toSec() < 0.01 ) current_time = ros::Time::now();	// arduino only updates every 20 msec, no need to go too fast here
+			updateRate.sleep();
 		}
 		
 		ROS_INFO("finished auto pd Motor move in movement node");

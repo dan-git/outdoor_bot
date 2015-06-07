@@ -90,6 +90,7 @@ class SensorData : public RobotSensor
           AUTONOMOUS_SERIAL_PORT.print(", ");
           AUTONOMOUS_SERIAL_PORT.print(leftWheelEncoder_);
           AUTONOMOUS_SERIAL_PORT.print(", ");
+          
           /*
           AUTONOMOUS_SERIAL_PORT.print(encoder_spi[getEncoderNumber(PICKER_UPPER_ENCODER_SELECT_PIN)].readEncoder());
           AUTONOMOUS_SERIAL_PORT.print(", ");
@@ -111,13 +112,18 @@ class SensorData : public RobotSensor
           AUTONOMOUS_SERIAL_PORT.print(dirAnt.getLevel());
           AUTONOMOUS_SERIAL_PORT.print(", ");
           */
-          AUTONOMOUS_SERIAL_PORT.print(robot_base.getAutoMoveMode());          
-          AUTONOMOUS_SERIAL_PORT.print(", ");
 
-          AUTONOMOUS_SERIAL_PORT.print(battery_monitor.checkBattery());
+          AUTONOMOUS_SERIAL_PORT.print("99"); //battery_monitor.checkBattery());
           AUTONOMOUS_SERIAL_PORT.print(", ");          
           AUTONOMOUS_SERIAL_PORT.print( motion_pd.getPickerUpperCommand() || motion_pd.getDropbarCommand() || motion_pd.getBinshadeCommand() );
           AUTONOMOUS_SERIAL_PORT.print(", ");
+          AUTONOMOUS_SERIAL_PORT.print("99"); //battery_monitor.checkBattery());
+           
+          AUTONOMOUS_SERIAL_PORT.print(", ");
+          AUTONOMOUS_SERIAL_PORT.print(robot_base.getAutoMoveMode());          
+          AUTONOMOUS_SERIAL_PORT.print(", ");
+          AUTONOMOUS_SERIAL_PORT.print("99"); //battery_monitor.checkBattery());
+          AUTONOMOUS_SERIAL_PORT.print(", "); 
           AUTONOMOUS_SERIAL_PORT.print(xAcc); 
           AUTONOMOUS_SERIAL_PORT.print(", ");
           AUTONOMOUS_SERIAL_PORT.print(yAcc);
@@ -128,9 +134,9 @@ class SensorData : public RobotSensor
           AUTONOMOUS_SERIAL_PORT.print(", ");
           
           AUTONOMOUS_SERIAL_PORT.print(loopTime);
-          AUTONOMOUS_SERIAL_PORT.println(", ");
-          AUTONOMOUS_SERIAL_PORT.print(dataCounter_); // we send this 3 times to check the integrity of the data string
           AUTONOMOUS_SERIAL_PORT.print(", ");
+          AUTONOMOUS_SERIAL_PORT.print(dataCounter_); // we send this 3 times to check the integrity of the data string
+          AUTONOMOUS_SERIAL_PORT.println(", ");
           dataCounter_++;
           /*
           #ifdef BAT_MON_SERIAL_PORT

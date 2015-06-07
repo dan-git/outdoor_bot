@@ -32,7 +32,7 @@ private:
 public:
 	radar()
 		: leftRanger_("/dev/ttyRadar_100"),
-		  rightRanger_("/dev/ttyRadar_103"),
+		  rightRanger_("/dev/ttyRadar_101"),
 		  distanceFromLeftToLeft_(0), distanceFromLeftToRight_(0.), distanceFromRightToLeft_(0.), distanceFromRightToRight_(0),
 		  distanceToHome_(0.),
 		  angleToHome_(0.),
@@ -462,10 +462,43 @@ int main(int argc, char** argv)
 		myRadar.getRadarRanges();  
 		//myRadar.testDataRadarRanges();
 		
-		double maxDistance1 = fmax(myRadar.getDistanceFromLeftToLeft(), myRadar.getDistanceFromLeftToRight());
-		double maxDistance2 = fmax(myRadar.getDistanceFromRightToLeft(), myRadar.getDistanceFromRightToRight());
-		double minDistance1 = fmin(myRadar.getDistanceFromLeftToLeft(), myRadar.getDistanceFromLeftToRight());
-		double minDistance2 = fmin(myRadar.getDistanceFromRightToLeft(), myRadar.getDistanceFromRightToRight());
+		double left_to_left = myRadar.getDistanceFromLeftToLeft();
+		double left_to_right = myRadar.getDistanceFromLeftToRight();
+		
+		double right_to_left = myRadar.getDistanceFromRightToLeft();
+		double right_to_right = myRadar.getDistanceFromRightToRight();
+		
+		bool left_bot_radar_good = (left_to_left > 0.05 || left_to_right > 0.05);
+		bool right_bot_radar_good = (right_to_left > 0.05 || right_to_right > 0.05);
+		bool left_base_radar_good = (left_to_left > 0.05 || right_to_left > 0.05);
+		bool right_base_radar_good = (left_to_right > 0.05 || right_to_right > 0.05);
+		
+		if (!left_bot_radar_good)
+		{
+			left_to_left = right_to_left;
+			left_to_right = right_to_right;
+		}
+		if (!right_bot_radar_good)
+		{
+			right_to_left = left_to_left;
+			right_to_right = left_to_right;
+		}
+		if (!left_base_radar_good)
+		{
+			left_to_left = left_to_right;
+			right_to_left = right_to_right;
+		}
+		if (!right_base_radar_good)
+		{
+			left_to_right = left_to_left;
+			right_to_right = right_to_left;
+		}
+
+		double maxDistance1 = fmax(left_to_left, left_to_right);
+		double maxDistance2 = fmax(right_to_left, right_to_right);
+		double minDistance1 = fmin(left_to_left, left_to_right);
+		double minDistance2 = fmin(right_to_left, right_to_right);
+		
 		radarData.maxDistanceToHome = fmax(maxDistance1, maxDistance2) / 1000.;
 		radarData.minDistanceToHome = fmin(minDistance1, minDistance2) / 1000.;
 

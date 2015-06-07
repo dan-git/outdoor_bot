@@ -460,7 +460,9 @@ void parseNavData(std::string data)
     ROS_INFO("%f", navDataValues[i]);
   }
   */
-  arduinoDataCounter = atof(navDataBuffer[0].c_str());
+  int indexNum = 0;
+  arduinoDataCounter = atof(navDataBuffer[indexNum].c_str());
+  indexNum++;
   // check for missed data:
 	if (arduinoDataCounter != previousArduinoDataCounter + 1)
 	{
@@ -470,35 +472,81 @@ void parseNavData(std::string data)
 		return; // we do not want to use corrupt data
 	}
 	previousArduinoDataCounter = arduinoDataCounter; 
-   
-  arduinoDataCounter = atof(navDataBuffer[0].c_str());
-  vYaw = atof(navDataBuffer[1].c_str()) / 57.3; // convert from degrees/sec to rads/sec
-  EncoderTicksRight = atof(navDataBuffer[2].c_str());
-  EncoderTicksLeft = atof(navDataBuffer[3].c_str());
-  //EncoderPickerUpper = atof(navDataBuffer[4].c_str());
-  //EncoderBinShade = atof(navDataBuffer[5].c_str());
-  //EncoderDropBar = atof(navDataBuffer[6].c_str());
-  //EncoderExtra = atof(navDataBuffer[6].c_str());
+
+  vYaw = atof(navDataBuffer[indexNum].c_str()) / 57.3; // convert from degrees/sec to rads/sec
+  indexNum++;
+  EncoderTicksRight = atof(navDataBuffer[indexNum].c_str());
+  indexNum++;
+  EncoderTicksLeft = atof(navDataBuffer[indexNum].c_str());
+  indexNum++;
+  //EncoderPickerUpper = atof(navDataBuffer[indexNum].c_str());
+  //indexNum++;
+  //EncoderBinShade = atof(navDataBuffer[indexNum].c_str());
+  //indexNum++;
+  //EncoderDropBar = atof(navDataBuffer[indexNum].c_str());
+  //indexNum++;
+  //EncoderExtra = atof(navDataBuffer[indexNum].c_str());
+  //indexNum++;
+  
   unsigned long secondArduinoDataCounter = atof(navDataBuffer[4].c_str());
+  indexNum++;
   if (arduinoDataCounter != secondArduinoDataCounter) 
   {
   		ROS_WARN("badly corrupted arduino serial data string");
   		return;
   }
-  pauseState = atof(navDataBuffer[5].c_str());
-  //dirAntMaxAngle = atof(navDataBuffer[11].c_str());
-  //dirAntSweepNumber = atof(navDataBuffer[12].c_str());
-  //dirAntLevel = atof(navDataBuffer[13].c_str());
-  autoMoveStatus = atof(navDataBuffer[6].c_str());
-  battery = atof(navDataBuffer[7].c_str());
-  pdMotorStatus = atof(navDataBuffer[8].c_str());
-  accelX = atof(navDataBuffer[9].c_str());
-  accelY = atof(navDataBuffer[10].c_str());
-  accelZ = atof(navDataBuffer[11].c_str());
-  angOnly = atof(navDataBuffer[12].c_str());
-  arduinoCycleTime = atof(navDataBuffer[13].c_str());
-  unsigned long thirdArduinoDataCounter = atoi(navDataBuffer[14].c_str());
+  double testPauseState = atof(navDataBuffer[indexNum].c_str());
+  indexNum++;
+  //dirAntMaxAngle = atof(navDataBuffer[indexNum].c_str());
+  //indexNum++;
+  //dirAntSweepNumber = atof(navDataBuffer[indexNum].c_str());
+  //indexNum++;
+  //dirAntLevel = atof(navDataBuffer[indexNum].c_str());
+  //indexNum++;
   
+  battery = atof(navDataBuffer[indexNum].c_str());
+  indexNum++;
+  if (battery != 99)
+  {
+  	ROS_WARN("arudino data corrupted just before reporting pdMotorStatus");
+  	cout << "values reported for testPauseState, battery, pdMotorStatus = " << testPauseState << ", " << battery << ", " << atof(navDataBuffer[indexNum].c_str()) << endl;
+  	return;
+  	}
+  double testPDMotorStatus = atof(navDataBuffer[indexNum].c_str());
+  indexNum++;
+  battery = atof(navDataBuffer[indexNum].c_str());
+  indexNum++;
+  if (battery != 99)
+  {
+  	ROS_WARN("arudino data corrupted just after reporting pdMotorStatus");
+  	cout << "values reported for battery, testPDMotorStatus = " << battery << ", " << testPDMotorStatus << endl;
+  	return;
+  	}
+  double testAutoMoveStatus = atof(navDataBuffer[indexNum].c_str());
+  indexNum++;
+  battery = atof(navDataBuffer[indexNum].c_str());
+  indexNum++;
+  if (battery != 99)
+  {
+  	ROS_WARN("arudino data corrupted just before reporting autoMoveStatus");
+  	cout << "values reported for battery, autoPDStatus, autoMoveStatus = " << battery << ", " << testAutoMoveStatus << endl;
+  	return;
+  }
+  pauseState = testPauseState;
+  pdMotorStatus = testPDMotorStatus;
+  autoMoveStatus = testAutoMoveStatus;
+  accelX = atof(navDataBuffer[indexNum].c_str());
+  indexNum++;
+  accelY = atof(navDataBuffer[indexNum].c_str());
+  indexNum++;
+  accelZ = atof(navDataBuffer[indexNum].c_str());
+  indexNum++;
+  angOnly = atof(navDataBuffer[indexNum].c_str());
+  indexNum++;
+  arduinoCycleTime = atof(navDataBuffer[indexNum].c_str());
+  indexNum++;
+  unsigned long thirdArduinoDataCounter = atoi(navDataBuffer[indexNum].c_str());
+  indexNum++;
   sendOutNavData();
   
    if (arduinoDataCounter != thirdArduinoDataCounter) ROS_WARN("corrupted second half of arduino serial data string");

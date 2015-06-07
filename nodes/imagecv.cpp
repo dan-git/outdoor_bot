@@ -339,7 +339,7 @@ int main(int argc, char* argv[])
    cv::namedWindow("digcam");
    cv::namedWindow("webcam");
    cv::namedWindow("homecam");
-  // cv::namedWindow("user_image");
+   cv::namedWindow("user_image");
    cv::startWindowThread();
    
    
@@ -347,24 +347,29 @@ int main(int argc, char* argv[])
 
    
        // Read image from file 
-   //string filenm = "/home/dbarry/Dropbox/outdoor_bot/media/image_processing/digcam/zoom_digcam_zoom7_5m_area_31054.jpg";   
-  // if (ic.readImageFile(filenm))
+   //string filenm = "/home/dbarry/Dropbox/outdoor_bot/media/image_processing/digcam/zoom_digcam_zoom7_5m_area_31054.jpg";  
+   string filenm = "/home/dbarry/Dropbox/outdoor_bot/media/image_processing/webcam/home_4m.jpg"; 
+   if (ic.readImageFile(filenm))
  
       
  
     //show the image
-    //imshow("user_image", ic.getImage());
+    imshow("user_image", ic.getImage());
  
     // Wait until user press some key
    // waitKey(0);
-/*
+
    // test sending images
-   bool homeTarget = false;
-   bool firstTarget = true;
+   bool homeTarget = true;
+   bool firstTarget = false;
    
-   string filenm = "/home/dbarry/Dropbox/outdoor_bot/media/image_processing/digcam/zoom_digcam_zoom7_5m_area_31054.jpg";   
-   ic.readImageFile(filenm);
-   int camName = ZOOM_DIGCAM;
+  // string filenm = "/home/dbarry/Dropbox/outdoor_bot/media/image_processing/digcam/zoom_digcam_zoom7_5m_area_31054.jpg";   
+   //
+   //ic.readImageFile(filenm);
+   
+   int camName;
+   /*
+   camName = DIGCAM;
    double approxRange = 5.0;
    cout << "ready to publish?" << endl;
    ic.askUser();		// have to have a delay in here or the message does not publish     
@@ -373,11 +378,12 @@ int main(int argc, char* argv[])
    ic.askUser();	
    ic.analyzeImage(camName, approxRange, firstTarget, homeTarget);
    ros::spinOnce();
-   
-   filenm = "/home/dbarry/Dropbox/outdoor_bot/media/image_processing/webcam/webcam_white_1_1m_area_4000.jpg";
-   ic.readImageFile(filenm);
-   camName = WEBCAM;
-   approxRange = 1.0;
+*/
+  
+   //filenm = "/home/dbarry/Dropbox/outdoor_bot/media/image_processing/webcam/webcam_white_1_1m_area_4000.jpg";
+   //ic.readImageFile(filenm);
+   camName = HOMECAM;
+   double approxRange = 1.0;
    cout << "ready to publish?" << endl;
    ic.askUser();		// have to have a delay in here or the message does not publish     
    ic.publishWebcamImage(ic.getImage());
@@ -385,7 +391,8 @@ int main(int argc, char* argv[])
    ic.askUser();	
    ic.analyzeImage(camName, approxRange, firstTarget, homeTarget);
    ros::spinOnce();
-         
+   
+ /*        
    filenm = "/home/dbarry/Dropbox/outdoor_bot/media/image_processing/digcam/digcam__white_zoom7_5m_area_11747.jpg";
    ic.readImageFile(filenm);
    camName = REGULAR_DIGCAM;
@@ -422,7 +429,7 @@ int main(int argc, char* argv[])
 */
 
 
-/*
+
   while(nh.ok())
    {
    	uIC.getUserInput();	// we block here if there are no user inputs
@@ -434,7 +441,7 @@ int main(int argc, char* argv[])
       //ts.tv_nsec = 10000000;
       //nanosleep(&ts, NULL); // update every 10 ms
    }
-   */
+  
    ros::spin();
  
 	cv::destroyWindow("webcam");
