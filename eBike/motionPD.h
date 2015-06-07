@@ -124,7 +124,11 @@ public:
       
     void releaseRobotBrakes()
     {
-      if (robotPause_ || (!brakesOn_) || releasingBrakes_) return;
+      if (robotPause_ || (!brakesOn_) || releasingBrakes_)
+      {
+         DEBUG_SERIAL_PORT.println("release brakes command received, but either we are paused or brakes are already released");
+         return;
+      }
       motor_pololu_driver[MOTOR_BRAKE_INDEX].setMotorSpeed(-BRAKES_SPEED);
       DEBUG_SERIAL_PORT.println("releasing brakes");
       if (applyingBrakes_)
@@ -407,7 +411,7 @@ public:
                 DEBUG_SERIAL_PORT.print(", ");
                 DEBUG_SERIAL_PORT.println(motorCurrent);
               }
-              if (brakesTimeout > BRAKES_APPLY_TIMER || (motorCurrent < BRAKES_CURRENT_THRESHOLD && brakesTimeout > 50))
+              if (brakesTimeout > BRAKES_APPLY_TIMER || (motorCurrent < BRAKES_CURRENT_APPLY_THRESHOLD && brakesTimeout > 50))
               {
                 motor_pololu_driver[MOTOR_BRAKE_INDEX].setMotorSpeed(0); 
                 motion_pd.setApplyingBrakes(false); 
@@ -419,7 +423,8 @@ public:
            if (motion_pd.getReleasingBrakes())
            {
               long brakesTimeout = millis() - motion_pd.getReleasingBrakesStartTime();
-              if (brakesTimeout > BRAKES_RELEASE_TIMER)
+              int motorCurrent = analogRead(BRAKES_CURRENT_PIN);
+              if (brakesTimeout > BRAKES_RELEASE_TIMER || (motorCurrent > BRAKES_CURRENT_RELEASE_THRESHOLD && brakesTimeout > 50))  // should never even come close to the current limits, unless the line has gotten tangled or reversed
               {
                 motor_pololu_driver[MOTOR_BRAKE_INDEX].setMotorSpeed(0); 
                 motion_pd.setReleasingBrakes(false); 
