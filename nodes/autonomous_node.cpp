@@ -59,7 +59,7 @@ using namespace std;
 //#define DISTANCE_TO_FIRST_TARGET_STAGING 2.0
 //#define DISTANCE_TO_FIRST_TARGET 12.0
 #define TARGET_STAGING_DISTANCE 10.
-#define INCREMENTAL_MOVE_TO_TARGET 1.0 //10.0
+#define INCREMENTAL_MOVE_TO_TARGET 10.0
 #define INCREMENTAL_TURN_TO_FIND_TARGET -20.0
 #define SHORT_MOVE_TO_TARGET 1.0
 //#define FIRST_MOVE_REMAINING_DISTANCE 10.0
@@ -567,22 +567,22 @@ void testCameras()
    cout << "testing cameras" << endl;
    // the digital cams:
    
-   bool fileWrite = false;
+   bool fileWrite = true;
    
    cout << "capturing image on zoom digcam..." << endl;
-   imageCapture("capture", ZOOM_DIGCAM);
+   imageCapture("capture", ZOOM_DIGCAM, fileWrite);
    while (!askUser())
    {
    	cout << "capturing another image on zoom digcam..." << endl;
-   	imageCapture("capture", ZOOM_DIGCAM);
+   	imageCapture("capture", ZOOM_DIGCAM, fileWrite);
    }
    
    cout << "capturing image on right digcam..." << endl;
-   imageCapture("capture", REGULAR_DIGCAM);
+   imageCapture("capture", REGULAR_DIGCAM, fileWrite);
    while (!askUser()) 
    {
    	cout << "capturing another image on right digcam..." << endl;
-   	imageCapture("capture", REGULAR_DIGCAM);
+   	imageCapture("capture", REGULAR_DIGCAM, fileWrite);
    }
    
    // the webcams:
@@ -940,10 +940,10 @@ void on_enter_BootupState()
 {
 	currentSection_ = BOOTUP;
 	numTargets_ = 0;
-	approxRangeToTarget_ = 5; //15.; // change to 70 for real ops *****************************************
-   targetRange_ = 0.; //15.; // change to 70 for real ops *************************************************
+	approxRangeToTarget_ = 65; 
+   targetRange_ = 65;
    homeCameraRange_ = 10.;
-   range_ = 5.; //15;	// change to 70 for real ops ******************************************************
+   range_ = 65;
    x_ = 0.;
    y_ = 0.;
    yaw_ = 0.;
@@ -1543,8 +1543,9 @@ int on_update_MoveToFirstTargetState()
 			if (fabs(yaw_) > 3.0 && alreadyTurned_ < 1)
 			{
 				msg.command = "autoMove";
-			   msg.speed = 1000.;
-			   msg.angle = -yaw_ + (sgn(yaw_) * 2);  // we turn a little extra to compensate for having moved forward with yaw drift.  we could calculate this better
+				msg.distance = 0.;
+			   msg.speed = -20. * sgn(yaw_); // go in the opposite direction of the yaw
+			   msg.angle = yaw_ + (sgn(yaw_) * 2);  // we turn a little extra to compensate for having moved forward with yaw drift.  we could calculate this better
 				//***************************
 				
 				cout << "turning to zero yaw = " << msg.angle << " degrees" << endl;
@@ -1563,6 +1564,7 @@ int on_update_MoveToFirstTargetState()
    	{
    		radarNewData_ = false;
    		distanceToHome = distanceToHomeRadar_;
+   		cout << "radar data is good" << endl;
    	}
    	else distanceToHome = odomDistanceToHome_;
    	if (distanceToHome >= 0)
@@ -1571,12 +1573,17 @@ int on_update_MoveToFirstTargetState()
    		{
    			msg.distance = INCREMENTAL_MOVE_TO_TARGET * 1000.;
    			approxRangeToTarget_ = distanceToFirstTarget_ - (distanceToHome + INCREMENTAL_MOVE_TO_TARGET);
+   			cout << "making incremental move to target, approxRangeToTarget = " << approxRangeToTarget_ << endl;
+   			cout << "odom and radar distances to home = " << odomDistanceToHome_ << ", " << distanceToHomeRadar_ << endl;
+   			cout << " we are using " << distanceToHome << " as our distance to home" << endl;
+   			cout << " with a distance to FirstTarget = " << distanceToFirstTarget_ << endl;
    		}
    		else if (distanceToHome < distanceToFirstTargetStaging_)
    		{
    			msg.distance  = (distanceToFirstTargetStaging_ - distanceToHome) * 1000.;
    			approxRangeToTarget_ = distanceToFirstTarget_ - distanceToFirstTargetStaging_;
    			firstMoveToFirstTarget_ = false;
+   			cout << "we just finished firstMoveToFirstTarget" << endl;
    		}
    		else 
    		{
@@ -1616,6 +1623,7 @@ int on_update_MoveToFirstTargetState()
 			msg.speed = 1000.;
 			msg.distance = INCREMENTAL_MOVE_TO_TARGET * 1000.;
 			cout << "starting blind move, distance = " << msg.distance << " mm" << endl;
+			cout << "approximate range to target = " << approxRangeToTarget_ << endl;
 			moving_ = true;
 			movement_pub_.publish(msg);
 			movementComplete_ = false;

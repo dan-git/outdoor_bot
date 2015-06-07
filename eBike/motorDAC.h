@@ -42,13 +42,32 @@ class motor_dac {
         speed_ = motorSpeed;
       }
             
+
+      int sendSpeed = newSpeed;
+      DEBUG_SERIAL_PORT.print("before applying right bias, sendSpeed = ");
+      DEBUG_SERIAL_PORT.println(sendSpeed);
+      if (devNum_ == RIGHT)
+      {
+         //sendSpeed += RIGHT_MOTOR_SPEED_BIAS; // * rcs::sign(newSpeed); 
+         DEBUG_SERIAL_PORT.print("applying right bias, sendSpeed = ");
+         DEBUG_SERIAL_PORT.println(sendSpeed);  
+      }   
+      else
+      {
+         sendSpeed += RIGHT_MOTOR_SPEED_BIAS; // * rcs::sign(newSpeed); 
+         DEBUG_SERIAL_PORT.print("applying left bias, sendSpeed = ");
+         DEBUG_SERIAL_PORT.println(sendSpeed);  
+      }
       
-     if (DEBUG)
+      dac[devNum_].setVoltage(sendSpeed);  // unsigned value
+      
+            
+     //if (DEBUG)
       {
         DEBUG_SERIAL_PORT.print("motorSpeed sent to ");
         if (devNum_ == RIGHT) DEBUG_SERIAL_PORT.print("right dac = ");
         else DEBUG_SERIAL_PORT.print("left dac = ");
-        DEBUG_SERIAL_PORT.print(newSpeed);
+        DEBUG_SERIAL_PORT.print(sendSpeed);
         DEBUG_SERIAL_PORT.print(" in ");
         if (speed_ > 0) DEBUG_SERIAL_PORT.print("forward");
         else if (speed_ < 0) DEBUG_SERIAL_PORT.print("backward");
@@ -57,9 +76,6 @@ class motor_dac {
         DEBUG_SERIAL_PORT.print("motorDirection_ = ");
         DEBUG_SERIAL_PORT.println(motorDirection_);
       }
-      int sendSpeed = newSpeed;
-      if (devNum_ == RIGHT) sendSpeed += RIGHT_MOTOR_SPEED_BIAS * rcs::sign(newSpeed);      
-      dac[devNum_].setVoltage(sendSpeed);  // unsigned value
     }
     
     void stop()
