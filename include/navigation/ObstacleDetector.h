@@ -87,6 +87,8 @@ class ObstacleDetector
   sensor_msgs::LaserScan lastMsg_;
   int min_obstacle_points_;
   int max_obstacle_detections_;
+  ros::Publisher feedback_pub_;
+  ros::Publisher points_pub_;
 
   struct State
   {

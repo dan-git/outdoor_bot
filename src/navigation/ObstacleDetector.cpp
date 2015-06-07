@@ -1,6 +1,11 @@
 #include <numeric>
 #include <vector>
 
+#include <geometry_msgs/Pose.h>
+#include <geometry_msgs/PoseArray.h>
+
+#include "outdoor_bot/ObstacleDetectorFeedback_msg.h"
+
 #include "navigation/NavUtils.h"
 #include "navigation/ObstacleDetector.h"
 
@@ -14,6 +19,9 @@ ObstacleDetector::ObstacleDetector()
 {
   ros::NodeHandle nh;
   laserSub_ = nh.subscribe("scan", 10, &ObstacleDetector::laserCallback, this);
+  ros::NodeHandle private_nh("~");
+  feedback_pub_ = private_nh.advertise<outdoor_bot::ObstacleDetectorFeedback_msg>("obstacle_detector/feedback", 10);
+  points_pub_ = private_nh.advertise<geometry_msgs::PoseArray>("obstacle_detector/points", 100);
 }
 
 void ObstacleDetector::activate(const DetectionParamsList& params)
@@ -93,11 +101,21 @@ void ObstacleDetector::update(std::vector<bool>* results)
 
 bool ObstacleDetector::obstacleInRectangle(double xL, double yL, double theta) const
 {
+  geometry_msgs::PoseArray points;
+
   lock_.lock();
   double angle_min = lastMsg_.angle_min;
   double angle_increment = lastMsg_.angle_increment;
   std::vector<float> ranges = lastMsg_.ranges;
+  points.header = lastMsg_.header;
   lock_.unlock();
+
+  if (points.header.frame_id.empty())
+  {
+    points.header.frame_id = "/map";
+  }
+
+  points.poses.reserve(ranges.size());
 
   int points_within_rectangle = 0;
   for (size_t i = 0; i < ranges.size(); i++)
@@ -113,8 +131,18 @@ bool ObstacleDetector::obstacleInRectangle(double xL, double yL, double theta) c
     if (fabs(xp) < xL && fabs(yp) < yL / 2.0)
     {
       points_within_rectangle++;
+      geometry_msgs::Pose pose;
+      pose.position.x = ranges[i] * cos(phi);
+      pose.position.y = ranges[i] * sin(phi);
+      pose.position.z = 0.0;
+      pose.orientation.w = 1.0;
+      points.poses.push_back(pose);
     }
   }
+  outdoor_bot::ObstacleDetectorFeedback_msg feedback;
+  feedback.points_within_rectangle = points_within_rectangle;
+  feedback_pub_.publish(feedback);
+  points_pub_.publish(points);
   return points_within_rectangle >= min_obstacle_points_;
 }
 
