@@ -362,12 +362,13 @@ int main(int argc, char* argv[])
    // test sending images
    bool homeTarget = true;
    bool firstTarget = false;
-   
+   int camName;
+    
   // string filenm = "/home/dbarry/Dropbox/outdoor_bot/media/image_processing/digcam/zoom_digcam_zoom7_5m_area_31054.jpg";   
    //
    //ic.readImageFile(filenm);
    
-   int camName;
+  
    /*
    camName = DIGCAM;
    double approxRange = 5.0;
@@ -386,12 +387,12 @@ int main(int argc, char* argv[])
    double approxRange = 1.0;
    cout << "ready to publish?" << endl;
    ic.askUser();		// have to have a delay in here or the message does not publish     
-   ic.publishWebcamImage(ic.getImage());
+   ic.publishHomeImage(ic.getImage());
    cout << "ready to analyze?" << endl;
    ic.askUser();	
    ic.analyzeImage(camName, approxRange, firstTarget, homeTarget);
    ros::spinOnce();
-   
+  
  /*        
    filenm = "/home/dbarry/Dropbox/outdoor_bot/media/image_processing/digcam/digcam__white_zoom7_5m_area_11747.jpg";
    ic.readImageFile(filenm);

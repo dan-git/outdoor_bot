@@ -2560,7 +2560,7 @@ int on_update_PickupTargetState()
    		movementComplete_ = false;
 	      cout << "driving forward 0.5m to push target into scoop" << endl;
 		   msg.command = "autoMove";
-		   msg.distance = 500;
+		   msg.distance = 1000;
 		   msg.angle = 0; 
 		   msg.speed = 800; 
 		   timeIn = ros::Time::now() + ros::Duration(5);
@@ -2601,9 +2601,9 @@ int on_update_PickupTargetState()
    		retrieving_ = false;
    		verifying_ = true;
    		movementComplete_ = false;
-	      cout << "driving backwards 2m to check that we got the target" << endl;
+	      cout << "driving backwards 1m to check that we got the target" << endl;
 		   msg.command = "autoMove";
-		   msg.distance = 2000;	// mm
+		   msg.distance = 1000;	// mm
 		   msg.angle = 0;			// degrees
 		   msg.speed = -800;   	// mm/sec or deg/sec 
 		   timeIn = ros::Time::now() + ros::Duration(5);
@@ -2680,6 +2680,29 @@ bool updateDirectionalAntenna()
    
 void on_enter_PhaseOneHomeState()
 {
+
+	// first move webcam up to level position
+	cout << "sending command to move the webcam servo to level " << endl;
+	tAF_.set_servoNumber(FRONT_WEBCAM_TILT);
+	tAF_.set_servoDegrees( WEBCAM_TILT_LEVEL);
+	tAF_.set_state(tAF_.getMoveCameraState());         		   
+	while (tAF_.current_state() != tAF_.getAcquireDoneState()) 
+	{
+		tAF_.update();
+		ros::spinOnce();
+	}
+
+	// second one
+	cout << "sending the same command again" << endl;
+	tAF_.set_servoNumber(FRONT_WEBCAM_TILT);
+	tAF_.set_servoDegrees( WEBCAM_TILT_LEVEL);
+	tAF_.set_state(tAF_.getMoveCameraState());         		   
+	while (tAF_.current_state() != tAF_.getAcquireDoneState()) 
+	{
+		tAF_.update();
+		ros::spinOnce();
+	}
+	
 	outdoor_bot::movement_msg msg; 
 	
 	if (callAccelerometersService())
@@ -2718,7 +2741,15 @@ int on_update_PhaseOneHomeState()
 {
 	if (!movementComplete_) return PhaseOneHomeState_;
 	// now look at radar and dirAnt data
-	usingDirAnt_ = updateDirectionalAntenna();
+	//
+	//
+	//usingDirAnt_ = updateDirectionalAntenna();
+	// call jenny's routine here 
+	// and turn us that amount
+	
+	// then we need to move forward, in a loop with the dirAnt and the radar distances
+	// until we are within about 10 meters, when we can use the cameras
+	
 	return CheckHomeState_;
 }
 
@@ -2751,22 +2782,23 @@ int on_update_PhaseTwoHomeState()
 void on_enter_CheckHomeState()
 {
    // start by seeing if we can get a radar range and angle
-   if (radarGoodData_) return; //  && radarGoodAngle_) return;
+   //if (radarGoodData_ && radarGoodAngle_) return;
    
    // start by capturing an image using fsm
    currentSection_ = HOME;
    centerX_ = -1;
-   if (!triedWebcamAlready_)
+  // if (!triedWebcamAlready_)
    {
    	tAF_.set_acquireCamName(WEBCAM);
    	triedWebcamAlready_ = true;
    	lastCamName_ = WEBCAM;
    }
-   else
+  /* else
    {
-   	tAF_.set_acquireCamName(REGULAR_DIGCAM);
-   	lastCamName_ = REGULAR_DIGCAM;
+   	tAF_.set_acquireCamName(HOME_DIGCAM);
+   	lastCamName_ = HOME_DIGCAM;
    }
+   */
    tAF_.set_camCommand("cap_home");
    tAF_.set_homeTarget(true);
    tAF_.set_firstTarget(false);
@@ -2775,11 +2807,12 @@ void on_enter_CheckHomeState()
 
 int on_update_CheckHomeState()
 {  
-   if (radarGoodData_) // && radarGoodAngle_)
+   /*if (radarGoodData_) // && radarGoodAngle_)
    {
    	usingRadar_ = true;
    	return HeadForHomeState_;
    }
+   */
    tAF_.update();
    
    if (tAF_.current_state() != tAF_.getAcquireDoneState()) return CheckHomeState_;  // check to see if the image got analyzed 
@@ -2794,7 +2827,7 @@ int on_update_CheckHomeState()
    else
    {
       cout << "no home target found yet" << endl; 
-      return HeadForHomeState_;
+      return SearchForHomeState_;
    }  
 }
 
@@ -2806,10 +2839,9 @@ void on_enter_SearchForHomeState()
 		if (abs(currentServoDegrees_) > PAN_CAMERA_SEARCH_MAX) return; // can't find the target, so center the camera and then move ahead a bit
 		searchCounter_++;
 		tAF_.set_servoDegrees(currentServoDegrees_);
-		//tAF_.set_tilt(0);
 		
-		tAF_.set_servoNumber(DIGCAM_PAN);
-		tAF_.set_acquireCamName(REGULAR_DIGCAM);
+		tAF_.set_servoNumber(WEBCAM_PAN);
+		tAF_.set_acquireCamName(WEBCAM);
 		tAF_.set_state(tAF_.getMoveCameraState());
 }
 
@@ -2826,7 +2858,7 @@ int on_update_SearchForHomeState()
 
 void on_enter_HeadForHomeState()
 {
-    if (usingRadar_)
+   /* if (usingRadar_)
     {
 		moving_ = false;
 		turning_ = false;
@@ -2840,11 +2872,12 @@ void on_enter_HeadForHomeState()
 		movementComplete_ = false;
 		return;
 	 }
-    if ((lastCamName_ == REGULAR_DIGCAM || lastCamName_ == ZOOM_DIGCAM ) && abs(currentServoDegrees_) > 0.1) // need to put digcam servo back to the center
+	 */
+   // if ((lastCamName_ == REGULAR_DIGCAM || lastCamName_ == ZOOM_DIGCAM ) && 
+   if (abs(currentServoDegrees_) > 0.1)) // need to put servo back to the center
    {
 	   searchCounter_ = 0;
 	   tAF_.set_servoDegrees(0);
-	   //tAF_.set_tilt(0);
 	   tAF_.set_state(tAF_.getMoveCameraState());	
 	   if (abs(currentServoDegrees_) > PAN_CAMERA_SEARCH_MAX) currentServoDegrees_ = 0;	// we don't want to center on this servo pan setting   
 	} 
