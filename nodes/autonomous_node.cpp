@@ -2654,7 +2654,8 @@ int on_update_PickupTargetState()
    	else if (verifying_ && alreadyTriedVerifying_ < VERIFYING_LIMIT)
    	{
    		 finalMoveToTarget_ = true;
-   		 alreadyTriedVerifying_++;
+   		 if (phase1_) alreadyTriedVerifying_++;
+   		 else alreadyTriedVerifying_ = VERIFYING_LIMIT;	// only verify once in phase 2
    		 return CheckFirstTargetState_;
    	}	
    	else if (phase1_)
