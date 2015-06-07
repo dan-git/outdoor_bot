@@ -20,6 +20,7 @@
 #include "FBFSM/FBFSM.h"
 #include "navigation/ObstacleDetector.h"
 #include "navigation/WallFollower.h"
+#include "navigation/DirAntFollower.h"
 #include "std_msgs/String.h"
 #include "std_msgs/Int32.h"
 #include "outdoor_bot_defines.h"
@@ -66,6 +67,7 @@ using namespace std;
 #define PARKING_DISTANCE 1.5
 #define PLATFORM_DISTANCE 3.0
 #define SERVO_WAIT_SECONDS 3.0  // time from servo command until we are sure servo is in position *****************untested change*************
+#define SWITCH_FROM_DIR_ANT_TO_CAMERAS_DISTANCE 10.0
 #define DEGREES_PER_PAN_STEP 0.64
 #define PAN_CAMERA_DELTA 20
 #define PAN_CAMERA_SEARCH_MAX 20
@@ -85,7 +87,7 @@ using namespace std;
 #define ROBOT_RADIUS 0.63
 
 // namespace aliases for shorter typing
-//namespace obn = OutdoorBot::Navigation;
+namespace obn = OutdoorBot::Navigation;
 
 ros::ServiceClient NavTargets_client_, accelerometers_client_, dirAnt_client_; //, encoders_client_; //, mainTargets_client_, mainTargetsCheckImage_client_;
 ros::ServiceClient setPose_client_; //digcams_client_, 
@@ -128,6 +130,8 @@ int currentSection_;
 
 OutdoorBot::Navigation::ObstacleDetector *obstacle_detector_;
 OutdoorBot::Navigation::WallFollower     *obstacle_avoider_;
+OutdoorBot::Navigation::DirAntFollower   *dir_ant_follower_;
+bool dir_ant_do_next_move_;
 
 FBFSM fsm_;
 int BootupState_, CheckLinedUpState_, PhaseTwoFirstState_, CheckFirstTargetState_, SearchForFirstTargetState_;
@@ -2735,22 +2739,70 @@ void on_enter_PhaseOneHomeState()
    msg.command = "autoMove";
    msg.distance = 0;  
    movement_pub_.publish(msg);
+   dir_ant_follower_->activate();
+   dir_ant_do_next_move_ = true;
 }
 
 int on_update_PhaseOneHomeState()
 {
-	if (!movementComplete_) return PhaseOneHomeState_;
-	// now look at radar and dirAnt data
-	//
-	//
-	//usingDirAnt_ = updateDirectionalAntenna();
-	// call jenny's routine here 
-	// and turn us that amount
-	
-	// then we need to move forward, in a loop with the dirAnt and the radar distances
-	// until we are within about 10 meters, when we can use the cameras
-	
-	return CheckHomeState_;
+  obn::DirAntFollower::Input input(obn::DirAntFollower::Input::EXECUTING_COMMAND);
+  if (movementComplete_)
+  {
+    input = obn::DirAntFollower::Input(obn::DirAntFollower::Input::READY_FOR_NEW_COMMAND);
+  }
+
+  obn::DirAntFollower::Output output = dir_ant_follower_->update(input);
+
+  outdoor_bot::movement_msg msg;
+  switch (output.mode())
+  {
+    case obn::DirAntFollower::Output::TIMEOUT:
+      ROS_ERROR("DIRECTIONAL ANTENNA TIMEOUT OH NO HELP.");
+      // Try again.
+      dir_ant_follower_->activate();
+      return PhaseOneHomeState_;
+    case obn::DirAntFollower::Output::WAIT_FOR_READY:
+      return PhaseOneHomeState_;
+    case obn::DirAntFollower::Output::MOVE_FORWARD:
+      {
+        if (!dir_ant_do_next_move_)
+        {
+          // We're done!
+          return CheckHomeState_;
+        }
+        // How far should we move forward?
+        double distance_to_move = output.distance();
+        if (distanceToHomeRadar_ - output.distance() < SWITCH_FROM_DIR_ANT_TO_CAMERAS_DISTANCE)
+        {
+          // Don't overshoot where we want the cameras to take over.
+          distance_to_move = distanceToHomeRadar_ - SWITCH_FROM_DIR_ANT_TO_CAMERAS_DISTANCE;
+          dir_ant_do_next_move_ = false;  // We want to switch to cameras on the next move.
+        }
+        if (distance_to_move < 0.05)
+        {
+          // 5 cm isn't worth it.  Just switch now.
+          return CheckHomeState_;
+        }
+        msg.command = "autoMove";
+        msg.angle = 0.0;
+        msg.distance = distance_to_move * 1000;
+        msg.speed = 1000;
+        movementComplete_ = false;
+        return PhaseOneHomeState_;
+      }
+    case obn::DirAntFollower::Output::TURN:
+      msg.command = "autoMove";
+      msg.angle = output.distance();
+      msg.distance = 0.0;
+      msg.speed = 20.0 * sgn(output.distance());
+      movementComplete_ = false;
+      return PhaseOneHomeState_;
+    case obn::DirAntFollower::Output::STOP:
+      // Waiting on something.
+      return PhaseOneHomeState_;
+  }
+
+  return PhaseOneHomeState_;
 }
 
 /*
@@ -3614,9 +3666,9 @@ int main(int argc, char* argv[])
    ros::init(argc, argv, "autonomous_node");
    ros::NodeHandle nh;
    
-   obstacle_detector_ = new OutdoorBot::Navigation::ObstacleDetector;
-	obstacle_avoider_ = new OutdoorBot::Navigation::WallFollower;
-	
+   obstacle_detector_ = new OutdoorBot::Navigation::ObstacleDetector();
+   obstacle_avoider_ = new OutdoorBot::Navigation::WallFollower();
+   dir_ant_follower_ = new OutdoorBot::Navigation::DirAntFollower();
 
    //digcams_client_ = nh.serviceClient<outdoor_bot::digcams_service>("digcams_service");
    accelerometers_client_ = nh.serviceClient<outdoor_bot::accelerometers_service>("accelerometers_service");
@@ -3681,6 +3733,7 @@ int main(int argc, char* argv[])
    cout << "all done" << endl;
    delete obstacle_avoider_;
    delete obstacle_detector_;
+   delete dir_ant_follower_;
    return EXIT_SUCCESS;
 }
 
