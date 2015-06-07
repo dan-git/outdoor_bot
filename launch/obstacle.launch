@@ -23,7 +23,7 @@
   <!-- DETECTOR PARAMETERS -->
 
   <!-- The number of points that must be seen in a single detection to count as an obstacle.-->
-  <param name="autonomous_node/obstacle_detector/min_obstacle_points" value="5" />
+  <param name="autonomous_node/obstacle_detector/min_obstacle_points" value="50" />
   <!-- The number of detections IN A ROW that must report an obstacle before the detector reports one.  Note that
   we do not necessarily get a new detection every timestamp - a value of n here means waiting for n laser scans not
   just n updates.-->

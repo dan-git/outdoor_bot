@@ -7,6 +7,8 @@
 
 #include <ros/ros.h>
 #include <sensor_msgs/LaserScan.h>
+#include "outdoor_bot/Obstacle_msg.h"
+#include "outdoor_bot/ObstacleParams_msg.h"
 
 namespace OutdoorBot
 {
@@ -74,6 +76,9 @@ class ObstacleDetector
    */
   bool obstacleInRectangle(double xL, double yL, double theta) const;
 
+  void getObstacles(const outdoor_bot::ObstacleParams_msg& params, std::vector<outdoor_bot::Obstacle_msg>* obstacles)
+      const;
+
  private:
   void laserCallback(const sensor_msgs::LaserScan msg);
 
@@ -92,7 +97,7 @@ class ObstacleDetector
   {
     DetectionParams params;
     int obstacle_detections_or_misses;
-    explicit DetectionState(const DetectionParams& params) : obstacle_detections_or_misses(0) {}
+    explicit DetectionState(const DetectionParams& params_) : params(params_), obstacle_detections_or_misses(0) {}
   };
 
   std::vector<DetectionState> detection_states_;

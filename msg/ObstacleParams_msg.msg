@@ -1,0 +1,3 @@
+float64 max_distance
+float64 min_angle
+float64 max_angle

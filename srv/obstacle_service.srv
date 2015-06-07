@@ -1,0 +1,3 @@
+ObstacleParams_msg params
+---
+Obstacle_msg[] obstacles
