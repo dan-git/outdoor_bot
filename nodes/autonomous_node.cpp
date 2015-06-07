@@ -1008,7 +1008,7 @@ void on_enter_BootupState()
 	numTargets_ = 0;
 	approxRangeToTarget_ = 65; 
    targetRange_ = 65;
-   homeCameraRange_ = 10.;
+   homeCameraRange_ = 20.;
    range_ = 65;
    x_ = 0.;
    y_ = 0.;
@@ -1198,6 +1198,25 @@ void on_enter_CheckLinedUpState()
    tAF_.set_camCommand("capture");
    tAF_.set_firstTarget(true);
    tAF_.set_homeTarget(false);
+   
+   
+   // ******************************************
+   /*
+   tAF_.set_camCommand("cap_home");
+   tAF_.set_firstTarget(false);
+   tAF_.set_homeTarget(true);
+   */
+   
+   
+   
+   
+   // *************must change for real ops
+   
+   
+   
+   
+   
+   
    tAF_.set_state(tAF_.getCaptureImageState());
 }
 

@@ -17,7 +17,7 @@ using namespace std;
 
 #define MAX_NUM_TARGETS 50
 //#define TARGET_HEIGHT_IN_PIX_AT_3M 150. // small target
-#define TARGET_HEIGHT_IN_PIX_AT_10M 700. //large target, digcam, zoom = 7
+#define TARGET_HEIGHT_IN_PIX_AT_10M 150. //large target, digcam, zoom = 7
 //#define TARGET_HEIGHT_IN_PIX_AT_10M 64. //large target, webcam
 //#define TARGET_HEIGHT_IN_PIX_AT_10M 1211. //large target, zoom_digcam, zoom = 7
 //#define PIX_PER_CM_AT_3M 8.
@@ -31,12 +31,12 @@ using namespace std;
 #define SMALLEST_BIG_ANGLE_COS 0.50
 #define MIN_AREA 800.
 #define MAX_AREA 12000.
-#define MIN_RATIO_AREA_ARCLENGTH 5. //10.
+#define MIN_RATIO_AREA_ARCLENGTH 10.
 #define MAX_RATIO_AREA_ARCLENGTH 120. 
-#define MIN_AREA_HOME_DIGCAM 1000.
+#define MIN_AREA_HOME_DIGCAM 10000.
 #define MAX_AREA_HOME_DIGCAM 1000000.
-#define MIN_RATIO_AREA_ARCLENGTH_HOME_DIGCAM 1. //5. //10.
-#define MAX_RATIO_AREA_ARCLENGTH_HOME_DIGCAM 1000. //120. 
+#define MIN_RATIO_AREA_ARCLENGTH_HOME_DIGCAM 10.
+#define MAX_RATIO_AREA_ARCLENGTH_HOME_DIGCAM 120. 
 #define MIN_ASPECT_RATIO 0.55
 #define MAX_ASPECT_RATIO 0.75
 
@@ -49,7 +49,7 @@ private:
    ros::Subscriber analyzeImage_sub_;
    image_transport::ImageTransport it_;
    image_transport::Subscriber home_image_sub_;
-	//void FindNavTargets(int numVertices, double MinAngle, double MaxAngle, int MinArea, int MaxArea);
+	//void FindNavTargets(int numVertices, double MinAngle, double MaxAngle, double MinArea, double MaxArea);
 	double angle_( Point* pt1, Point* pt2, Point* pt0 );
    float range_;
    int cameraName_;
@@ -130,7 +130,7 @@ void commandCallback(const outdoor_bot::navTargetsCommand_msg msg)
       cout << "analysing image for home target in NavTargets" << endl;
       newHomeImageReceived_ = false;
       cameraName_ = msg.cameraName;
-      int minArea = MIN_AREA, maxArea = MAX_AREA;
+      double minArea = MIN_AREA, maxArea = MAX_AREA;
       int minRatioAreaArclength = MIN_RATIO_AREA_ARCLENGTH, maxRatioAreaArclength = MAX_RATIO_AREA_ARCLENGTH;
 		if (cameraName_ == HOME_DIGCAM )
       {
@@ -251,7 +251,7 @@ CvRect NavTargets::GetTargetRectangle()
 bool GetNavTargets(Mat NavImage, int numVertices, double MaxMatchValue,
    double BiggestSmallAngleCos, double SmallestSmallAngleCos,
    double BiggestBigAngleCos, double SmallestBigAngleCos,
-   int MinArea, int MaxArea,
+   double MinArea, double MaxArea,
    double MinRatioAreaArcLength, double MaxRatioAreaArcLength,
    double MinAspectRatio, double MaxAspectRatio,
 	bool MultipleTargets, bool InsideTarget)
@@ -419,6 +419,7 @@ bool GetNavTargets(Mat NavImage, int numVertices, double MaxMatchValue,
          // Show contours
          // imshow( "Contours", drawing );
          // printf("see contour, %d contours found \n", contours.size());
+         // cvWaitKey(0);
 
          for(unsigned int i = 0; i < contours.size(); i++ )
          {

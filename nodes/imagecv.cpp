@@ -8,6 +8,7 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include "outdoor_bot/mainTargetsCommand_msg.h"
+#include "outdoor_bot/navTargetsCommand_msg.h"
 #include "outdoor_bot/NavTargets_msg.h"
 #include "outdoor_bot_defines.h"
 
@@ -42,7 +43,7 @@ public:
       digcam_image_pub_ = it_.advertise("digcam_image", 5); 
       webcam_image_pub_ = it_.advertise("webcam_image", 5); 
       mainTargetsCommand_pub_ = nh.advertise<outdoor_bot::mainTargetsCommand_msg>("mainTargets_cmd", 25);
-      navTargetsCommand_pub_ = nh.advertise<std_msgs::String>("NavTargets_cmd", 5);
+      navTargetsCommand_pub_ = nh.advertise<outdoor_bot::navTargetsCommand_msg>("NavTargets_cmd", 5);
       subDigcam_ = it_.subscribe("digcam_image", 5, &image_cvproc::digcamImageCallback, this);
       subWebcam_ = it_.subscribe("webcam_image", 5, &image_cvproc::webcamImageCallback, this);
       subHomecam_ = it_.subscribe("home_target_image", 5, &image_cvproc::homecamImageCallback, this);
@@ -213,8 +214,9 @@ public:
       {
       	cout << "sending command to analyze image for home target" << endl;
       	//newNavTargetImageReceived_ = false;
-      	std_msgs::String msg;
-      	msg.data = "home";
+      	outdoor_bot::navTargetsCommand_msg msg;
+      	msg.cameraName = camName;
+	      msg.approxRange = approxRange;
       	navTargetsCommand_pub_.publish(msg); 
       }
       else
@@ -433,14 +435,14 @@ int main(int argc, char* argv[])
 
   while(nh.ok())
    {
-   	uIC.getUserInput();	// we block here if there are no user inputs
+   	//uIC.getUserInput();	// we block here if there are no user inputs
    	//cmds.printCommands();
    	//cmds.publishCommands();
    	ros::spinOnce();  // check for incoming messages
-   	//struct timespec ts;
-      //ts.tv_sec = 0;
-      //ts.tv_nsec = 10000000;
-      //nanosleep(&ts, NULL); // update every 10 ms
+   	struct timespec ts;
+      ts.tv_sec = 0;
+      ts.tv_nsec = 10000000;
+      nanosleep(&ts, NULL); // update every 10 ms
    }
   
    ros::spin();
