@@ -105,7 +105,7 @@ double accelX_, accelY_, accelZ_, x_, y_, yaw_, odomDistanceToHome_;
 bool zoomResult_, writeFileResult_, newMainTargetDigcamImageReceived_, newMainTargetWebcamImageReceived_, rangeUnknown_;
 bool targetCenterUpdated_, newNavTargetImageReceived_;
 int retCapToMemory_;
-double distanceToHomeRadar_, angleToHomeRadar_, orientationToHomeRadar_;
+double distanceToHomeRadar_, angleToHomeRadar_, orientationToHomeRadar_, nearestObstacle_;
 double distanceToRadarStagingPoint_, angleToRadarStagingPoint_;
 bool radarGoodAngle_, radarGoodData_, radarNewData_, usingRadar_, pastStagingPoint_, platforming_, atPlatform_;
 //double velocityToHomeRadar_ = 0., previousdistanceToHomeRadar_ = 0.; 
@@ -921,6 +921,7 @@ void radarCallback(const outdoor_bot::radar_msg::ConstPtr& msg)
 	//previousdistanceToHomeRadar_ = distanceToHomeRadar_;
 
 }
+
 
 
 /*
@@ -3645,8 +3646,23 @@ void setupStates()
 
 }
 
-
-            
+void readSensors()
+{
+  outdoor_bot::ObstacleParams_msg params;
+  // Look for obstacles within 45 degrees to either side.
+  params.min_angle = -0.707;
+  params.max_angle = 0.707;
+  std::vector<outdoor_bot::Obstacle_msg> obstacles;
+  obstacle_detector_->getObstacles(params, &obstacles);
+  nearestObstacle_ = -1.0;
+  for (size_t i = 0; i < obstacles.size(); i++)
+  {
+    if (nearestObstacle_ < 0.0 || obstacles[i].distance < nearestObstacle_)
+    {
+      nearestObstacle_ = obstacles[i].distance;
+    }
+  }
+}
 
 int main(int argc, char* argv[])
 {
@@ -3705,6 +3721,7 @@ int main(int argc, char* argv[])
    while (nh.ok())
    {
       ros::spinOnce();
+      readSensors();
       fsm_.update();
       updateRate.sleep();
       //struct timespec ts;
