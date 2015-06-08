@@ -39,6 +39,13 @@ public:
 		  botOrientation_(0.)
 	{
 	}
+	
+double getThreeRadarLocation()
+{
+	distanceToHome_ =( distanceFromLeftToLeft_ + distanceFromRightToLeft_) / 2.;
+	return (asin( (distanceFromLeftToLeft_ - distanceFromRightToLeft_) / BOT_RADAR_SEPARATION)) * 57.3;
+}
+		
 
 void getLocation()
 {
@@ -517,9 +524,10 @@ int main(int argc, char** argv)
 			&& myRadar.getDistanceFromLeftToRight() > 0.05
 			&& myRadar.getDistanceFromRightToRight() > 0.05 )
 		{		
-			myRadar.getLocation();
+			//myRadar.getLocation();
+			radarData.angleToHome = myRadar.getThreeRadarLocation();
 			radarData.distanceToHome = myRadar.getDistanceToHome();	// range in meters
-			radarData.angleToHome = myRadar.getAngleToHome();			// azimuth in degrees
+			//radarData.angleToHome = myRadar.getAngleToHome();			// azimuth in degrees
 			radarData.orientation = myRadar.getOrientation();     // bot orientation with respect to the platform (in degrees)
 			radarData.distanceToStagingPoint = myRadar.getDistanceToStagingPoint();	// range in meters
 			radarData.angleToStagingPoint = myRadar.getAngleToStagingPoint();			// azimuth in degrees
@@ -560,7 +568,7 @@ int main(int argc, char** argv)
 		*/
 		cout << "ranges from Bot Left to home left, right = " << myRadar.getDistanceFromLeftToLeft() << ", " << myRadar.getDistanceFromLeftToRight() << std::endl;
 		cout << "ranges from Bot Right to home left, right = " << myRadar.getDistanceFromRightToLeft() << ", " << myRadar.getDistanceFromRightToRight() << std::endl;
-		cout << endl << endl;
+		cout << "distance to home, angle to home" << myRadar.getDistanceToHome() << ", " << myRadar.getAngleToHome() << cout << endl << endl;
 		
 	   
 	}

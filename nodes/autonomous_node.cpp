@@ -954,6 +954,7 @@ void radarCallback(const outdoor_bot::radar_msg::ConstPtr& msg)
 	radarGoodData_ = true;
 	radarGoodAngle_ = true;
 	radarNewData_ = true;
+	
 	if (!msg->goodData) // none of the radars are reporting
 	{
 		distanceToHomeRadar_ = 0.;
@@ -965,12 +966,15 @@ void radarCallback(const outdoor_bot::radar_msg::ConstPtr& msg)
 	if (!msg->goodLocation) // at least one radar is reporting and at least one is not
 	{
 		distanceToHomeRadar_ = (msg->minDistanceToHome + msg->maxDistanceToHome) / 2.;
+		angleToHomeRadar_ = msg->angleToHome;
 		radarGoodAngle_ = false;		
 		return;
 	}
 	
+	
 	distanceToHomeRadar_ = msg->distanceToHome;
 	angleToHomeRadar_ = msg->angleToHome;
+	
 	//distanceToHomeRadar_ = msg->runningAverageDistanceToHome;	
 	//angleToHomeRadar_ = msg->runningAverageAngleToHome;	
 	orientationToHomeRadar_ = msg->orientation;
