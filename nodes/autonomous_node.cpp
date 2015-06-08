@@ -73,8 +73,8 @@ using namespace std;
 #define SERVO_WAIT_SECONDS 3.0  // time from servo command until we are sure servo is in position *****************untested change*************
 #define SWITCH_FROM_DIR_ANT_TO_CAMERAS_DISTANCE 15.0
 #define DEGREES_PER_PAN_STEP 0.64
-#define PAN_CAMERA_DELTA 10
-#define PAN_CAMERA_SEARCH_MAX 20
+#define PAN_CAMERA_DELTA 8
+#define PAN_CAMERA_SEARCH_MAX 40
 #define TILT_CAMERA_DELTA 10
 #define TILT_CAMERA_SEARCH_MAX 20
 
@@ -671,11 +671,11 @@ void testCameras()
    	setZoom(REGULAR_DIGCAM, (float) regularDigcamZoom_);
    }	
    
-   cout << "setting zoom on home digital camera to " << regularDigcamZoom_ << endl;
+   cout << "setting zoom on home digital camera to " << homeDigcamZoom_ << endl;
     setZoom(HOME_DIGCAM, (float) homeDigcamZoom_);
    while (!askUser())
    {
-   	cout << "setting zoom again on home digital camera to " << regularDigcamZoom_ << endl;
+   	cout << "setting zoom again on home digital camera to " << homeDigcamZoom_ << endl;
    	setZoom(HOME_DIGCAM, (float) homeDigcamZoom_);
    }	
       
@@ -1622,31 +1622,7 @@ int on_update_MoveToFirstTargetState()
    if (firstMoveToFirstTarget_)
    {
    	double distanceToHome = -1;
-   	if (callAccelerometersService())
-		{
-			distanceToHome = odomDistanceToHome_;
-			// turn to zero the yaw
-			cout << "yaw_ = " << yaw_ << endl;
-			if (fabs(yaw_) > 3.0 && alreadyTurned_ < 1)
-			{
-				msg.command = "autoMove";
-				msg.distance = 0.;
-			   msg.speed = -20. * sgn(yaw_); // go in the opposite direction of the yaw
-			   msg.angle = yaw_ + (sgn(yaw_) * 2);  // we turn a little extra to compensate for having moved forward with yaw drift.  we could calculate this better
-				//***************************
-				
-				cout << "turning to zero yaw = " << msg.angle << " degrees" << endl;
-				turning_ = true;
-				movement_pub_.publish(msg);
-				movementComplete_ = false;
-				alreadyTurned_++;
-				return MoveToFirstTargetState_;
-			}
-			cout << "yaw is small enough to skip correction turn" << endl;
-		}
-		turning_ = false;
-		alreadyTurned_ = 0;
-				
+ 				
    	if (radarGoodData_ && distanceToHomeRadar_ > 4)
    	{
    		radarNewData_ = false;
@@ -1654,6 +1630,39 @@ int on_update_MoveToFirstTargetState()
    		cout << "radar data is good" << endl;
    	}
    	else distanceToHome = odomDistanceToHome_;
+   	
+   	callAccelerometersService();
+		
+		// turn to zero the yaw
+		cout << "yaw_ = " << yaw_ << endl;
+		if (fabs(yaw_) > 3.0 && alreadyTurned_ < 1)
+		{
+			msg.command = "autoMove";
+			msg.distance = 0.;
+		   msg.speed = -20. * sgn(yaw_); // go in the opposite direction of the yaw
+		   msg.angle = yaw_ + (sgn(yaw_) * 2);  // we turn a little extra to compensate for having moved forward with yaw drift.
+			
+			cout << "turning to zero yaw = " << msg.angle << " degrees" << endl;
+			turning_ = true;
+			movement_pub_.publish(msg);
+			movementComplete_ = false;
+			alreadyTurned_++;
+			return MoveToFirstTargetState_;
+		}
+		cout << "yaw is small enough to skip correction turn" << endl;
+		if (distanceToHome >= distanceToFirstTargetStaging_) 
+		{
+			firstMoveToFirstTarget_ = false; // check this after the final yaw turn
+			ROS_INFO("move completed in MoveToFirstTargetState");
+	   	cout << "approxRangeToTarget_ = " << approxRangeToTarget_ << endl;
+	   	turning_ = false;
+			alreadyTurned_ = 0;
+			return CheckFirstTargetState_;
+		}
+		
+		turning_ = false;
+		alreadyTurned_ = 0;
+
    	if (distanceToHome >= 0)
    	{
    		if (distanceToHome < distanceToFirstTargetStaging_ - INCREMENTAL_MOVE_TO_TARGET)
@@ -1665,20 +1674,13 @@ int on_update_MoveToFirstTargetState()
    			cout << " we are using " << distanceToHome << " as our distance to home" << endl;
    			cout << " with a distance to FirstTarget = " << distanceToFirstTarget_ << endl;
    		}
-   		else if (distanceToHome < distanceToFirstTargetStaging_)
+   		else	// if (distanceToHome < distanceToFirstTargetStaging_)
    		{
    			msg.distance  = (distanceToFirstTargetStaging_ - distanceToHome) * 1000.;
    			approxRangeToTarget_ = distanceToFirstTarget_ - distanceToFirstTargetStaging_;
-   			firstMoveToFirstTarget_ = false;
-   			cout << "we just finished firstMoveToFirstTarget" << endl;
+				cout << "making the move that should take us to first target staging" << endl;
    		}
-   		else 
-   		{
-   			firstMoveToFirstTarget_ = false;
-   			ROS_INFO("move completed in MoveToFirstTargetState");
-	   		cout << "approxRangeToTarget_ = " << approxRangeToTarget_ << endl;
-   			return CheckFirstTargetState_;
-   		}
+
    	}
    	else
    	{

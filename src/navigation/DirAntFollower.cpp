@@ -67,7 +67,7 @@ void DirAntFollower::activate()
   private_nh.param("dir_ant_follower/min_angle", params_.min_angle, 0.5);
   private_nh.param("dir_ant_follower/wait_before_move_duration", params_.wait_before_move_duration, 2.0);
   private_nh.param("dir_ant_follower/n_sweeps", params_.n_sweeps, 3);
-  private_nh.param("dir_ant_follower/max_dir_ant_angle", params_.max_dir_ant_angle, 30.0);
+  private_nh.param("dir_ant_follower/max_dir_ant_angle", params_.max_dir_ant_angle, 35.0);
 
 
   if (params_.min_angle < 0.5)
