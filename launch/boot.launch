@@ -1,6 +1,8 @@
 <launch>
 
  <include file="$(find outdoor_bot)/launch/includes/serialComm/serialComm_outdoor.launch"/>
+ 
+ <include file="$(find outdoor_bot)/launch/includes/dir_ant_follower.launch"/>
    
   <node pkg="outdoor_bot" type="mainTargets" name="mainTargets" output= "screen">
   </node>

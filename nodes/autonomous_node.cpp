@@ -2843,14 +2843,59 @@ int on_update_PhaseOneHomeState()
 	}
   ros::spinOnce();
   obn::DirAntFollower::Input input(obn::DirAntFollower::Input::EXECUTING_COMMAND);
+  static double distanceToHomeRadarPerfectLineupDelta = 0., distanceToHomeRadarBeforeMove = 0., distanceToHomeRadarAfterMove = 0., radarBoundingDegreesToHome = 3.14;
+  static bool radarTurnedAlready = false;
+  outdoor_bot::movement_msg msg;
+  
   if (movementComplete_)
   {
-    input = obn::DirAntFollower::Input(obn::DirAntFollower::Input::READY_FOR_NEW_COMMAND);
+    distanceToHomeRadarAfterMove = distanceToHomeRadar_;
+    if (distanceToHomeRadarPerfectLineupDelta != 0.)
+    {  
+    	if ( (distanceToHomeRadarBeforeMove - distanceToHomeRadarAfterMove) / distanceToHomeRadarPerfectLineupDelta >= 1.) radarBoundingDegreesToHome = 0;
+    	else if ((distanceToHomeRadarBeforeMove - distanceToHomeRadarAfterMove) / distanceToHomeRadarPerfectLineupDelta <= -1.) radarBoundingDegreesToHome = 180.;
+    	else if (distanceToHomeRadarPerfectLineupDelta != 0.) radarBoundingDegreesToHome = acos((distanceToHomeRadarBeforeMove - distanceToHomeRadarAfterMove) / distanceToHomeRadarPerfectLineupDelta);
+    }
+    else radarBoundingDegreesToHome = 180;
+    cout << "radarBoundingDegreesToHome = " << radarBoundingDegreesToHome;
+    
+    if (distanceToHomeRadarBeforeMove - distanceToHomeRadarAfterMove < 0. && !radarTurnedAlready)
+    {
+    	cout << "we are going the wrong way and need to turn around right now, turning " << radarBoundingDegreesToHome << " degrees" << endl;
+    	msg.command = "autoMove";
+      msg.angle = radarBoundingDegreesToHome;
+      msg.distance = 0.0;
+      msg.speed = 20.0 * sgn(msg.angle);
+      movement_pub_.publish(msg);
+      movementComplete_ = false;
+      radarTurnedAlready = true;
+      //input = obn::DirAntFollower::Input(obn::DirAntFollower::Input::EXECUTING_COMMAND); // hold off on new dirAnt commands for a bit
+      // obn::DirAntFollower::Output output = dir_ant_follower_->update(input);
+      return PhaseOneHomeState_;
+     }
+     
+     if (fabs(radarBoundingDegreesToHome) > 45. && !radarTurnedAlready)
+     {
+		 	cout << "we are headed toward home, but at a high angle, so we will try correcting with a turn of  " << radarBoundingDegreesToHome << " degrees" << endl;
+		 	cout << "knowing that this direction may be wrong, but if it is, we will be off by even more and do more turns until we get around " << endl;
+		 	msg.command = "autoMove";
+		   msg.angle = radarBoundingDegreesToHome;
+		   msg.distance = 0.0;
+		   msg.speed = 20.0 * sgn(msg.angle);
+		   movement_pub_.publish(msg);
+		   movementComplete_ = false;
+		   radarTurnedAlready = true;
+		   //input = obn::DirAntFollower::Input(obn::DirAntFollower::Input::EXECUTING_COMMAND); // hold off on new dirAnt commands for a bit
+		   //obn::DirAntFollower::Output output = dir_ant_follower_->update(input);
+		   return PhaseOneHomeState_; 
+		}    
+    	radarTurnedAlready = false;
+    	input = obn::DirAntFollower::Input(obn::DirAntFollower::Input::READY_FOR_NEW_COMMAND);
   }
 
   obn::DirAntFollower::Output output = dir_ant_follower_->update(input);
 
-  outdoor_bot::movement_msg msg;
+  
   switch (output.mode())
   {
     case obn::DirAntFollower::Output::TIMEOUT:
@@ -2887,11 +2932,14 @@ int on_update_PhaseOneHomeState()
         msg.speed = 1000. * sgn(msg.distance);
         movement_pub_.publish(msg);
         movementComplete_ = false;
+        distanceToHomeRadarBeforeMove = distanceToHomeRadar_;
+        distanceToHomeRadarPerfectLineupDelta = distance_to_move; 
         return PhaseOneHomeState_;
       }
     case obn::DirAntFollower::Output::TURN:
       msg.command = "autoMove";
       msg.angle = output.distance();
+      if (fabs(msg.angle) > fabs(radarBoundingDegreesToHome)) msg.angle = fabs(radarBoundingDegreesToHome) * sgn(msg.angle);
       msg.distance = 0.0;
       msg.speed = 20.0 * sgn(output.distance());
       movement_pub_.publish(msg);
@@ -3003,7 +3051,7 @@ void on_enter_SearchForHomeState()
 
 int on_update_SearchForHomeState()
 {
-   if (pauseCommanded_)	// we go here as the very first step in autonomous ops
+   if (pauseCommanded_)	
    {
       return PauseState_;
    }
@@ -3044,15 +3092,23 @@ void on_enter_HeadForHomeState()
 
 int on_update_HeadForHomeState()
 {
+  static double distanceToHomeRadarPerfectLineupDelta = 0., distanceToHomeRadarBeforeMove = 0., distanceToHomeRadarAfterMove = 0., radarBoundingDegreesToHome = 3.14;
+  static bool radarTurnedAlready = false;
+  outdoor_bot::movement_msg msg;
+    
   if (pauseCommanded_)	// we go here as the very first step in autonomous ops
    {
       return PauseState_;
    }
    
-   if (parking_ && (nearestObstacle_ < 0.5))
+   if (platforming_ || parking_)
    {
-   	cout << "laser sees the back of the platform is < 1 meter away, time to stop " << endl;
-   	return AllDoneState_;
+   	readSensors();
+   	if (nearestObstacle_ > 0. && nearestObstacle_ <  0.5)
+   	{
+   		cout << "laser sees the back of the platform is " << nearestObstacle_ << " meters away, time to stop " << endl;
+   		return AllDoneState_;
+   	}
    }
    
    if ((!movementComplete_)  && (moving_ || turning_ || platforming_ || parking_)) //|| orienting_ )
@@ -3089,8 +3145,48 @@ int on_update_HeadForHomeState()
 		
    	if (moving_)
    	{
-   		moving_ = false;
-   		return CheckHomeState_;
+   		 moving_ = false;
+   		 if (centerX_ > 0) return CheckHomeState_;	// we got a good image, keep going with that
+
+			 distanceToHomeRadarAfterMove = distanceToHomeRadar_;
+			 if (distanceToHomeRadarPerfectLineupDelta != 0.)
+			 {  
+			 	if ( (distanceToHomeRadarBeforeMove - distanceToHomeRadarAfterMove) / distanceToHomeRadarPerfectLineupDelta >= 1.) radarBoundingDegreesToHome = 0;
+			 	else if ((distanceToHomeRadarBeforeMove - distanceToHomeRadarAfterMove) / distanceToHomeRadarPerfectLineupDelta <= -1.) radarBoundingDegreesToHome = 180.;
+			 	else if (distanceToHomeRadarPerfectLineupDelta != 0.) radarBoundingDegreesToHome = acos((distanceToHomeRadarBeforeMove - distanceToHomeRadarAfterMove) / distanceToHomeRadarPerfectLineupDelta);
+			 }
+			 else radarBoundingDegreesToHome = 180;
+			 cout << "radarBoundingDegreesToHome = " << radarBoundingDegreesToHome;
+			 
+			 if (distanceToHomeRadarBeforeMove - distanceToHomeRadarAfterMove < 0. && !radarTurnedAlready)
+			 {
+			 	cout << "we are going the wrong way and need to turn around right now, turning " << radarBoundingDegreesToHome << " degrees" << endl;
+			 	msg.command = "autoMove";
+				msg.angle = radarBoundingDegreesToHome;
+				msg.distance = 0.0;
+				msg.speed = 20.0 * sgn(msg.angle);
+				movement_pub_.publish(msg);
+				movementComplete_ = false;
+				radarTurnedAlready = true;
+				return HeadForHomeState_;
+			  }
+			  
+			  if (fabs(radarBoundingDegreesToHome) > 45. && !radarTurnedAlready)
+			  {
+				 	cout << "we are headed toward home, but at a high angle, so we will try correcting with a turn of  " << radarBoundingDegreesToHome << " degrees" << endl;
+				 	cout << "knowing that this direction may be wrong, but if it is, we will be off by even more and do more turns until we get around " << endl;
+				 	msg.command = "autoMove";
+					msg.angle = radarBoundingDegreesToHome;
+					msg.distance = 0.0;
+					msg.speed = 20.0 * sgn(msg.angle);
+					movement_pub_.publish(msg);
+					movementComplete_ = false;
+					radarTurnedAlready = true;
+					return HeadForHomeState_; 
+				}    
+			 	radarTurnedAlready = false;
+			 	return CheckHomeState_;
+    	
 			//if (usingRadar_) cout << "radar move finished, range to staging = " << distanceToRadarStagingPoint_ << endl;
 		}
 		else if (turning_)
@@ -3133,7 +3229,6 @@ int on_update_HeadForHomeState()
    }
 
    // now move or turn
-   outdoor_bot::movement_msg msg;
    
    usingRadar_ = false;
    /*
@@ -3362,7 +3457,8 @@ int on_update_HeadForHomeState()
    	msg.angle = 0;
    	msg.speed = 1000;
    	msg.distance = 10000.;
-		
+		distanceToHomeRadarPerfectLineupDelta = 10.;
+		distanceToHomeRadarBeforeMove = distanceToHomeRadar_;
 		movement_pub_.publish(msg);      
       ROS_INFO("moving forward 15m");
    }
@@ -3372,7 +3468,8 @@ int on_update_HeadForHomeState()
    	msg.angle = 0;
    	msg.speed = 1000;
    	msg.distance = 5000.;
-		
+		distanceToHomeRadarPerfectLineupDelta = 5.;
+		distanceToHomeRadarBeforeMove = distanceToHomeRadar_;
 		movement_pub_.publish(msg); 
       ROS_INFO("moving forward 5m");
    }
@@ -3381,7 +3478,9 @@ int on_update_HeadForHomeState()
       //move forward 2 m
    	msg.angle = 0;
    	msg.speed = 1000;
-   	msg.distance = 2000.;		
+   	msg.distance = 2000.;	
+   	distanceToHomeRadarPerfectLineupDelta = 2.;
+		distanceToHomeRadarBeforeMove = distanceToHomeRadar_;	
 		movement_pub_.publish(msg); 
       ROS_INFO("moving forward 2m");
    }
@@ -3390,9 +3489,11 @@ int on_update_HeadForHomeState()
       //move forward 1 m
    	msg.angle = 0;
    	msg.speed = 1000;
-   	msg.distance = 1000.;		
+   	msg.distance = 1000.;	
+   	distanceToHomeRadarPerfectLineupDelta = 1.;
+		distanceToHomeRadarBeforeMove = distanceToHomeRadar_;	
 		movement_pub_.publish(msg); 
-      ROS_INFO("moving forward 2m");
+      ROS_INFO("moving forward 1m");
       readSensors();
       cout << "with a range_ of > 5 meters, laser sees the platform is at a distance = " << nearestObstacle_ << endl;
       
@@ -3414,8 +3515,9 @@ int on_update_HeadForHomeState()
 				msg.distance = (distanceToHomeRadar_ - PLATFORM_DISTANCE) * 1000.;
 			}
 			else msg.distance = 1000.;
+			moving_ = false;
 			platforming_ = true;
-			msg.speed = 500. * sgn(msg.distance);
+			msg.speed = 600. * sgn(msg.distance);
 			movement_pub_.publish(msg);
 			movementComplete_ = false;
 			return HeadForHomeState_;
@@ -3425,6 +3527,7 @@ int on_update_HeadForHomeState()
 			cout << " we are moving onto the platform = " << (distanceToHomeRadar_ + 1.0 - PARKING_DISTANCE) * 1000. << " mm" << endl;
 			msg.distance = (distanceToHomeRadar_ + 0.5 - PARKING_DISTANCE) * 1000.;
 			msg.speed = 800. * sgn(msg.distance);
+			moving_ = false;
 			parking_ = true;
 			
 		}
@@ -3439,6 +3542,7 @@ int on_update_HeadForHomeState()
 			{
 				cout << "missed a radar data point, wait for the next one" << endl;
 				parking_ = true;
+				moving_ = false;
 				movementComplete_ = true;
 				return HeadForHomeState_;
 			}					

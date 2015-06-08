@@ -115,7 +115,18 @@ void homeImageCallback(const sensor_msgs::ImageConstPtr& msg)
     newHomeImage_ = cv_bridge::toCvCopy(msg, "bgr8")->image;
     newHomeImageReceived_ = true;
     std_msgs::Int32 imMsg;
-    imMsg.data = HOMECAM;
+    if (newHomeImage_.cols > 1000)
+    {
+    	cameraName_ = HOME_DIGCAM;
+    	imMsg.data = HOME_DIGCAM;
+    	ROS_INFO(" from the HOME_DIGCAM");
+    }
+    else
+    {
+    	cameraName_ = WEBCAM;
+    	imMsg.data = WEBCAM;
+    	ROS_INFO("from the WEBCAM");
+    }
     image_received_pub_.publish(imMsg);   // publish that we received a home image
   }
   catch (cv_bridge::Exception& e)
@@ -138,7 +149,7 @@ void commandCallback(const outdoor_bot::navTargetsCommand_msg msg)
          maxArea = MAX_AREA_HOME_DIGCAM;
          minRatioAreaArclength = MIN_RATIO_AREA_ARCLENGTH_HOME_DIGCAM;
          maxRatioAreaArclength = MAX_RATIO_AREA_ARCLENGTH_HOME_DIGCAM;
-         ROS_INFO("navTargets is using a webcam image via image transport.");
+         ROS_INFO("navTargets is using a HOME_DIGCAM image via image transport.");
       }
       else if (cameraName_ == WEBCAM)
       {
@@ -147,7 +158,7 @@ void commandCallback(const outdoor_bot::navTargetsCommand_msg msg)
          maxArea = MAX_AREA;
          minRatioAreaArclength = MIN_RATIO_AREA_ARCLENGTH;
          maxRatioAreaArclength = MAX_RATIO_AREA_ARCLENGTH;
-         ROS_INFO("navTargets is using a webcam image via image transport.");
+         ROS_INFO("navTargets is using a WEBCAM image via image transport.");
       }
         
         //if (GetNavTargets(newHomeImage_, 6, 0.05, 0.42, 0.28, 0.63, 0.50, 5000., 3000000.,10., 120., 0.55, 0.75, false, false))
