@@ -79,8 +79,14 @@ class DirAntFollower
   void on_enter_wait_for_first_turn();
   int on_update_wait_for_first_turn();
 
+  void on_enter_run_multiple_sweeps();
+  int on_update_run_multiple_sweeps();
+
   void on_enter_wait_for_angle();
   int on_update_wait_for_angle();
+
+  void on_enter_retry_sweep();
+  int on_update_retry_sweep();
 
   void on_enter_turn();
   int on_update_turn();
@@ -96,7 +102,9 @@ class DirAntFollower
 
   FBFSM fsm_;
   int wait_for_first_turn_state_;
+  int run_multiple_sweeps_state_;
   int wait_for_angle_state_;
+  int retry_sweep_state_;
   int turn_state_;
   int wait_before_move_state_;
   int move_state_;
@@ -104,9 +112,10 @@ class DirAntFollower
 
   struct WaitForAngleData
   {
+  	 int n_sweeps;	
     int sweep_number;
     ros::Time start_time;
-    WaitForAngleData() : sweep_number(0) {}
+    WaitForAngleData() : n_sweeps(0), sweep_number(0) {}
   } wait_for_angle_data_;
 
   struct TurnData
@@ -130,6 +139,10 @@ class DirAntFollower
     double min_angle;
     // The time to wait before moving (usually for radar data).
     double wait_before_move_duration;
+    // Number of sweeps to run if we get an angle outside of max dir ant angle.
+    int n_sweeps;
+    // The maximum angle we're allowed to return.
+    double max_dir_ant_angle;
   } params_;
 
   ros::Publisher dir_ant_pub_;

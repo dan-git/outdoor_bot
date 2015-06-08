@@ -1,4 +1,5 @@
 #include <boost/bind.hpp>
+#include <boost/math/special_functions/sign.hpp>
 
 #include <ros/ros.h>
 
@@ -23,7 +24,9 @@ DirAntFollower::DirAntFollower()
 void DirAntFollower::setupFSM()
 {
   wait_for_first_turn_state_ = fsm_.add_state();
+  run_multiple_sweeps_state_ = fsm_.add_state();
   wait_for_angle_state_ = fsm_.add_state();
+  retry_sweep_state_ = fsm_.add_state();
   turn_state_ = fsm_.add_state();
   wait_before_move_state_ = fsm_.add_state();
   move_state_ = fsm_.add_state();
@@ -33,9 +36,15 @@ void DirAntFollower::setupFSM()
   fsm_.set_update_function(
       wait_for_first_turn_state_, boost::bind(&DirAntFollower::on_update_wait_for_first_turn, this));
 
+  fsm_.set_entry_function(run_multiple_sweeps_state_, boost::bind(&DirAntFollower::on_enter_run_multiple_sweeps, this));
+  fsm_.set_update_function(run_multiple_sweeps_state_, boost::bind(&DirAntFollower::on_update_run_multiple_sweeps, this));
+
   fsm_.set_entry_function(wait_for_angle_state_, boost::bind(&DirAntFollower::on_enter_wait_for_angle, this));
   fsm_.set_update_function(
       wait_for_angle_state_, boost::bind(&DirAntFollower::on_update_wait_for_angle, this));
+
+  fsm_.set_entry_function(retry_sweep_state_, boost::bind(&DirAntFollower::on_enter_retry_sweep, this));
+  fsm_.set_update_function(retry_sweep_state_, boost::bind(&DirAntFollower::on_update_retry_sweep, this));
 
   fsm_.set_entry_function(turn_state_, boost::bind(&DirAntFollower::on_enter_turn, this));
   fsm_.set_update_function(turn_state_, boost::bind(&DirAntFollower::on_update_turn, this));
@@ -57,6 +66,9 @@ void DirAntFollower::activate()
   private_nh.param("dir_ant_follower/incremental_distance", params_.incremental_distance, 10.0);
   private_nh.param("dir_ant_follower/min_angle", params_.min_angle, 0.5);
   private_nh.param("dir_ant_follower/wait_before_move_duration", params_.wait_before_move_duration, 2.0);
+  private_nh.param("dir_ant_follower/n_sweeps", params_.n_sweeps, 3);
+  private_nh.param("dir_ant_follower/max_dir_ant_angle", params_.max_dir_ant_angle, 30.0);
+
 
   if (params_.min_angle < 0.5)
   {
@@ -90,9 +102,21 @@ int DirAntFollower::on_update_wait_for_first_turn()
 {
   if (input_.mode() == Input::READY_FOR_NEW_COMMAND)
   {
-    return wait_for_angle_state_;
+    return run_multiple_sweeps_state_;
   }
   return wait_for_first_turn_state_;
+}
+
+void DirAntFollower::on_enter_run_multiple_sweeps()
+{
+	ROS_INFO("Starting angle sweep.  Will do %d sweeps if we see angles larger than %f degrees.",
+		params_.n_sweeps, params_.max_dir_ant_angle);
+	wait_for_angle_data_.n_sweeps = 0;
+}
+
+int DirAntFollower::on_update_run_multiple_sweeps()
+{
+	return wait_for_angle_state_;
 }
 
 void DirAntFollower::on_enter_wait_for_angle()
@@ -131,6 +155,18 @@ int DirAntFollower::on_update_wait_for_angle()
   }
   // Finished sweep.  Turn.
   turn_data_.angle = resp.dirAntMaxAngle;
+  wait_for_angle_data_.n_sweeps++;
+  if (fabs(turn_data_.angle) > params_.max_dir_ant_angle)
+  {
+  	 ROS_WARN("DirAntFollower: Saw an angle of %f > %f from directional antenna.", turn_data_.angle, params_.max_dir_ant_angle);
+  	 if (wait_for_angle_data_.n_sweeps < params_.n_sweeps)
+  	 {
+  	 	// Try again
+  	 	return retry_sweep_state_;
+  	 }
+	 // Don't turn more than the max allowed angle.
+  	 turn_data_.angle = boost::math::sign(turn_data_.angle) * params_.max_dir_ant_angle;
+  } 
   if (fabs(turn_data_.angle) < params_.min_angle)
   {
     return move_state_;
@@ -138,6 +174,15 @@ int DirAntFollower::on_update_wait_for_angle()
   return turn_state_;
 }
 
+void DirAntFollower::on_enter_retry_sweep()
+{
+	ROS_INFO("DirAntFollower: Retrying sweep.");
+}
+
+int DirAntFollower::on_update_retry_sweep()
+{
+	return wait_for_angle_state_;
+}
 void DirAntFollower::on_enter_turn()
 {
   ROS_INFO("DirAntFollower: Turning %f degrees.", turn_data_.angle);
@@ -147,6 +192,11 @@ void DirAntFollower::on_enter_turn()
 
 int DirAntFollower::on_update_turn()
 {
+  if (output_.mode() == Output::TURN)
+  {
+    // First time through.
+    return turn_state_;
+  }
   if (input_.mode() == Input::EXECUTING_COMMAND)
   {
     return turn_state_;
@@ -183,11 +233,15 @@ void DirAntFollower::on_enter_move()
 
 int DirAntFollower::on_update_move()
 {
+  if (output_.mode() == Output::MOVE_FORWARD)
+  {
+    return move_state_;
+  }
   if (input_.mode() == Input::EXECUTING_COMMAND)
   {
     return move_state_;
   }
-  return wait_for_angle_state_;
+  return run_multiple_sweeps_state_;
 }
 
 void DirAntFollower::on_enter_timeout()

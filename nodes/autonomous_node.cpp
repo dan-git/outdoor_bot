@@ -71,9 +71,9 @@ using namespace std;
 #define PARKING_DISTANCE 1.5
 #define PLATFORM_DISTANCE 3.0
 #define SERVO_WAIT_SECONDS 3.0  // time from servo command until we are sure servo is in position *****************untested change*************
-#define SWITCH_FROM_DIR_ANT_TO_CAMERAS_DISTANCE 10.0
+#define SWITCH_FROM_DIR_ANT_TO_CAMERAS_DISTANCE 15.0
 #define DEGREES_PER_PAN_STEP 0.64
-#define PAN_CAMERA_DELTA 20
+#define PAN_CAMERA_DELTA 10
 #define PAN_CAMERA_SEARCH_MAX 20
 #define TILT_CAMERA_DELTA 10
 #define TILT_CAMERA_SEARCH_MAX 20
@@ -1194,7 +1194,7 @@ void on_exit_BootupState()
 void on_enter_CheckLinedUpState()
 {
    // start by capturing an image using fsm
-   tAF_.set_acquireCamName(HOME_DIGCAM);	// if we change here, also change in on_update below
+   tAF_.set_acquireCamName(REGULAR_DIGCAM);	// if we change here, also change in on_update below
    tAF_.set_camCommand("capture");
    tAF_.set_firstTarget(true);
    tAF_.set_homeTarget(false);
@@ -1221,7 +1221,7 @@ void on_enter_CheckLinedUpState()
 }
 
 int on_update_CheckLinedUpState()
-{    
+{
    tAF_.update();
    if (tAF_.current_state() != tAF_.getAcquireDoneState())
    {
@@ -1254,7 +1254,7 @@ int on_update_CheckLinedUpState()
    }
    
    // decided to try again, so we will capture an image using fsm
-   tAF_.set_acquireCamName(HOME_DIGCAM);			//if we change here , change above in on_enter too
+   tAF_.set_acquireCamName(REGULAR_DIGCAM);			//if we change here , change above in on_enter too
    tAF_.set_camCommand("capture");
    tAF_.set_firstTarget(true);
    tAF_.set_homeTarget(false);
@@ -1708,12 +1708,13 @@ int on_update_MoveToFirstTargetState()
 			msg.command = "autoMove";
 			msg.angle = 0.;
 			msg.speed = 1000.;
-			msg.distance = INCREMENTAL_MOVE_TO_TARGET * 1000.;
+			msg.distance = SHORT_MOVE_TO_TARGET * 1000.;
 			cout << "starting blind move, distance = " << msg.distance << " mm" << endl;
 			cout << "approximate range to target = " << approxRangeToTarget_ << endl;
 			moving_ = true;
 			movement_pub_.publish(msg);
 			movementComplete_ = false;
+			approxRangeToTarget_ -= SHORT_MOVE_TO_TARGET;
 			return MoveToFirstTargetState_;
 		}
 		msg.command = "autoMove";
@@ -2769,6 +2770,10 @@ bool updateDirectionalAntenna()
 void on_enter_PhaseOneHomeState()
 {
 
+	currentSection_ = PHASE_ONE_HOME;
+	searchCounter_ = 0;
+	centerX_ = -1;
+
 	// first move webcam up to level position
 	cout << "sending command to move the webcam servo to level " << endl;
 	tAF_.set_servoNumber(FRONT_WEBCAM_TILT);
@@ -2830,6 +2835,13 @@ void on_enter_PhaseOneHomeState()
 
 int on_update_PhaseOneHomeState()
 {
+	//return CheckHomeState_;
+	if (pauseCommanded_)
+	{
+		currentSection_ = PHASE_ONE_HOME;
+		return PauseState_;
+	}
+  ros::spinOnce();
   obn::DirAntFollower::Input input(obn::DirAntFollower::Input::EXECUTING_COMMAND);
   if (movementComplete_)
   {
@@ -2865,13 +2877,15 @@ int on_update_PhaseOneHomeState()
         }
         if (distance_to_move < 0.5)
         {
-          // under 500 cm isn't worth it.  Just switch now.
+          // under 50 cm isn't worth it.  Just switch now.
           return CheckHomeState_;
         }
+        ROS_INFO("Moving %f m.", distance_to_move);
         msg.command = "autoMove";
         msg.angle = 0.0;
         msg.distance = distance_to_move * 1000;
         msg.speed = 1000. * sgn(msg.distance);
+        movement_pub_.publish(msg);
         movementComplete_ = false;
         return PhaseOneHomeState_;
       }
@@ -2880,6 +2894,7 @@ int on_update_PhaseOneHomeState()
       msg.angle = output.distance();
       msg.distance = 0.0;
       msg.speed = 20.0 * sgn(output.distance());
+      movement_pub_.publish(msg);
       movementComplete_ = false;
       return PhaseOneHomeState_;
     case obn::DirAntFollower::Output::STOP:
@@ -2988,6 +3003,11 @@ void on_enter_SearchForHomeState()
 
 int on_update_SearchForHomeState()
 {
+   if (pauseCommanded_)	// we go here as the very first step in autonomous ops
+   {
+      return PauseState_;
+   }
+   
    if (abs(currentServoDegrees_) > PAN_CAMERA_SEARCH_MAX || lastCamName_ == HOME_DIGCAM) return HeadForHomeState_; // can't find the target, so move ahead a bit 
    tAF_.update();
    if (tAF_.current_state() != tAF_.getAcquireDoneState()) return SearchForHomeState_; // waiting for servo delay
@@ -3671,6 +3691,7 @@ int on_update_PauseState()
    if (currentSection_ == FIRST_TARGET_CHECK) return CheckFirstTargetState_;
    if (currentSection_ == FIRST_TARGET_MOVE) return MoveToFirstTargetState_;
    if (currentSection_ == TARGETS) return CheckTargetState_;
+   if (currentSection_ == PHASE_ONE_HOME) return PhaseOneHomeState_;
    if (currentSection_ == HOME) return CheckHomeState_;
    if (currentSection_ == PLATFORM) return MoveOntoPlatformState_;
    if (currentSection_ == ALL_DONE) return AllDoneState_;
@@ -3861,7 +3882,6 @@ int main(int argc, char* argv[])
    
    currentSection_ = BOOTUP;
    fsm_.set_state(BootupState_);
-   
       // now we keep updating and nicely move through the states
    
    ros::Rate updateRate(100); // update at 100 Hz

@@ -104,14 +104,14 @@ class SensorData : public RobotSensor
           AUTONOMOUS_SERIAL_PORT.print(", ");
           AUTONOMOUS_SERIAL_PORT.print(robotPause_);
           AUTONOMOUS_SERIAL_PORT.print(", ");
-          /*
+          
           AUTONOMOUS_SERIAL_PORT.print(dirAnt.getMaxAngle());
           AUTONOMOUS_SERIAL_PORT.print(", ");
           AUTONOMOUS_SERIAL_PORT.print(dirAnt.getSweepNumber());
           AUTONOMOUS_SERIAL_PORT.print(", ");
           AUTONOMOUS_SERIAL_PORT.print(dirAnt.getLevel());
           AUTONOMOUS_SERIAL_PORT.print(", ");
-          */
+          
 
           AUTONOMOUS_SERIAL_PORT.print("99"); //battery_monitor.checkBattery());
           AUTONOMOUS_SERIAL_PORT.print(", ");          

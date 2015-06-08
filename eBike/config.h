@@ -165,7 +165,7 @@ unsigned long pauseBlinkTime_;
   #define BIN_SHADE_DOWN -1
   
   #define DROP_BAR_UP_POSITION -100
-  #define DROP_BAR_DOWN_POSITION -3000
+  #define DROP_BAR_DOWN_POSITION -3500
   #define DROP_BAR_TIMEOUT  35000
   #define BIN_SHADE_UP_POSITION 0
   #define BIN_SHADE_DOWN_POSITION1 580

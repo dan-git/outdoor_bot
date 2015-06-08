@@ -4,7 +4,7 @@
 
 #define MOVE_ANTENNA 0
 #define PAN_SWEEP 1
-#define PAN_CENTER 127
+#define PAN_CENTER 0
 
 using namespace std;
 

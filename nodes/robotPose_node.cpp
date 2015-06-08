@@ -497,12 +497,12 @@ void parseNavData(std::string data)
   }
   double testPauseState = atof(navDataBuffer[indexNum].c_str());
   indexNum++;
-  //dirAntMaxAngle = atof(navDataBuffer[indexNum].c_str());
-  //indexNum++;
-  //dirAntSweepNumber = atof(navDataBuffer[indexNum].c_str());
-  //indexNum++;
-  //dirAntLevel = atof(navDataBuffer[indexNum].c_str());
-  //indexNum++;
+  dirAntMaxAngle = atof(navDataBuffer[indexNum].c_str());
+  indexNum++;
+  dirAntSweepNumber = atof(navDataBuffer[indexNum].c_str());
+  indexNum++;
+  dirAntLevel = atof(navDataBuffer[indexNum].c_str());
+  indexNum++;
   
   battery = atof(navDataBuffer[indexNum].c_str());
   indexNum++;

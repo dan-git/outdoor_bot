@@ -11,8 +11,8 @@
 #define CHECK(f) {int res = f; if (res < 0) {printf ("ERROR: %s\n", gp_result_as_string (res)); return (1);}} 
 
 #define ZOOM_DIGCAM_NUMBER 2
-#define REGULAR_DIGCAM_NUMBER 1
-#define HOME_DIGCAM_NUMBER 0
+#define REGULAR_DIGCAM_NUMBER 0
+#define HOME_DIGCAM_NUMBER 1
 
 using namespace cv;
 using namespace std;

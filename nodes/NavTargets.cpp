@@ -17,8 +17,8 @@ using namespace std;
 
 #define MAX_NUM_TARGETS 50
 //#define TARGET_HEIGHT_IN_PIX_AT_3M 150. // small target
-#define TARGET_HEIGHT_IN_PIX_AT_10M 150. //large target, digcam, zoom = 7
-//#define TARGET_HEIGHT_IN_PIX_AT_10M 64. //large target, webcam
+#define HOME_DIGCAM_TARGET_HEIGHT_IN_PIX_AT_10M 150. //large target, digcam, zoom = 7
+#define WEBCAM_TARGET_HEIGHT_IN_PIX_AT_10M 64. //large target, webcam
 //#define TARGET_HEIGHT_IN_PIX_AT_10M 1211. //large target, zoom_digcam, zoom = 7
 //#define PIX_PER_CM_AT_3M 8.
 //#define TARGET_HEIGHT_CM 78. //19.
@@ -607,7 +607,8 @@ bool GetNavTargets(Mat NavImage, int numVertices, double MaxMatchValue,
       if (target_contour[bestContour][j].y > maxY) maxY = target_contour[bestContour][j].y;
       else if (target_contour[bestContour][j].y < minY) minY = target_contour[bestContour][j].y;
    }
-   range_ = 10. * (TARGET_HEIGHT_IN_PIX_AT_10M) / ((float)(maxY - minY));
+   if (cameraName_ == HOME_DIGCAM) range_ = 10. * (HOME_DIGCAM_TARGET_HEIGHT_IN_PIX_AT_10M) / ((float)(maxY - minY));
+   else range_ = 10. * (WEBCAM_TARGET_HEIGHT_IN_PIX_AT_10M) / ((float)(maxY - minY));
    outdoor_bot::NavTargets_msg home_center_message;
    home_center_message.centerX = centerX_;
    home_center_message.centerY = centerY_;

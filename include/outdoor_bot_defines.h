@@ -6,9 +6,10 @@
 #define FIRST_TARGET_CHECK 1
 #define FIRST_TARGET_MOVE 2
 #define TARGETS 3
-#define HOME 4
-#define PLATFORM 5
-#define ALL_DONE 6
+#define PHASE_ONE_HOME 4
+#define HOME 5
+#define PLATFORM 6
+#define ALL_DONE 7
 
 #define SERVO_ANTENNA_PAN 0
 #define SERVO_ANTENNA_TILT 1
@@ -38,9 +39,9 @@
 #define LAPTOP_HAS_BUILTIN_WEBCAM 1	// 1 if it has a built in webcam, 0 if not
 
 // camera names, cannot overlap camera numbers
-#define REGULAR_DIGCAM 4
+#define REGULAR_DIGCAM 2
 #define ZOOM_DIGCAM 3
-#define HOME_DIGCAM 2
+#define HOME_DIGCAM 4
 #define HOMECAM 5
 
 #define WEBCAM_TILT_DOWN -25.	// degrees to point webcam down when the target is close
