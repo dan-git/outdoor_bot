@@ -55,7 +55,7 @@
 #define LARGE_TARGET_WIDTH 0.445
 #define WEBCAM_FOV 41.  // logitech 310 sees 7.5m at 10m -> has 40 degrees field of view
 #define ORBITCAM_FOV	54.	// orbitcam sees 14m at 10m -> has 54 degree FOV
-//#define REGULAR_DIGCAM_ZOOM7_FOV 14.  // powershot digcam with zoom = 7, sees 2.5m wide at 10m -> 14 degree FOV
+//#define HOME_DIGCAM_ZOOM7_FOV 14.  // powershot digcam with zoom = 7, sees 2.5m wide at 10m -> 14 degree FOV
 #define REGULAR_DIGCAM_ZOOM5_FOV 21.  // with zoom = 5, it sees 2.1 at 5.5m
 #define ZOOM_DIGCAM_ZOOM7 7
 #define ZOOM_DIGCAM_ZOOM6 6

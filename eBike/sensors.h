@@ -253,6 +253,7 @@ class SensorsModuleLoop : public ModuleLoop {
           long newWheelEncoderValue = abs(sensor_data.getLeftWheelEncoder()) + abs(sensor_data.getRightWheelEncoder());
           long deltaTicks = previousWheelEncoderValue - newWheelEncoderValue;
           
+          /*
           if (USE_NO_COMMAND_MOVE_CHECK)
           {            
             // movement with no command
@@ -292,7 +293,7 @@ class SensorsModuleLoop : public ModuleLoop {
             }          
             
           }
-          
+          */
           
           previousWheelEncoderValue = newWheelEncoderValue;
           

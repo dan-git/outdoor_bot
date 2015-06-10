@@ -71,7 +71,7 @@ public:
   void gooseMotors() // ebike motor controllers take a while to set the direction, so we need to give time for that.
                      //  Also, goose them to be sure that they move, as sometimes they won't respond to small speed inputs
   {
-    /*
+    
     if  ( ((rightSpeed_ * previousRightDirection_ < 0 ) && abs(rightSpeed_) > DAC_LOWER_VALUE) 
        ||  ((leftSpeed_ * previousLeftDirection_ < 0 ) && abs(leftSpeed_) > DAC_LOWER_VALUE) )
     {
@@ -82,19 +82,19 @@ public:
       previousRightDirection_ = rcs::sign(rightSpeed_);  // the ebike motor controller remembers the last non-zero direction, so we have to too
       previousLeftDirection_ = rcs::sign(leftSpeed_); 
       if (motion_pd.getBrakesState() || motion_pd.getApplyingBrakes()) motion_pd.releaseRobotBrakes();
-      else delay(100);
+      else delay(300);
 
-      motor_dac[RIGHT].setMotorSpeed(GOOSE_SPEED * rcs::sign(rightSpeed_)); 
-      motor_dac[LEFT].setMotorSpeed(GOOSE_SPEED * rcs::sign(leftSpeed_)); 
+      motor_dac[RIGHT].setMotorSpeed((GOOSE_SPEED + 150) * rcs::sign(rightSpeed_)); 
+      motor_dac[LEFT].setMotorSpeed((GOOSE_SPEED - 150) * rcs::sign(leftSpeed_)); 
       delay(50);
     }   
   
     if (motion_pd.getBrakesState() || motion_pd.getApplyingBrakes()) motion_pd.releaseRobotBrakes();
-    if (abs(rightSpeed_) > DAC_LOWER_VALUE) motor_dac[RIGHT].setMotorSpeed(GOOSE_SPEED * rcs::sign(rightSpeed_)); // send eike controllers a large speed to get going
-    if (abs(leftSpeed_) > DAC_LOWER_VALUE) motor_dac[LEFT].setMotorSpeed(GOOSE_SPEED * rcs::sign(leftSpeed_)); // and then reduce it to the commanded speed
+    if (abs(rightSpeed_) > DAC_LOWER_VALUE) motor_dac[RIGHT].setMotorSpeed((GOOSE_SPEED + 150) * rcs::sign(rightSpeed_)); // send eike controllers a large speed to get going
+    if (abs(leftSpeed_) > DAC_LOWER_VALUE) motor_dac[LEFT].setMotorSpeed((GOOSE_SPEED - 150) * rcs::sign(leftSpeed_)); // and then reduce it to the commanded speed
     delay(100);
-    DEBUG_SERIAL_PORT.println("goosing");
-    */
+    //DEBUG_SERIAL_PORT.println("goosing");
+    /*
     if  ( ((rightSpeed_ * previousRightDirection_ < 0 ) && abs(rightSpeed_) > DAC_LOWER_VALUE) 
        ||  ((leftSpeed_ * previousLeftDirection_ < 0 ) && abs(leftSpeed_) > DAC_LOWER_VALUE) )
     {
@@ -111,8 +111,8 @@ public:
       motor_dac[LEFT].setMotorSpeed(GOOSE_SPEED * rcs::sign(leftSpeed_)); 
       delay(10);
     }   
-  
-    //if (motion_pd.getBrakesState() || motion_pd.getApplyingBrakes()) motion_pd.releaseRobotBrakes();
+  */
+   // if (motion_pd.getBrakesState() || motion_pd.getApplyingBrakes()) motion_pd.releaseRobotBrakes();
     //if (abs(rightSpeed_) > DAC_LOWER_VALUE) motor_dac[RIGHT].setMotorSpeed(GOOSE_SPEED * rcs::sign(rightSpeed_)); // send eike controllers a large speed to get going
     //if (abs(leftSpeed_) > DAC_LOWER_VALUE) motor_dac[LEFT].setMotorSpeed(GOOSE_SPEED * rcs::sign(leftSpeed_)); // and then reduce it to the commanded speed
     //delay(100);
@@ -162,7 +162,7 @@ public:
       
       motor_dac[RIGHT].setMotorSpeed(rightSpeed_);
       motor_dac[LEFT].setMotorSpeed(leftSpeed_); 
-      if (DEBUG)
+      //if (DEBUG)
       {
         DEBUG_SERIAL_PORT.print("linear and angular velocities commanded: ");
         DEBUG_SERIAL_PORT.print(linearCommandedVelocity_);

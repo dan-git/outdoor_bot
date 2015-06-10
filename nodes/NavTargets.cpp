@@ -24,20 +24,20 @@ using namespace std;
 //#define TARGET_HEIGHT_CM 78. //19.
 
 #define NUM_VERTICES 6
-#define MAX_MATCH_VALUE 0.1
+#define MAX_MATCH_VALUE 0.5 // 0.1
 #define BIGGEST_SMALL_ANGLE_COS 0.42
-#define SMALLEST_SMALL_ANGLE_COS 0.28
-#define BIGGEST_BIG_ANGLE_COS 0.63
+#define SMALLEST_SMALL_ANGLE_COS 0.1 //.28
+#define BIGGEST_BIG_ANGLE_COS 0.8 //63
 #define SMALLEST_BIG_ANGLE_COS 0.50
 #define MIN_AREA 800.
-#define MAX_AREA 12000.
+#define MAX_AREA 36000. //12000.
 #define MIN_RATIO_AREA_ARCLENGTH 10.
 #define MAX_RATIO_AREA_ARCLENGTH 120. 
 #define MIN_AREA_HOME_DIGCAM 10000.
 #define MAX_AREA_HOME_DIGCAM 1000000.
 #define MIN_RATIO_AREA_ARCLENGTH_HOME_DIGCAM 10.
 #define MAX_RATIO_AREA_ARCLENGTH_HOME_DIGCAM 120. 
-#define MIN_ASPECT_RATIO 0.55
+#define MIN_ASPECT_RATIO 0.45 //.55
 #define MAX_ASPECT_RATIO 0.75
 
 class NavTargets
@@ -618,8 +618,16 @@ bool GetNavTargets(Mat NavImage, int numVertices, double MaxMatchValue,
       if (target_contour[bestContour][j].y > maxY) maxY = target_contour[bestContour][j].y;
       else if (target_contour[bestContour][j].y < minY) minY = target_contour[bestContour][j].y;
    }
-   if (cameraName_ == HOME_DIGCAM) range_ = 10. * (HOME_DIGCAM_TARGET_HEIGHT_IN_PIX_AT_10M) / ((float)(maxY - minY));
-   else range_ = 10. * (WEBCAM_TARGET_HEIGHT_IN_PIX_AT_10M) / ((float)(maxY - minY));
+   if (cameraName_ == HOME_DIGCAM)
+   {
+   	 cout << "calculating range for HOME_DIGCAM image" << endl;
+   	 range_ = 10. * (HOME_DIGCAM_TARGET_HEIGHT_IN_PIX_AT_10M) / ((float)(maxY - minY));
+   }
+   else 
+   {
+   	cout << "calculating range for WEBCAM " << endl;
+   	range_ = 10. * (WEBCAM_TARGET_HEIGHT_IN_PIX_AT_10M) / ((float)(maxY - minY));
+   }
    outdoor_bot::NavTargets_msg home_center_message;
    home_center_message.centerX = centerX_;
    home_center_message.centerY = centerY_;

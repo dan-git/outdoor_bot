@@ -116,19 +116,35 @@ public:
    {
      ROS_INFO("homecam image received by image_cvproc");
      Mat img = cv_bridge::toCvShare(msg, "bgr8")->image;
-     //Mat resizedImg;
-     //Size dsize(0,0); //round(fx*src.cols), round(fy*src.rows))}
-     //resize(img, resizedImg, dsize, 0.25, 0.25, CV_INTER_AREA);
      string windowName = "homecam";
-     try
+     if (img.cols > 1000)
      {
-        cv::imshow(windowName, img);
-        //cv::waitKey(0);
+     		Mat resizedImg;
+     		Size dsize(0,0); //round(fx*src.cols), round(fy*src.rows))}
+     		resize(img, resizedImg, dsize, 0.25, 0.25, CV_INTER_AREA);
+     		cout << " resizing image to fit the view better" << endl;
+     		try
+     		{
+        		cv::imshow(windowName, resizedImg);
+        		//cv::waitKey(0);
+		  }
+		  catch (cv_bridge::Exception& e)
+		  {
+			 ROS_ERROR("In homecamImageCallback, could not convert from '%s' to 'bgr8'.", msg->encoding.c_str());
+		  }
      }
-     catch (cv_bridge::Exception& e)
+     else
      {
-       ROS_ERROR("In homecamImageCallback, could not convert from '%s' to 'bgr8'.", msg->encoding.c_str());
-     }
+		  try
+		  {
+		     cv::imshow(windowName, img);
+		     //cv::waitKey(0);
+		  }
+		  catch (cv_bridge::Exception& e)
+		  {
+		    ROS_ERROR("In homecamImageCallback, could not convert from '%s' to 'bgr8'.", msg->encoding.c_str());
+		  }
+		}
    }
  
 
