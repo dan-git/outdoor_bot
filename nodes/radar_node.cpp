@@ -40,16 +40,20 @@ public:
 	{
 	}
 	
-void getThreeRadarLocation(double *distance, double *angle)
+bool getThreeRadarLocation(double *distance, double *angle)
 {
+	distanceToStagingPoint_ = 0;
+	botOrientation_ = 0;
+	angleToStagingPoint_ = 0;
 	if (distanceFromLeftToLeft_ < 0.1 && distanceFromRightToLeft_ > 0.1)
 	{
 		distanceToHome_ = distanceFromRightToLeft_;
 		*distance = distanceFromRightToLeft_;
 		angleToHome_ = -1000.;
 		*angle = -1000.;
-		cout << " distance to home is from right side = " << distanceToHome_ << endl;
-		cout << " angle to home is from right side = " << *angle << endl;
+		//cout << "distance to home is from right side = " << distanceToHome_ << endl;
+		//cout << "angle to home is from right side = " << *angle << endl;
+		return false;
 	}
 	else if (distanceFromRightToLeft_ < 0.1 && distanceFromLeftToLeft_ > 0.1) 
 	{
@@ -57,17 +61,19 @@ void getThreeRadarLocation(double *distance, double *angle)
 		*distance = distanceFromLeftToLeft_;
 		angleToHome_ = -1000.;
 		*angle = -1000.;
-		cout << " distance to home is from left side = " << distanceToHome_ << endl;
-		cout << " angle to home is from left side = " << angleToHome_ << endl;
+		//cout << "distance to home is from left side = " << distanceToHome_ << endl;
+		//cout << "angle to home is from left side = " << angleToHome_ << endl;
+		return false;
 	}
 	else if (distanceFromRightToLeft_ > 0.1 && distanceFromLeftToLeft_ > 0.1) 
 	{
 		distanceToHome_ = (distanceFromLeftToLeft_ + distanceFromRightToLeft_) / 2.;
 		*distance =  (distanceFromLeftToLeft_ + distanceFromRightToLeft_) / 2.;
 		angleToHome_ =  (asin( (distanceFromLeftToLeft_ - distanceFromRightToLeft_) / BOT_RADAR_SEPARATION)) * 57.3;
-		*angle = (asin( (distanceFromLeftToLeft_ - distanceFromRightToLeft_) / BOT_RADAR_SEPARATION)) * 57.3;
-		cout << " distance to home is averaged value = " << distanceToHome_ << endl;
-		cout << " angle to home is from asin calculation = " << angleToHome_ << endl;
+		*angle = -(asin( (distanceFromLeftToLeft_ - distanceFromRightToLeft_) / BOT_RADAR_SEPARATION)) * 57.3;
+		return true;
+		//cout << "distance to home is averaged value = " << distanceToHome_ << endl;
+		//cout << "angle to home is from asin calculation = " << angleToHome_ << endl;
 	}
 	else
 	{
@@ -76,6 +82,7 @@ void getThreeRadarLocation(double *distance, double *angle)
 		angleToHome_ = -1000.;
 		*angle = -1000.;
 		cout << " no radar data, so returning angle = -1000., distanceToHome_ = " << distanceToHome_ << endl;
+		return false;
 	}
 }
 		
@@ -234,18 +241,23 @@ void getRadarRanges()
 {
 	ros::Duration duration(RADAR_WAIT_TIME);
    
-   distanceFromLeftToLeft_ = leftRanger_.getRange(LEFT_RADAR_NUMBER);
-   duration.sleep();
+
 
 	distanceFromLeftToRight_ = 0; //leftRanger_.getRange(RIGHT_RADAR_NUMBER);
 	//duration.sleep();
 	
 	distanceFromRightToLeft_ = rightRanger_.getRange(LEFT_RADAR_NUMBER);
+	//ROS_INFO("got range from right to left = %f", distanceFromRightToLeft_);
 	duration.sleep();
 	
 	distanceFromRightToRight_ = 0.; //rightRanger_.getRange(RIGHT_RADAR_NUMBER);
 	//duration.sleep();
-}
+	
+   distanceFromLeftToLeft_ = leftRanger_.getRange(LEFT_RADAR_NUMBER);
+   //ROS_INFO("got range from left to left = %f", distanceFromLeftToLeft_);
+   duration.sleep();
+   
+   }
 
 /*
 
@@ -563,15 +575,15 @@ int main(int argc, char** argv)
 		{		
 			//myRadar.getLocation();
 			*/
-			cout << "calling 3 radar location" << endl;
+			//cout << "calling 3 radar location" << endl;
 			
-			myRadar.getThreeRadarLocation(&threeValDistance, &threeValAngle);
+			if (myRadar.getThreeRadarLocation(&threeValDistance, &threeValAngle)) radarData.goodLocation = true;
 			
 			radarData.distanceToHome = threeValDistance; //myRadar.getDistanceToHome(double threeValDistance, double threeValAngle);	// range in meters
 			radarData.angleToHome = threeValAngle; //myRadar.getAngleToHome();			// azimuth in degrees
-			cout << " finishedcalling 3 radar location" << endl;
-			cout << "distance, angle = " << threeValDistance << ", " << threeValAngle << endl;
-			cout << " publishing distance, angle = " << radarData.distanceToHome << ", " << radarData.angleToHome << endl;
+			//cout << " finished calling 3 radar location" << endl;
+			//cout << "distance, angle = " << threeValDistance << ", " << threeValAngle << endl;
+			//cout << " publishing distance, angle = " << radarData.distanceToHome << ", " << radarData.angleToHome << endl;
 			radarData.orientation = myRadar.getOrientation();     // bot orientation with respect to the platform (in degrees)
 			radarData.distanceToStagingPoint = myRadar.getDistanceToStagingPoint();	// range in meters
 			radarData.angleToStagingPoint = myRadar.getAngleToStagingPoint();			// azimuth in degrees
@@ -594,10 +606,10 @@ int main(int argc, char** argv)
 			//radarData.goodLocation = true;
 		//}
 		//else
-		{
-			cout << "got at least one bad radar range, so we won't calculate location" << endl;
-			radarData.goodLocation = false;
-		}
+		//{
+			//cout << "got at least one bad radar range, so we won't calculate location" << endl;
+			//radarData.goodLocation = false;
+		//}
 
 		radar_pub_.publish(radarData);
 		
@@ -611,9 +623,9 @@ int main(int argc, char** argv)
 		cout << "distanceToStagingPoint, angleToStagingPoint = " << myRadar.getDistanceToStagingPoint() << " meters, " << myRadar.getAngleToStagingPoint() << " degrees" << endl;
 		cout << "runningAverageDistanceToHome, runningAverageAngleToHome = " << runningAverageDistanceToHome << " meters, " << runningAverageAngleToHome << " degrees" << endl;
 		*/
-		cout << "ranges from Bot Left to home left, right = " << myRadar.getDistanceFromLeftToLeft() << ", " << myRadar.getDistanceFromLeftToRight() << std::endl;
-		cout << "ranges from Bot Right to home left, right = " << myRadar.getDistanceFromRightToLeft() << ", " << myRadar.getDistanceFromRightToRight() << std::endl;
-		cout << "distance to home, angle to home " << threeValDistance << ", " << threeValAngle << cout << endl << endl;
+		//cout << "ranges from Bot Left to home left, right = " << myRadar.getDistanceFromLeftToLeft() << ", " << myRadar.getDistanceFromLeftToRight() << std::endl;
+		//cout << "ranges from Bot Right to home left, right = " << myRadar.getDistanceFromRightToLeft() << ", " << myRadar.getDistanceFromRightToRight() << std::endl;
+		cout << "distance to home, angle to home " << threeValDistance << ", " << threeValAngle << endl << endl;
 		
 	   
 	}

@@ -26,7 +26,8 @@ public:
       
      
               
-      pidLinear_ = new pidControl(KP_LINEAR, KI_LINEAR, KD_LINEAR, 10.0f, MAX_LINEAR_ROBOT_VELOCITY);  // limit change to 10 mm/sec per cycle     
+      pidLinear_ = new pidControl(KP_LINEAR, KI_LINEAR, KD_LINEAR, 10.0f, MAX_LINEAR_ROBOT_VELOCITY);  // limit change to 10 mm/sec per cycle   
+      stop();  
     }
     
     ~RobotBase()
@@ -393,36 +394,39 @@ public:
               autoMoveStopped_ = false;
               //DEBUG_SERIAL_PORT.print("last value for deltaWheelMovement = ");
               //DEBUG_SERIAL_PORT.println(deltaWheelMovement);
-              if (autoLinearMoving_)
+              if(DEBUG)
               {
-                DEBUG_SERIAL_PORT.print("autoMove completed, initial distance, final distance, total move = ");
-                DEBUG_SERIAL_PORT.print((abs(autoInitialLeftTicks_) + abs(autoInitialRightTicks_)) *  MM_PER_TICK_EBIKE / 2.);
-                DEBUG_SERIAL_PORT.print(", ");
-                DEBUG_SERIAL_PORT.print((abs(leftTotalTicks) + abs(rightTotalTicks)) *  MM_PER_TICK_EBIKE / 2.);
-                DEBUG_SERIAL_PORT.print(", ");
-                DEBUG_SERIAL_PORT.println(distanceMoved); 
-                DEBUG_SERIAL_PORT.print("during move, initial yaw, final yaw, total turn = ");
-                DEBUG_SERIAL_PORT.print(autoInitialYaw_);
-                DEBUG_SERIAL_PORT.print(", ");
-                DEBUG_SERIAL_PORT.print(gyro_stabilizer.getYawTotal());
-                DEBUG_SERIAL_PORT.print(", ");
-                DEBUG_SERIAL_PORT.println(gyro_stabilizer.getYawTotal() - autoInitialYaw_);
-               }
-               else
-               {                  
-                DEBUG_SERIAL_PORT.print("autoMove turn done: initial yaw, final yaw, total turn = ");
-                DEBUG_SERIAL_PORT.print(autoInitialYaw_);
-                DEBUG_SERIAL_PORT.print(", ");
-                DEBUG_SERIAL_PORT.print(gyro_stabilizer.getYawTotal());
-                DEBUG_SERIAL_PORT.print(", ");
-                DEBUG_SERIAL_PORT.println(gyro_stabilizer.getYawTotal() - autoInitialYaw_);
-                DEBUG_SERIAL_PORT.print("during turn, initial distance, final distance, total move = ");
-                DEBUG_SERIAL_PORT.print((abs(autoInitialLeftTicks_) + abs(autoInitialRightTicks_)) *  MM_PER_TICK_EBIKE / 2.);
-                DEBUG_SERIAL_PORT.print(", ");
-                DEBUG_SERIAL_PORT.print((abs(leftTotalTicks) + abs(rightTotalTicks)) *  MM_PER_TICK_EBIKE / 2.);
-                DEBUG_SERIAL_PORT.print(", ");
-                DEBUG_SERIAL_PORT.println(distanceMoved); 
-               }     
+                if (autoLinearMoving_)
+                {
+                  DEBUG_SERIAL_PORT.print("autoMove completed, initial distance, final distance, total move = ");
+                  DEBUG_SERIAL_PORT.print((abs(autoInitialLeftTicks_) + abs(autoInitialRightTicks_)) *  MM_PER_TICK_EBIKE / 2.);
+                  DEBUG_SERIAL_PORT.print(", ");
+                  DEBUG_SERIAL_PORT.print((abs(leftTotalTicks) + abs(rightTotalTicks)) *  MM_PER_TICK_EBIKE / 2.);
+                  DEBUG_SERIAL_PORT.print(", ");
+                  DEBUG_SERIAL_PORT.println(distanceMoved); 
+                  DEBUG_SERIAL_PORT.print("during move, initial yaw, final yaw, total turn = ");
+                  DEBUG_SERIAL_PORT.print(autoInitialYaw_);
+                  DEBUG_SERIAL_PORT.print(", ");
+                  DEBUG_SERIAL_PORT.print(gyro_stabilizer.getYawTotal());
+                  DEBUG_SERIAL_PORT.print(", ");
+                  DEBUG_SERIAL_PORT.println(gyro_stabilizer.getYawTotal() - autoInitialYaw_);
+                 }
+                 else
+                 {                  
+                  DEBUG_SERIAL_PORT.print("autoMove turn done: initial yaw, final yaw, total turn = ");
+                  DEBUG_SERIAL_PORT.print(autoInitialYaw_);
+                  DEBUG_SERIAL_PORT.print(", ");
+                  DEBUG_SERIAL_PORT.print(gyro_stabilizer.getYawTotal());
+                  DEBUG_SERIAL_PORT.print(", ");
+                  DEBUG_SERIAL_PORT.println(gyro_stabilizer.getYawTotal() - autoInitialYaw_);
+                  DEBUG_SERIAL_PORT.print("during turn, initial distance, final distance, total move = ");
+                  DEBUG_SERIAL_PORT.print((abs(autoInitialLeftTicks_) + abs(autoInitialRightTicks_)) *  MM_PER_TICK_EBIKE / 2.);
+                  DEBUG_SERIAL_PORT.print(", ");
+                  DEBUG_SERIAL_PORT.print((abs(leftTotalTicks) + abs(rightTotalTicks)) *  MM_PER_TICK_EBIKE / 2.);
+                  DEBUG_SERIAL_PORT.print(", ");
+                  DEBUG_SERIAL_PORT.println(distanceMoved); 
+                 } 
+              }    
             }
             /*
             else
@@ -540,7 +544,7 @@ public:
         || ((linearCommandedVelocity_ + angCommandedVelocityMMperSec > 50) && rightSpeed_ < -DAC_LOWER_VALUE)
         || ((linearCommandedVelocity_ + angCommandedVelocityMMperSec < -50) && rightSpeed_ > DAC_LOWER_VALUE) )
       {
-          //if (DEBUG) 
+          if (DEBUG) 
           {
             DEBUG_SERIAL_PORT.print("speeds reversed compared to commands, probably trying to correct yaw drift, left, right speed = ");
             DEBUG_SERIAL_PORT.print(leftSpeed_);

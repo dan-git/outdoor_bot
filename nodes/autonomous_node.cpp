@@ -63,15 +63,15 @@ using namespace std;
 //#define METERS_PER_PIXEL 0.0943	use this value for resolution: in global and local_costmap_params.yaml and in field_map.yaml
 //#define DISTANCE_TO_FIRST_TARGET_STAGING 2.0
 //#define DISTANCE_TO_FIRST_TARGET 12.0
-#define TARGET_STAGING_DISTANCE 10.
+#define TARGET_STAGING_DISTANCE 6.
 #define INCREMENTAL_MOVE_TO_TARGET 10.0
-#define INCREMENTAL_TURN_TO_FIND_TARGET -20.0
-#define SHORT_MOVE_TO_TARGET 1.0
+#define INCREMENTAL_TURN_TO_FIND_TARGET 60.0
+#define SHORT_MOVE_TO_TARGET 2.0
 //#define FIRST_MOVE_REMAINING_DISTANCE 10.0
 #define PARKING_DISTANCE 1.5
 #define PLATFORM_DISTANCE 3.0
-#define SERVO_WAIT_SECONDS 3.0  // time from servo command until we are sure servo is in position *****************untested change*************
-#define SWITCH_FROM_DIR_ANT_TO_CAMERAS_DISTANCE 15.0
+#define SERVO_WAIT_SECONDS 2.0  // time from servo command until we are sure servo is in position *****************untested change*************
+#define SWITCH_FROM_DIR_ANT_TO_RADAR_DISTANCE 25.0
 #define DEGREES_PER_PAN_STEP 0.64
 #define PAN_CAMERA_DELTA 20
 #define PAN_CAMERA_SEARCH_MAX 40
@@ -149,10 +149,11 @@ int MoveToFirstTargetState_;
 int AvoidObstacleState_;
 int NewTargetState_, CheckTargetState_, FindTargetState_, MoveToTargetState_, PickupTargetState_, PhaseOneHomeState_;
 int CheckHomeState_, SearchForHomeState_;
-int HeadForHomeState_, MoveOntoPlatformState_, UserCommandState_;
+int HeadForHomeState_, MoveOntoPlatformState_, UserCommandState_, RadarApproachState_;
 int MoveToRecoverState_, MoveToRecoverFailedState_, ReEntryState_, PauseState_, AllDoneState_;
 int MoveToRecoverCounter_ = 0, TurnToRecoverCounter_ = 0;
 int platformNumber_;
+int distanceToSwitchFromDirantToRadarDistance_ = SWITCH_FROM_DIR_ANT_TO_RADAR_DISTANCE;
 
 bool getUserInput();
 
@@ -478,6 +479,20 @@ bool callAccelerometersService()
  
 bool getUserInput()
 {
+   distanceToFirstTarget_ = 64;
+   distanceToFirstTargetStaging_ = distanceToFirstTarget_ - TARGET_STAGING_DISTANCE;
+   cout << "We are on platform number " << platformNumber_  << ", a distance = " << distanceToFirstTarget_ << " meters from the first target" << endl;
+   cout << "Staging distance = " << distanceToFirstTargetStaging_ << endl;
+   phase1_ = true;
+   firstMoveDistance_ = 2000;
+   cout << "first move distance = " << firstMoveDistance_ << " mm" << endl;
+   firstTurnAngle_ = 0;
+	cout << "first turn angle = " << firstTurnAngle_ << endl;
+   cout << "current nav parameters are as follows: " << endl;
+	callAccelerometersService();
+	return true;
+   
+   /*
    string input = "";
    cout << "Please enter the platform number we are starting on: " << endl << endl;
    getline(cin, input);
@@ -495,7 +510,7 @@ bool getUserInput()
       cout << "Staging distance = " << distanceToFirstTargetStaging_ << endl;
       
 		         
-		//******************************************use this with a blank map, decide later for real ops*************
+		//  ******************************************use this with a blank map, decide later for real ops*************
 		// makes using odometry in autonmous node a lot easier***************
 		if (!callSetPoseService(0,0,0,true)) //platPoseX_, platPoseY_, platPoseYaw_, true)) // set home pose in robotPose_node
 		{
@@ -505,7 +520,7 @@ bool getUserInput()
 		{
 		   cout << "failed to place us at home pose on the map" << endl;
 		}
-		//******************************************use this with a blank map, decide later for real ops********
+		//  ******************************************use this with a blank map, decide later for real ops********
 		
 		cout << "current nav parameters are as follows: " << endl;
 		callAccelerometersService();
@@ -542,20 +557,20 @@ bool getUserInput()
    {
       firstMoveDistance_ = compNumber * 1000.;
 	}
-	cout << "firstMove distance = " << firstMoveDistance_;
+	cout << "firstMove distance = " << firstMoveDistance_ << endl;
 	
 	
-   cout << "Please enter the first turn angle: " << endl << endl;
+   cout << "Please enter the first turn angle: " << endl;
    getline(cin, input);
    stringstream myStream3(input);
    if (myStream3 >> compNumber)
    {
       firstTurnAngle_ = compNumber;
 	}
-	cout << "first turn angle = " << firstTurnAngle_;
+	cout << "first turn angle = " << firstTurnAngle_ << endl;
 	
 	return true;
-   
+   */
    
 }
 
@@ -702,7 +717,8 @@ void testCameras()
    	cout << "setting zoom again on home digital camera to " << homeDigcamZoom_ << endl;
    	setZoom(HOME_DIGCAM, (float) homeDigcamZoom_);
    }	
-      
+ 
+ /*     
    cout << "capturing image on zoom digcam..." << endl;
    imageCapture("capture", ZOOM_DIGCAM, fileWrite);
    while (!askUser())
@@ -726,6 +742,7 @@ void testCameras()
    	cout << "capturing another image on home digcam..." << endl;
    	imageCapture("capture", HOME_DIGCAM, fileWrite);
    }
+   */
 }  
 
 void pauseCallback(const std_msgs::Int32::ConstPtr& msg)
@@ -990,7 +1007,6 @@ void radarCallback(const outdoor_bot::radar_msg::ConstPtr& msg)
 	if (!msg->goodLocation) // at least one radar is reporting and at least one is not
 	{
 		distanceToHomeRadar_ = (msg->minDistanceToHome + msg->maxDistanceToHome) / 2.;
-		angleToHomeRadar_ = msg->angleToHome;
 		radarGoodAngle_ = false;		
 		return;
 	}
@@ -1221,12 +1237,12 @@ void on_exit_BootupState()
 void on_enter_CheckLinedUpState()
 {
    // start by capturing an image using fsm
-   tAF_.set_acquireCamName(WEBCAM);	// if we change here, also change in on_update below
+   //tAF_.set_acquireCamName(WEBCAM);	// if we change here, also change in on_update below
    
    
    
    
-   tAF_.set_camCommand("capture");
+   //tAF_.set_camCommand("capture");
    tAF_.set_firstTarget(true);
    tAF_.set_homeTarget(false);
    
@@ -1247,23 +1263,20 @@ void on_enter_CheckLinedUpState()
    
    
    
-   tAF_.set_state(tAF_.getCaptureImageState());
+   //tAF_.set_state(tAF_.getCaptureImageState());
 }
 
 int on_update_CheckLinedUpState()
 {
-   
-
-   
-   
-   
-   tAF_.update();
-   if (tAF_.current_state() != tAF_.getAcquireDoneState())
-   {
+  
+  // tAF_.update();
+  // if (tAF_.current_state() != tAF_.getAcquireDoneState())
+  // {
    	//ros::spinOnce();
-   	return CheckLinedUpState_;  // check to see if the image got analyzed 
-   }
-          
+  // 	return CheckLinedUpState_;  // check to see if the image got analyzed 
+  // }
+  
+  /*        
    if (centerX_ > 0)
    {
    	 cout << "possible target found: x, y, range = " << centerX_ << ", " << centerY_ << ", " << targetRange_ << endl;
@@ -1278,9 +1291,9 @@ int on_update_CheckLinedUpState()
    }
    else cout << "no target found yet" << endl; 
    
+   */
    
-   
-   cout << "Do you want to move on to autonomous ops or retry LineUp?" << endl;
+   cout << "Do you want to move on to autonomous ops or retry BootUp?" << endl;
    if (askUserForGo())
    {  
      /*	
@@ -1306,14 +1319,16 @@ int on_update_CheckLinedUpState()
 	  return PhaseTwoFirstState_;
 	}
    
+   /*
    // decided to try again, so we will capture an image using fsm
    tAF_.set_acquireCamName(WEBCAM);			//if we change here , change above in on_enter too
-   tAF_.set_camCommand("capture"); //**************change for real ops
+   tAF_.set_camCommand("capture"); // **************change for real ops
    tAF_.set_firstTarget(false);
-   
+   turning to zero yaw
    tAF_.set_homeTarget(true);
    tAF_.set_state(tAF_.getCaptureImageState());
-   return CheckLinedUpState_;
+   */
+   return BootupState_;
 }
 
 
@@ -1335,22 +1350,26 @@ void on_enter_PhaseTwoFirstState()
 
 int on_update_PhaseTwoFirstState()
 {
-   if (!movementComplete_) return PhaseTwoFirstState_;
+   if (!movementComplete_)
+   {
+   	ros::spinOnce();
+   	return PhaseTwoFirstState_;
+   }
+   
+	movementComplete_ = false;
+	centerX_ = -1;
+	firstMoveToFirstTarget_ = true;
+	cout << "finshed initial move and turn in phase one, moving on to MoveToFirstTarget" << endl;
+	return MoveToFirstTargetState_;
+   
+   /*
    
    if (moving_ || turning_)	//  move is complete
    {	      	      
 		if (turning_)	// we have completed the first move and the downhill turn
 		{
 			turning_ = false;
-			movementComplete_ = false;
-			//approxRangeToTarget_ = 60.;
-			centerX_ = -1;
-			firstMoveToFirstTarget_ = true;
-			if (phase1_)
-			{
-				cout << "finshed initial move and turn in phase one, moving on to MoveToFirstTarget" << endl;
-				return MoveToFirstTargetState_;
-			}
+
 			else
 			{
 				cout << "finshed initial move and turn in phase two" << endl;
@@ -1389,6 +1408,7 @@ int on_update_PhaseTwoFirstState()
 	movement_pub_.publish(msg);
 	movementComplete_ = false; 
    return PhaseTwoFirstState_; 
+   */
 }
 
 void on_enter_CheckFirstTargetState()
@@ -1708,9 +1728,10 @@ int on_update_MoveToFirstTargetState()
 		{
 			msg.command = "autoMove";
 			msg.distance = 0.;
-			int localSpeedSign = yaw_ - firstTurnAngle_;
-		   msg.speed = -20. * sgn(localSpeedSign); // go in the opposite direction of the yaw
-		   msg.angle = (yaw_ - firstTurnAngle_) + (sgn(yaw_) * 2);  // we turn a little extra to compensate for having moved forward with yaw drift.
+			int negativeNetYaw = firstTurnAngle_- yaw_; // go in the opposite direction of the net yaw
+		   msg.speed = 20. * sgn(negativeNetYaw); 
+		   //msg.angle = (yaw_ - firstTurnAngle_) + (sgn(yaw_) * 2);  // we turn a little extra to compensate for having moved forward with yaw drift.
+		   msg.angle = (negativeNetYaw) + (sgn(negativeNetYaw) * 2);
 			
 			cout << "turning to zero yaw = " << msg.angle << " degrees" << endl;
 			turning_ = true;
@@ -1775,7 +1796,7 @@ int on_update_MoveToFirstTargetState()
 	     
    if (centerX_ < 0 && (!finalMoveToTarget_)) // we don't have a target in view yet, so we will just turn or move forward a bit
 	{    
-		if (approxRangeToTarget_ > 2.)
+		if (approxRangeToTarget_ > 5)
 		{
 			msg.command = "autoMove";
 			msg.angle = 0.;
@@ -2993,14 +3014,14 @@ int on_update_PhaseOneHomeState()
         if (!dir_ant_do_next_move_)
         {
           // We're done!
-          return CheckHomeState_;
+          return RadarApproachState_;
         }
         // How far should we move forward?
         double distance_to_move = output.distance();
-        if (distanceToHomeRadar_ - output.distance() < SWITCH_FROM_DIR_ANT_TO_CAMERAS_DISTANCE)
+        if (distanceToHomeRadar_ - output.distance() < distanceToSwitchFromDirantToRadarDistance_)
         {
           // Don't overshoot where we want the cameras to take over.
-          distance_to_move = distanceToHomeRadar_ - SWITCH_FROM_DIR_ANT_TO_CAMERAS_DISTANCE;
+          distance_to_move = distanceToHomeRadar_ - distanceToSwitchFromDirantToRadarDistance_;
           dir_ant_do_next_move_ = false;  // We want to switch to cameras on the next move.
         }
         if (distance_to_move < 0.5)
@@ -3037,10 +3058,10 @@ int on_update_PhaseOneHomeState()
   return PhaseOneHomeState_;
 }
 
-/*
-void on_enter_PhaseTwoHomeState()
+
+void on_enter_RadarApproachState()
 {
-	outdoor_bot::movement_msg msg;
+	/*outdoor_bot::movement_msg msg;
 	usingDirAnt_ = updateDirectionalAntenna();
 	if (usingDirAnt_)
 	{
@@ -3052,21 +3073,21 @@ void on_enter_PhaseTwoHomeState()
    	movement_pub_.publish(msg);
    }
    else movementComplete_ = true;
-}
+   */
 		
 }
 
-int on_update_PhaseTwoHomeState()
+int on_update_RadarApproachState()
 {
-	if (!movementComplete_) return PhaseTwoHomeState_;	
+	//if (!movementComplete_) return PhaseTwoHomeState_;	
 	return CheckHomeState_;
 }
-*/
+
 
 void on_enter_CheckHomeState()
 {
    // start by seeing if we can get a radar range and angle
-   //if (radarGoodData_ && radarGoodAngle_) return;
+  if (radarGoodData_ && radarGoodAngle_) return;
    
    // start by capturing an image using fsm
    currentSection_ = HOME;
@@ -3090,12 +3111,14 @@ void on_enter_CheckHomeState()
 
 int on_update_CheckHomeState()
 {  
-   /*if (radarGoodData_) // && radarGoodAngle_)
+   if (radarGoodData_ && radarGoodAngle_)
    {
    	usingRadar_ = true;
+   	homeCameraRange_ = 0;
+   	centerX_ = -1;
    	return HeadForHomeState_;
    }
-   */
+   
    tAF_.update();
    
    if (tAF_.current_state() != tAF_.getAcquireDoneState()) return CheckHomeState_;  // check to see if the image got analyzed 
@@ -3204,14 +3227,15 @@ int on_update_HeadForHomeState()
    {
    	readSensors();
 
-   	cout << "laser sees the back of the platform is " << nearestObstacle_ << " meters away, time to turn " << endl;
+   	cout << "laser sees the back of the platform is " << nearestObstacle_ << " meters away, time to stop " << endl;
      	if (nearestObstacle_ > 0. && nearestObstacle_ <  0.5)
    	{ 		
-   		lastPushing_ = true;
+   		//lastPushing_ = true;
+   		return AllDoneState_;
    	}
    }
    
-   if ((!movementComplete_)  && (moving_ || turning_ || platforming_ || parking_ || lastPushing_)) //|| orienting_ )
+   if ((!movementComplete_)  && (moving_ || turning_ || orienting_ || platforming_ || parking_ ))
    {
    	ros::spinOnce();
    	return HeadForHomeState_;
@@ -3221,14 +3245,13 @@ int on_update_HeadForHomeState()
    {
    	movementComplete_ = false;
    	
-   	usingRadar_ = false;
    	//if (usingRadar_)
-   	//{
+   	{
    		// we need to let the radars gather data with the robot not moving
-   		// so we wait a while between moves.  it takes 2 seconds to get brand new radar data
+   		// so we wait a while between moves.  it takes 1 second to get brand new radar data
    		ros::Time last_time = ros::Time::now();
 			ros::Time current_time = ros::Time::now();
-			while ( current_time.toSec() - last_time.toSec() < 2.0) 
+			while ( current_time.toSec() - last_time.toSec() < 1.0) 
 			{
 				ros::spinOnce();
 				current_time = ros::Time::now(); // delay a bit
@@ -3236,19 +3259,62 @@ int on_update_HeadForHomeState()
 			radarNewData_ = false;
 			last_time = ros::Time::now();
 			current_time = ros::Time::now();
-			while ( current_time.toSec() - last_time.toSec() < 4.0 && (!radarNewData_)) 
+			while ( current_time.toSec() - last_time.toSec() < 1.0 && (!radarNewData_)) 
 			{
 				ros::spinOnce(); // check messages, wait for new data
 				current_time = ros::Time::now(); // delay a bit
 			}		
-		//}
+		}
 		
-		if (lastPushing_)
+		/*if (lastPushing_)
 		{
 			movementComplete_ = true;
 			cout << " we made the turn in last Pushing, now for the move"  << endl;
 		}
+		*/
 		
+		
+		
+    	if (radarGoodData_ && distanceToHomeRadar_ < PARKING_DISTANCE) 
+		{
+			cout << " we are in parking position, shut it down at a distance  = " << distanceToHomeRadar_ << " meters" << endl;
+			return AllDoneState_;
+		}
+		
+		else if (parking_)
+    	{
+    		parking_ = false;
+    		cout << "parking move finished, ";
+    		if (radarGoodData_) cout << "range to home = " << distanceToHomeRadar_ << endl;
+    		else cout << "but not getting radar range right now " << endl;
+    		return HeadForHomeState_;
+    	}
+		
+    	else if (platforming_)
+    	{
+    		platforming_ = false;
+    		cout << "move to the front of the platform finished, ";
+    		if (radarGoodData_) cout << "range to home = " << distanceToHomeRadar_ << endl;
+    		else cout << "but not getting radar range right now " << endl;
+    		return HeadForHomeState_;
+    	}
+    			
+    /*	
+    	else if (orienting_)
+    	{
+    		orienting_ = false;
+    		cout << "orientation turn finished, ";
+    		if (radarGoodAngle_) cout << "angle to home = " << angleToHomeRadar_ << endl;
+    		else cout << "but not getting radar localizations right now " << endl;
+    	}
+    	*/
+    	
+
+    	
+
+    	
+
+				
    	else if (moving_)
    	{
    		 moving_ = false;
@@ -3302,82 +3368,86 @@ int on_update_HeadForHomeState()
 			return CheckHomeState_;
     		//cout << "turn finished, angle to staging = " << angleToRadarStagingPoint_ << endl;
     	}
-    /*	
-    	else if (orienting_)
-    	{
-    		orienting_ = false;
-    		cout << "orientation turn finished, ";
-    		if (radarGoodAngle_) cout << "angle to home = " << angleToHomeRadar_ << endl;
-    		else cout << "but not getting radar localizations right now " << endl;
-    	}
-    	*/
-    	
-    	else if (platforming_)
-    	{
-    		platforming_ = false;
-    		cout << "move to the front of the platform finished, ";
-    		if (radarGoodData_) cout << "range to home = " << distanceToHomeRadar_ << endl;
-    		else cout << "but not getting radar range right now " << endl;
-    	}
-    	
-    	else if (parking_)
-    	{
-    		parking_ = false;
-    		cout << "parking move finished, ";
-    		if (radarGoodData_) cout << "range to home = " << distanceToHomeRadar_ << endl;
-    		else cout << "but not getting radar range right now " << endl;
-    	}
-    	
-    	if (radarGoodData_ && distanceToHomeRadar_ < PARKING_DISTANCE) 
-		{
-			cout << " we are in parking position, shut it down at a distance  = " << distanceToHomeRadar_ << " meters" << endl;
-			//return AllDoneState_;
-		}
+
    }
 
-   // now move or turn
-   
-   usingRadar_ = false;
-   /*
-   {
-   	if ((!turning_) && (!alreadyTurned_) && (!pastStagingPoint_))
+   // now move or turn	
+   	
+	if (centerX_ > 0 && (!turning_) && (alreadyTurned_ < 2))	
+	{
+   	// center the target and move forward
+   	offsetX_ = ((double) ((totalX_ / 2) - centerX_)) / ((double) totalX_);  // fraction that the image is off-center
+    	// only want to turn once for each pass through HeadForHomeState
+   	cout << "center offset ratio = " << offsetX_ << endl;
+   	if (lastCamName_ == WEBCAM) offsetX_ *= WEBCAM_FOV;
+   	else if (lastCamName_ == HOME_DIGCAM) offsetX_ *= HOME_DIGCAM_ZOOM7_FOV;
+   	else if (lastCamName_ == REGULAR_DIGCAM) offsetX_ *= REGULAR_DIGCAM_ZOOM5_FOV;
+   	else if (lastCamName_ == ZOOM_DIGCAM) offsetX_ *= ZOOM_DIGCAM_ZOOM6_FOV;
+   	else offsetX_ = 0.;
+   	cout << "center offset degrees = " << offsetX_ << endl;
+   	double servoOffset = currentServoDegrees_;
+   	currentServoDegrees_ = 0.;	// the servos were centered earlier, but we waited to reset currentServoDegrees_ so we could use it here
+   	cout << "servo offset degrees = " << servoOffset << endl;
+   	//double offsetY = ((double) (totalY_ - centerY_)) / ((double) totalY_);
+   	offsetX_ += servoOffset;
+   	cout << "total offset degrees = " << offsetX_;
+   	searchCounter_ = 0;
+   	if (fabs(offsetX_) > 3.)
    	{
-   		
-   		if (!usingRadar_) return CheckHomeState_;	// go get another image and we will turn using that
+   		// send turn command to center the target
+      	msg.command = "autoMove";
+      	msg.angle = offsetX_;
+      	msg.speed = 20 * sgn(offsetX_);
+      	msg.distance = 0.;
+   			// positive offset means turn to the left, negative to the right.
+   		movement_pub_.publish(msg);
+         turning_ = true;
+         alreadyTurned_++;
+         movementComplete_ = false;
+   		ROS_INFO("centering target");
+   		return HeadForHomeState_;
+   	}
+	}
+	
+	if (usingRadar_)  
+   {
+   	if ((!turning_) && (alreadyTurned_ < 1)) // && (!pastStagingPoint_))
+   	{
+		   // send turn command to center the target		
+			// if we are too close to the staging point, we get large angles and don't want to go there.
 			
-			if (usingRadar_) // send turn command to center the target
-			{			
-				// if we are too close to the staging point, we get large angles and don't want to go there.
-				if (distanceToRadarStagingPoint_ > 2. 
-					&& fabs(fabs(angleToRadarStagingPoint_) - fabs(angleToHomeRadar_) ) < 20. ) msg.angle = angleToRadarStagingPoint_;
-				else 
-				{
-					msg.angle = angleToHomeRadar_ * 1.2;	// go a little past, to maintain an approach intercept
-					cout << "we are too close to the staging point to turn there, we will instead turn for home with an angle of angleToHomeRadar * 1.2 = " << msg.angle << endl;
-				}
-			
-				if (fabs(msg.angle) < 5.  || (!radarGoodAngle_) || distanceToRadarStagingPoint_ < 1.) // no need to turn	// untested change ***********
-				{
-				   if (fabs(msg.angle) > 90. && fabs(distanceToRadarStagingPoint_) < 8) pastStagingPoint_ = true;
-				   turning_ = true;
-				   alreadyTurned_ = true;
-				   movementComplete_ = true;
-				   if (radarGoodAngle_) cout << " turn toward home was small enough to skip, it was = " << msg.angle << endl;
-				   else cout << "missed a radar data point when about to turn, wait for another one" << endl;
-				   return HeadForHomeState_;
-		      }            			 
-		   	msg.command = "autoMove";
-		   	msg.distance = 0.;
-		   	msg.speed = 20. * sgn(msg.angle);
-					// positive offset means turn to the left (ccw), negative to the right.
-				movement_pub_.publish(msg);
-		      turning_ = true;
-		      movementComplete_ = false;
-				cout << "using radar to turn toward staging point, turning " << angleToRadarStagingPoint_ << " degrees" << endl;
-				return HeadForHomeState_;
+			//if (distanceToRadarStagingPoint_ > 2. 
+			//	&& fabs(fabs(angleToRadarStagingPoint_) - fabs(angleToHomeRadar_) ) < 20. ) msg.angle = angleToRadarStagingPoint_;
+			//else 
+			{
+				msg.angle = angleToHomeRadar_ * 1.2;	// go a little past, to maintain an approach intercept
+				//cout << "we are too close to the staging point to turn there, we will instead turn for home with an angle of angleToHomeRadar * 1.2 = " << msg.angle << endl;
+				cout << "turning for home with an angle of angleToHomeRadar * 1.2 = " << msg.angle << endl;
 			}
+		
+			if (fabs(msg.angle) < 5.  || (!radarGoodAngle_)) // || distanceToRadarStagingPoint_ < 1.) // no need to turn
+			{
+			   if (fabs(msg.angle) > 90. && fabs(distanceToRadarStagingPoint_) < 8) pastStagingPoint_ = true;
+			   turning_ = true;
+			   alreadyTurned_++;
+			   movementComplete_ = true;
+			   if (radarGoodAngle_) cout << " turn toward home was small enough to skip, it was = " << msg.angle << endl;
+			   else cout << "missed a radar data point when about to turn, wait for another one" << endl;
+			   return HeadForHomeState_;
+	      }            			 
+	   	msg.command = "autoMove";
+	   	msg.distance = 0.;
+	   	msg.speed = 20. * sgn(msg.angle);
+				// positive offset means turn to the left (ccw), negative to the right.
+			movement_pub_.publish(msg);
+	      turning_ = true;
+	      movementComplete_ = false;
+			cout << "using radar to turn toward staging point, turning " << angleToRadarStagingPoint_ << " degrees" << endl;
+			return HeadForHomeState_;
+			
    	}	
 	   // send move command to go to staging  point
+   	/*
    	else if ((!moving_) && (!pastStagingPoint_))
    	{
 			alreadyTurned_ = false;
@@ -3495,13 +3565,14 @@ int on_update_HeadForHomeState()
 			movementComplete_ = false;
 			return HeadForHomeState_;
 			
-		usingRadar_ = false;
+		//usingRadar_ = false;
 		pastStagingPoint_ = false;
-		return SearchForHomeState_; // something went wrong, look again for home		
+		return SearchForHomeState_; // something went wrong, look again for home	
+		*/	
 	} 	
-	*/
 	
-		 if (lastPushing_)
+	
+	/*	 if (lastPushing_)
    {
    	// final moves
    	if (!lastTurn_)
@@ -3538,68 +3609,37 @@ int on_update_HeadForHomeState()
    	}
    	cout << "all done with final turn and push" << endl;
    	return AllDoneState_;
+   	
    }	
-   	
-   	
-   	
-	if (centerX_ > 0 && (!turning_) && (alreadyTurned_ < 2))	
-	{
-   	// center the target and move forward
-   	offsetX_ = ((double) ((totalX_ / 2) - centerX_)) / ((double) totalX_);  // fraction that the image is off-center
-    	// only want to turn once for each pass through HeadForHomeState
-   	cout << "center offset ratio = " << offsetX_ << endl;
-   	if (lastCamName_ == WEBCAM) offsetX_ *= WEBCAM_FOV;
-   	else if (lastCamName_ == HOME_DIGCAM) offsetX_ *= HOME_DIGCAM_ZOOM7_FOV;
-   	else if (lastCamName_ == REGULAR_DIGCAM) offsetX_ *= REGULAR_DIGCAM_ZOOM5_FOV;
-   	else if (lastCamName_ == ZOOM_DIGCAM) offsetX_ *= ZOOM_DIGCAM_ZOOM6_FOV;
-   	else offsetX_ = 0.;
-   	cout << "center offset degrees = " << offsetX_ << endl;
-   	double servoOffset = currentServoDegrees_;
-   	currentServoDegrees_ = 0.;	// the servos were centered earlier, but we waited to reset currentServoDegrees_ so we could use it here
-   	cout << "servo offset degrees = " << servoOffset << endl;
-   	//double offsetY = ((double) (totalY_ - centerY_)) / ((double) totalY_);
-   	offsetX_ += servoOffset;
-   	cout << "total offset degrees = " << offsetX_;
-   	searchCounter_ = 0;
-   	if (fabs(offsetX_) > 3.)
-   	{
-   		// send turn command to center the target
-      	msg.command = "autoMove";
-      	msg.angle = offsetX_;
-      	msg.speed = 20 * sgn(offsetX_);
-      	msg.distance = 0.;
-   			// positive offset means turn to the left, negative to the right.
-   		movement_pub_.publish(msg);
-         turning_ = true;
-         alreadyTurned_++;
-         movementComplete_ = false;
-   		ROS_INFO("centering target");
-   		return HeadForHomeState_;
-   	}
-	}
+   */	
+	
+	
 	searchCounter_ = 0;
 	currentServoDegrees_ = 0.;
 	alreadyTurned_ = 0;
 	turning_ = false;
 	
-	
-
-	
 	readSensors();
 	
 	cout << "range estimates: radar, optical, laser = " << distanceToHomeRadar_ << ", " << homeCameraRange_ << ", " << nearestObstacle_ << endl;
 
-	if (distanceToHomeRadar_ > 0.01)	range_ = distanceToHomeRadar_;
-	else 
+	if (radarGoodData_ && distanceToHomeRadar_ > 0.01)	range_ = distanceToHomeRadar_;
+	else if (centerX_ > 0 && homeCameraRange_ > 1.0)
 	{
-		cout << "call to radar failed" << endl;    
-		if (homeCameraRange_ > 1.0)  range_ = homeCameraRange_; // use optical range if radar fails
-   	else 
-   	{
-   		cout << "unable to determine range in HeadForHome.  going back to CheckHomeState" << endl;
-   		return CheckHomeState_;	// without any idea what the range is, we need to go back and check where we are
-   	}
+		cout << "call to radar failed, using optical range" << endl;    
+		range_ = homeCameraRange_; // use optical range if radar fails
+	}
+	else if (nearestObstacle_ > 0.)
+	{
+		cout << "call to radar failed, no range from cameras, using laser range" << endl; 
+		range_ = nearestObstacle_;
+	}
+	else 
+   {
+		cout << "unable to determine range in HeadForHome.  going back to CheckHomeState" << endl;
+		return CheckHomeState_;	// without any idea what the range is, we need to go back and check where we are
    }
+   
    
    cout << "Heading for Home, range = " << range_ << endl;  
    moving_ = true;
@@ -3644,7 +3684,8 @@ int on_update_HeadForHomeState()
    else if (range_ > 5)
    {
       //move forward 1 m
-   	if (centerX_ > 0)
+      
+   	if (centerX_ > 0 || radarGoodData_)
 		{
 			msg.angle = 0;
 			msg.speed = 1000;
@@ -3658,13 +3699,13 @@ int on_update_HeadForHomeState()
 		  }
 		  else
 		  {
-		  	msg.angle = 20;
-			msg.speed = 20;
+		  	msg.angle = 60;
+			msg.speed = -20;
 			msg.distance = 0;	
 			//distanceToHomeRadarPerfectLineupDelta = 1.;
 			//distanceToHomeRadarBeforeMove = distanceToHomeRadar_;	
 			movement_pub_.publish(msg); 
-		   ROS_INFO("turning 20 degrees at at range > 5 meters");
+		   ROS_INFO("turning -60 degrees at at range > 5 meters");
 		   readSensors();
 		   cout << "with a range_ of > 5 meters, laser sees the platform is at a distance = " << nearestObstacle_ << endl;
 		  }		  	
@@ -3700,19 +3741,20 @@ int on_update_HeadForHomeState()
 		// move forward a bit until we are there
 		msg.command = "autoMove";
 		msg.angle = 0;
-		if (distanceToHomeRadar_ > PLATFORM_DISTANCE && (!atPlatform_))
+		
+		if (range_ > PLATFORM_DISTANCE && (!atPlatform_))
 		{
-			cout << " using radar to go to the front of the platform  = " << (distanceToHomeRadar_ - PLATFORM_DISTANCE) * 1000. << " mm" << endl;
+			cout << " using radar to go to the front of the platform  = " << (range_ - PLATFORM_DISTANCE) * 1000. << " mm" << endl;
 			readSensors();
 			cout << "laser sees the platform barrier at a range = " << nearestObstacle_ << endl;
 			
-			if ( distanceToHomeRadar_ - PLATFORM_DISTANCE < 1.0)
+			if (range_ - PLATFORM_DISTANCE < 1.0)
 			{
 				atPlatform_ = true;
-				msg.distance = (distanceToHomeRadar_ - PLATFORM_DISTANCE) * 1000.;
+				msg.distance = (range_ - PLATFORM_DISTANCE) * 1000.;
 			}
 			else msg.distance = 1000.;
-			moving_ = true;
+			moving_ = false;
 			platforming_ = true;
 			msg.speed = 600. * sgn(msg.distance);
 			movement_pub_.publish(msg);
@@ -3723,16 +3765,16 @@ int on_update_HeadForHomeState()
 			
 			return HeadForHomeState_;
 		}
-		else if (distanceToHomeRadar_ > PARKING_DISTANCE)
+		else if (range_ > PARKING_DISTANCE)
 		{
-			cout << " we are moving onto the platform = " << (distanceToHomeRadar_ + 1.0 - PARKING_DISTANCE) * 1000. << " mm" << endl;
-			msg.distance = (distanceToHomeRadar_ + 1.0 - PARKING_DISTANCE) * 1000.;
+			cout << " we are moving onto the platform = " << (range_ + 1.0 - PARKING_DISTANCE) * 1000. << " mm" << endl;
+			msg.distance = (range_ + 1.0 - PARKING_DISTANCE) * 1000.;
 			msg.speed = 900.;
-			moving_ = true;
+			moving_ = false;
 			parking_ = true;
-			lastPushing_ = true;
-			lastTurn_ = false;
-			lastMove_ = 0;
+			//lastPushing_ = true;
+			//lastTurn_ = false;
+			//lastMove_ = 0;
 			movement_pub_.publish(msg);
 			movementComplete_ = false;
 			return HeadForHomeState_;
@@ -3742,7 +3784,7 @@ int on_update_HeadForHomeState()
 		{
 			if (radarGoodData_) 
 			{
-				cout << " we are in parking position, shut it down at a distance  = " << distanceToHomeRadar_ << " meters" << endl;
+				cout << " we are in parking position, shut it down at a distance  = " << range_ << " meters" << endl;
 				return AllDoneState_;
 			}
 			else
@@ -3750,11 +3792,11 @@ int on_update_HeadForHomeState()
 				cout << "missed a radar data point, wait for the next one" << endl;
 				parking_ = true;
 				moving_ = false;
-				lastPushing_ = true;
-				lastTurn_ = false;
-				lastMove_ = false;
+				//lastPushing_ = true;
+				//lastTurn_ = false;
+				//lastMove_ = false;
 				movementComplete_ = true;
-				return HeadForHomeState_;
+				return CheckHomeState_;
 			}					
 		}				
 		return HeadForHomeState_;  
@@ -4031,6 +4073,7 @@ void setupStates()
    BootupState_ = fsm_.add_state("BootupState");  // 0
    CheckLinedUpState_ = fsm_.add_state("CheckLinedUpState");  
    PhaseTwoFirstState_ = fsm_.add_state("PhaseTwoFirstState");
+   RadarApproachState_= fsm_.add_state("RadarApproachState");
    CheckFirstTargetState_ = fsm_.add_state("CheckFirstTargetState");  // 1
    SearchForFirstTargetState_ = fsm_.add_state("SearchForFirstTargetState");
    MoveToFirstTargetState_ = fsm_.add_state("MoveToFirstTargetState");
@@ -4100,6 +4143,10 @@ void setupStates()
    fsm_.set_entry_function(PhaseOneHomeState_, boost::bind(&on_enter_PhaseOneHomeState));
    fsm_.set_update_function(PhaseOneHomeState_, boost::bind(&on_update_PhaseOneHomeState));
    //fsm_.set_exit_function(PhaseOneHomeState_, boost::bind(&on_exit_PhaseOneHomeState));
+   
+   fsm_.set_entry_function(RadarApproachState_, boost::bind(&on_enter_RadarApproachState));
+   fsm_.set_update_function(RadarApproachState_, boost::bind(&on_update_RadarApproachState));
+   //fsm_.set_exit_function(RadarApproachState_, boost::bind(&on_exit_RadarApproachState));
    
    fsm_.set_entry_function(CheckHomeState_, boost::bind(&on_enter_CheckHomeState));
    fsm_.set_update_function(CheckHomeState_, boost::bind(&on_update_CheckHomeState));

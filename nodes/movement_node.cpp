@@ -504,13 +504,13 @@ void movementCommandCallback(const outdoor_bot::movement_msg msg)
    ros::Time timeOut;
    string command = msg.command;
    std_msgs::String msgResult;
-		cout << "movement callback in movement node " << endl; 
+	ROS_INFO("movement callback in movement node "); 
 		
 	if (!command.compare("autoMove"))   // use arduino to directly implement a move
 	{
 		if (autoMoveStatus_) 
 		{
-			cout << "we are already doing an automove, we will wait a bit and then overwrite it here" << endl;
+			ROS_INFO("we are already doing an automove, we will wait a bit and then overwrite it here");
 			timeOut = ros::Time::now() + ros::Duration(AUTOMOVE_TIMEOUT);
 			while (autoMoveStatus_ && ros::Time::now() < timeOut)	// waiting for last one to complete
 			{
@@ -531,6 +531,7 @@ void movementCommandCallback(const outdoor_bot::movement_msg msg)
 			ros::spinOnce();
 			updateRate.sleep();	// arduino only updates every 20 msec, no need to go too fast here
 		}
+		ROS_INFO("autoMove acknowledge by arduino in movement node");
 		timeOut = ros::Time::now() + ros::Duration(AUTOMOVE_TIMEOUT);
 		while (autoMoveStatus_ && ros::Time::now() < timeOut) //and then wait for it to complete
 		{
