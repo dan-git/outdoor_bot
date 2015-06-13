@@ -3,6 +3,7 @@
 
 // sections
 #define BOOTUP 0
+#define WAITING_TO_GO 8
 #define FIRST_TARGET_CHECK 1
 #define FIRST_TARGET_MOVE 2
 #define TARGETS 3

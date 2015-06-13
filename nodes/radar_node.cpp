@@ -13,7 +13,7 @@
 #define LEFT_RADAR_HOME_DISTANCE 1.47	// when at home, distances in meters for radar rangers
 #define RIGHT_RADAR_HOME_DISTANCE 2.17
 
-#define RADAR_WAIT_TIME 0.4
+#define RADAR_WAIT_TIME 0.5
 #define HOME_RADAR_SEPARATION 1900. // distance between radars on home platform, in mm
 #define BOT_RADAR_SEPARATION 1092.
 
@@ -47,18 +47,19 @@ bool getThreeRadarLocation(double *distance, double *angle)
 	angleToStagingPoint_ = 0;
 	if (distanceFromLeftToLeft_ < 0.1 && distanceFromRightToLeft_ > 0.1)
 	{
-		distanceToHome_ = distanceFromRightToLeft_;
-		*distance = distanceFromRightToLeft_;
+		distanceToHome_ = distanceFromRightToLeft_ / 1000.;
+		*distance = distanceFromRightToLeft_ / 1000.;
 		angleToHome_ = -1000.;
 		*angle = -1000.;
 		//cout << "distance to home is from right side = " << distanceToHome_ << endl;
 		//cout << "angle to home is from right side = " << *angle << endl;
 		return false;
 	}
-	else if (distanceFromRightToLeft_ < 0.1 && distanceFromLeftToLeft_ > 0.1) 
+	else if ((distanceFromRightToLeft_ < 0.1 && distanceFromLeftToLeft_ > 0.1) 
+	|| (distanceFromRightToLeft_ > distanceFromLeftToLeft_ + 5000))
 	{
-		distanceToHome_ = distanceFromLeftToLeft_;
-		*distance = distanceFromLeftToLeft_;
+		distanceToHome_ = distanceFromLeftToLeft_ /1000.;
+		*distance = distanceFromLeftToLeft_/1000.;
 		angleToHome_ = -1000.;
 		*angle = -1000.;
 		//cout << "distance to home is from left side = " << distanceToHome_ << endl;
@@ -66,9 +67,10 @@ bool getThreeRadarLocation(double *distance, double *angle)
 		return false;
 	}
 	else if (distanceFromRightToLeft_ > 0.1 && distanceFromLeftToLeft_ > 0.1) 
+	
 	{
-		distanceToHome_ = (distanceFromLeftToLeft_ + distanceFromRightToLeft_) / 2.;
-		*distance =  (distanceFromLeftToLeft_ + distanceFromRightToLeft_) / 2.;
+		distanceToHome_ = (distanceFromLeftToLeft_ + distanceFromRightToLeft_) / 2000.;
+		*distance =  (distanceFromLeftToLeft_ + distanceFromRightToLeft_) / 2000.;
 		angleToHome_ =  (asin( (distanceFromLeftToLeft_ - distanceFromRightToLeft_) / BOT_RADAR_SEPARATION)) * 57.3;
 		*angle = -(asin( (distanceFromLeftToLeft_ - distanceFromRightToLeft_) / BOT_RADAR_SEPARATION)) * 57.3;
 		return true;

@@ -43,7 +43,9 @@ using namespace std;
 #define PHASE_TWO_TIME_LIMIT 7200   //  7200 seconds in two hours-- phase two challenge
 #define PHASE_ONE_TIME_LIMIT 1800 // 1800 seconds in 30 min-- phase one challenge
 
-#define DIRANT_OFFSET 10
+#define DIRANT_OFFSET 25
+#define RADAR_ANGLE_OFFSET 25
+#define HOME_CAMERA__THRESHOLD 15
 #define PLAT1_X -6.07 //2269.5 pixels x = -6.075176, y = 39.607155, yaw = -0.953306
 #define PLAT1_Y 39.61 //832.5
 #define PLAT1_YAW -0.95 
@@ -395,6 +397,7 @@ bool askUser()
 
 bool askUserForGo()
 {
+	
 	string input = "";
 	int userValue = 0;
    cout << "WE ARE ABOUT TO MOVE TO FULLY AUTONOMOUS OPERATIONS!  SET RC CONTROL TO PAUSE (may need to cycle unpause/pause once)." << endl;
@@ -1315,8 +1318,8 @@ int on_update_CheckLinedUpState()
 	  
 	  
 	  
-	  
-	  return PhaseTwoFirstState_;
+	  currentSection_ = WAITING_TO_GO;
+	  return PauseState_;
 	}
    
    /*
@@ -1723,6 +1726,8 @@ int on_update_MoveToFirstTargetState()
    	callAccelerometersService();
 		
 		// turn to zero the yaw
+		if (yaw_ > 180) yaw_ -= 360.;
+		else if (yaw_ < -180) yaw_ += 360.;
 		cout << "yaw_ = " << yaw_ << endl;
 		if (fabs(yaw_ - firstTurnAngle_) > 3.0 && alreadyTurned_ < 1)
 		{
@@ -1745,6 +1750,7 @@ int on_update_MoveToFirstTargetState()
 		{
 			firstMoveToFirstTarget_ = false; // check this after the final yaw turn
 			ROS_INFO("move completed in MoveToFirstTargetState");
+			cout << "distance to home, distanceToFirstTragetStaging = " << distanceToHome << ", " << distanceToFirstTargetStaging_ << endl;
 	   	cout << "approxRangeToTarget_ = " << approxRangeToTarget_ << endl;
 	   	turning_ = false;
 			alreadyTurned_ = 0;
@@ -3087,7 +3093,7 @@ int on_update_RadarApproachState()
 void on_enter_CheckHomeState()
 {
    // start by seeing if we can get a radar range and angle
-  if (radarGoodData_ && radarGoodAngle_) return;
+  if (radarGoodData_ && radarGoodAngle_ && distanceToHomeRadar_ > HOME_CAMERA__THRESHOLD) return;
    
    // start by capturing an image using fsm
    currentSection_ = HOME;
@@ -3227,7 +3233,7 @@ int on_update_HeadForHomeState()
    {
    	readSensors();
 
-   	cout << "laser sees the back of the platform is " << nearestObstacle_ << " meters away, time to stop " << endl;
+   	cout << "in platforming or parking and laser sees the back of the platform is " << nearestObstacle_ << " meters away " << endl;
      	if (nearestObstacle_ > 0. && nearestObstacle_ <  0.5)
    	{ 		
    		//lastPushing_ = true;
@@ -3420,9 +3426,9 @@ int on_update_HeadForHomeState()
 			//	&& fabs(fabs(angleToRadarStagingPoint_) - fabs(angleToHomeRadar_) ) < 20. ) msg.angle = angleToRadarStagingPoint_;
 			//else 
 			{
-				msg.angle = angleToHomeRadar_ * 1.2;	// go a little past, to maintain an approach intercept
+				msg.angle = angleToHomeRadar_ + RADAR_ANGLE_OFFSET; //* 1.2;	// go a little past, to maintain an approach intercept
 				//cout << "we are too close to the staging point to turn there, we will instead turn for home with an angle of angleToHomeRadar * 1.2 = " << msg.angle << endl;
-				cout << "turning for home with an angle of angleToHomeRadar * 1.2 = " << msg.angle << endl;
+				cout << "turning for home with an angleToHomeRadar_ + RADAR_ANGLE_OFFSET = " << msg.angle << endl;
 			}
 		
 			if (fabs(msg.angle) < 5.  || (!radarGoodAngle_)) // || distanceToRadarStagingPoint_ < 1.) // no need to turn
@@ -4044,6 +4050,7 @@ int on_update_PauseState()
    if (pauseCommanded_) return PauseState_;  
    if (userCommandReceived_) return UserCommandState_;
    if (currentSection_ == BOOTUP) return BootupState_;
+   if (currentSection_ == WAITING_TO_GO) return PhaseTwoFirstState_;
    if (currentSection_ == FIRST_TARGET_CHECK) return CheckFirstTargetState_;
    if (currentSection_ == FIRST_TARGET_MOVE) return MoveToFirstTargetState_;
    if (currentSection_ == TARGETS) return CheckTargetState_;
