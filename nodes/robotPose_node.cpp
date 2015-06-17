@@ -10,8 +10,6 @@
 #include "outdoor_bot/autoMove_service.h"
 #include "outdoor_bot/accelerometers_service.h"
 #include "outdoor_bot/dirAnt_service.h"
-//#include "outdoor_bot/radar_service.h"
-//#include "rcmRadar/radar.h"
 #include "outdoor_bot/setPose_service.h"
 #include "outdoor_bot/radar_msg.h"
 #include "outdoor_bot_defines.h"
@@ -91,18 +89,18 @@ long EncoderPickerUpper = 0, EncoderBinShade = 0, EncoderDropBar = 0, EncoderExt
 int battery, pauseState = 0, dirAntMaxAngle = 0, dirAntSweepNumber = 0,  dirAntLevel = 0;
 int angOnly = 0, autoMoveStatus = 0, previousAutoMoveStatus = 0, pdMotorStatus = 0, previouspdMotorStatus = 0;
 unsigned long arduinoCycleTime, arduinoDataCounter;
-bool firstTime = true, radarDataEnabled_ = true;
 bool pauseStateSent_ = false, releaseStateSent_ = false;
 ros::Time current_time, last_time;
 
 double homeX_ = 0., homeY_ = 0., homeYaw_ = 0., currentVelocity_ = 0.;
 double distanceToHomeRadar_ = 0., angleToHomeRadar_ = 0., orientationToHomeRadar_ = 0.;
+bool 	radarGoodData_ = false, radarGoodLocation_ = false, radarGoodOrientation_ = false, radarNewData_ = false;
+bool firstTime = true, radarDataEnabled_ = true;
 //double velocityToHome_ = 0., previousdistanceToHomeRadar_ = 0.; 
 
 
 //double x = 24.0, y = 19.0, yaw = 2.3;	// match with initial pose specificed in _amcl_hokuyo.launch
-double x = 0., y = 0., yaw = 0.;
-double vYaw = 0.0;
+double x = 0., y = 0., yaw = 0., vYaw = 0.;
 
 
 /*
@@ -124,28 +122,26 @@ void smoothOdometry(double *distanceMoved)
 
 void radarCallback(const outdoor_bot::radar_msg::ConstPtr& msg)
 {
-	if (!msg->goodData) // none of the radars are reporting
-	{
-		distanceToHomeRadar_ = 0.;
-		return;
-	}
+	radarGoodData_ = msg->goodData;
+	radarGoodLocation_ = msg->goodLocation;
+	radarGoodOrientation_ = msg->goodOrientation;
+	radarNewData_ = true;
 	
-	if (!msg->goodLocation) // at least one radar is reporting and at least one is not
-	{
-		distanceToHomeRadar_ = (msg->minDistanceToHome + msg->maxDistanceToHome) / 2.;
-		return;
-	}
+	if (!radarGoodData_) return; // none of the radars are reporting
 	
 	distanceToHomeRadar_ = msg->distanceToHome;
+	
+	if (!radarGoodLocation_) return; // two of the radars are reporting, so we only have distance
+	
 	angleToHomeRadar_ = msg->angleToHome;
-	//distanceToHomeRadar_ = msg->runningAverageDistanceToHome;	
-	//angleToHomeRadar_ = msg->runningAverageAngleToHome;	
+	
+	if (!radarGoodOrientation_) return; // three of the radars are reporting, so we have distance and angle, but not orientation
+
 	orientationToHomeRadar_ = msg->orientation;
 	
 	//velocityToHome_ = (previousdistanceToHomeRadar_ - distanceToHomeRadar_ ) / deltaTime;
 	
 	//previousdistanceToHomeRadar_ = distanceToHomeRadar_;
-
 }
    
   void publishPose(double poseX, double poseY, double poseYaw, double pose_vYaw, double pose_currentVelocity)
@@ -400,7 +396,7 @@ void sendOutNavData()
   
 	// since radar gives us an absolute distance from home, we can scale x and y to match this	  
 	//cout << "in robotPose, radar distance to home = " <<  distanceToHomeRadar_ << endl;
-	if (distanceToHomeRadar_ > 4) // too close to the platform, radar data is wonky
+	if (distanceToHomeRadar_ > 4 && radarGoodData_ && radarNewData_) // too close to the platform, radar data is wonky; only update once for each set of radar data
 	{
 		double odomDistanceToHome = sqrt((double) (((x - homeX_) * (x - homeX_)) + ((y - homeY_) * (y - homeY_))));
 		//cout << "in robotPose, odom distance to home = " <<  odomDistanceToHome << endl;
@@ -417,7 +413,7 @@ void sendOutNavData()
 				cout << "odomDistanceToHome = " <<  odomDistanceToHome << endl;
 			 }
 		  }
-		  distanceToHomeRadar_ = 0.; // only update once for each radar message, they only happen about every 200 ms
+		  radarNewData_ = false; // only update once for each radar message, they only happen about every 200 ms
 	 }
 
 	 yaw += delta_Yaw;

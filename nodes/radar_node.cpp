@@ -3,15 +3,15 @@
 #include "rcmRadar/radar.h"
 #include "outdoor_bot_defines.h"
 
-#define NUM_RADARS 3
+//#define NUM_RADARS 4
 #define LEFT_RADAR_NUMBER 101
-//#define RIGHT_RADAR_NUMBER 102
+#define RIGHT_RADAR_NUMBER 102
 //#define CENTER_RADAR_NUMBER 100
 #define LEFT_RADAR_INDEX 0
 #define RIGHT_RADAR_INDEX 1
-#define CENTER_RADAR_INDEX 2
-#define LEFT_RADAR_HOME_DISTANCE 1.47	// when at home, distances in meters for radar rangers
-#define RIGHT_RADAR_HOME_DISTANCE 2.17
+//#define CENTER_RADAR_INDEX 2
+//#define LEFT_RADAR_HOME_DISTANCE 1.47	// when at home, distances in meters for radar rangers
+//#define RIGHT_RADAR_HOME_DISTANCE 2.17
 
 #define RADAR_WAIT_TIME 0.5
 #define HOME_RADAR_SEPARATION 1900. // distance between radars on home platform, in mm
@@ -40,56 +40,39 @@ public:
 	{
 	}
 	
-bool getThreeRadarLocation(double *distance, double *angle)
+bool getThreeRadarLocation()
 {
-	distanceToStagingPoint_ = 0;
-	botOrientation_ = 0;
-	angleToStagingPoint_ = 0;
 	if (distanceFromLeftToLeft_ < 0.1 && distanceFromRightToLeft_ > 0.1)
 	{
 		distanceToHome_ = distanceFromRightToLeft_ / 1000.;
-		*distance = distanceFromRightToLeft_ / 1000.;
-		angleToHome_ = -1000.;
-		*angle = -1000.;
 		//cout << "distance to home is from right side = " << distanceToHome_ << endl;
-		//cout << "angle to home is from right side = " << *angle << endl;
 		return false;
 	}
 	else if ((distanceFromRightToLeft_ < 0.1 && distanceFromLeftToLeft_ > 0.1) 
 	|| (distanceFromRightToLeft_ > distanceFromLeftToLeft_ + 5000))
 	{
 		distanceToHome_ = distanceFromLeftToLeft_ /1000.;
-		*distance = distanceFromLeftToLeft_/1000.;
-		angleToHome_ = -1000.;
-		*angle = -1000.;
 		//cout << "distance to home is from left side = " << distanceToHome_ << endl;
-		//cout << "angle to home is from left side = " << angleToHome_ << endl;
 		return false;
 	}
 	else if (distanceFromRightToLeft_ > 0.1 && distanceFromLeftToLeft_ > 0.1) 
 	
 	{
 		distanceToHome_ = (distanceFromLeftToLeft_ + distanceFromRightToLeft_) / 2000.;
-		*distance =  (distanceFromLeftToLeft_ + distanceFromRightToLeft_) / 2000.;
-		angleToHome_ =  (asin( (distanceFromLeftToLeft_ - distanceFromRightToLeft_) / BOT_RADAR_SEPARATION)) * 57.3;
-		*angle = -(asin( (distanceFromLeftToLeft_ - distanceFromRightToLeft_) / BOT_RADAR_SEPARATION)) * 57.3;
+		angleToHome_ =  -(asin( (distanceFromLeftToLeft_ - distanceFromRightToLeft_) / BOT_RADAR_SEPARATION)) * 57.3;
 		return true;
 		//cout << "distance to home is averaged value = " << distanceToHome_ << endl;
 		//cout << "angle to home is from asin calculation = " << angleToHome_ << endl;
 	}
 	else
 	{
-		distanceToHome_ = 0;
-		*distance = 0;
-		angleToHome_ = -1000.;
-		*angle = -1000.;
-		cout << " no radar data, so returning angle = -1000., distanceToHome_ = " << distanceToHome_ << endl;
+		cout << " no radar data received in getThreeRadarLocation" << endl;
 		return false;
 	}
 }
 		
 
-void getLocation()
+bool getLocation()
 {
 	if ( distanceFromLeftToLeft_ < 0.1 ||
 		distanceFromLeftToRight_ < 0.1 ||
@@ -99,7 +82,7 @@ void getLocation()
 			distanceToHome_ = 0.;
 			angleToHome_ = 0.;
 			cout << "unable to get some radar ranges, cannot calculate location" << endl;
-			return;
+			return false;
 	}
 		
 	double cosLeftHomeToLeftBot =
@@ -133,7 +116,7 @@ void getLocation()
 	else 
 	{
 		cout << "distanceFromLeftToCenterSquared was < 0 " << endl;
-		return;
+		return false;
 	}
 	
 	double cosAngleE = 
@@ -155,7 +138,7 @@ void getLocation()
 	else 
 	{
 		cout << "distanceFromRightToCenterSquared was < 0 " << endl;
-		return;
+		return false;
 	}		
 	
 	double cosAngleI = 
@@ -171,7 +154,7 @@ void getLocation()
 	else 
 	{
 		cout << "distanceFromCenterToCenterSquared was negative, = " << distanceFromCenterToCenterSquared << endl;
-		return;
+		return false;
 	}
 	
 	double angleN = 3.14 - (acos(cosAngleI) + botOrientation_);
@@ -224,7 +207,7 @@ void getLocation()
 	cout << "Bot's orientation (angle c) with respect to the platform = " << botOrientation_ * 57.3 << " degrees " << endl;
 	cout << "Staging point is " << distanceToStagingPoint_ << " meters away at an angle = " <<
 		 angleToStagingPoint_  << " degrees" << endl << endl << endl;
-
+	return true;
 }
 	
 
@@ -243,23 +226,21 @@ void getRadarRanges()
 {
 	ros::Duration duration(RADAR_WAIT_TIME);
    
-
-
-	distanceFromLeftToRight_ = 0; //leftRanger_.getRange(RIGHT_RADAR_NUMBER);
-	//duration.sleep();
+	distanceFromLeftToRight_ = leftRanger_.getRange(RIGHT_RADAR_NUMBER);
+	duration.sleep();
 	
 	distanceFromRightToLeft_ = rightRanger_.getRange(LEFT_RADAR_NUMBER);
 	//ROS_INFO("got range from right to left = %f", distanceFromRightToLeft_);
 	duration.sleep();
 	
-	distanceFromRightToRight_ = 0.; //rightRanger_.getRange(RIGHT_RADAR_NUMBER);
-	//duration.sleep();
+	distanceFromRightToRight_ = rightRanger_.getRange(RIGHT_RADAR_NUMBER);
+	duration.sleep();
 	
    distanceFromLeftToLeft_ = leftRanger_.getRange(LEFT_RADAR_NUMBER);
    //ROS_INFO("got range from left to left = %f", distanceFromLeftToLeft_);
    duration.sleep();
    
-   }
+}
 
 /*
 
@@ -504,61 +485,16 @@ int main(int argc, char** argv)
 	ros::Publisher radar_pub_ = nh.advertise<outdoor_bot::radar_msg>("radar", 5);
    //ros::ServiceServer radar_serv = n.advertiseService("radar_service", radar_service_send);	
 	outdoor_bot::radar_msg radarData;
+	
+	radar myRadar;
 
-   double runningAverageDistanceToHome = 0.;
-   double runningAverageAngleToHome = 0.;
-   bool firstData = true;
-   
-   radar myRadar;
-   double threeValDistance = 0, threeValAngle = 0;
-   
+   double runningAverageDistanceToHome = 0., runningAverageAngleToHome = 0.;
+   bool firstData = true;   
+      
 	while(nh.ok())
 	{
 		myRadar.getRadarRanges();  
 		//myRadar.testDataRadarRanges();
-		
-		
-		double left_to_left = myRadar.getDistanceFromLeftToLeft();
-		double left_to_right = myRadar.getDistanceFromLeftToRight();
-		
-		double right_to_left = myRadar.getDistanceFromRightToLeft();
-		double right_to_right = myRadar.getDistanceFromRightToRight();
-		
-		
-		bool left_bot_radar_good = (left_to_left > 0.05 || left_to_right > 0.05);
-		bool right_bot_radar_good = (right_to_left > 0.05 || right_to_right > 0.05);
-		bool left_base_radar_good = (left_to_left > 0.05 || right_to_left > 0.05);
-		bool right_base_radar_good = (left_to_right > 0.05 || right_to_right > 0.05);
-		
-		if (!left_bot_radar_good)
-		{
-			left_to_left = right_to_left;
-			left_to_right = right_to_right;
-		}
-		if (!right_bot_radar_good)
-		{
-			right_to_left = left_to_left;
-			right_to_right = left_to_right;
-		}
-		if (!left_base_radar_good)
-		{
-			left_to_left = left_to_right;
-			right_to_left = right_to_right;
-		}
-		if (!right_base_radar_good)
-		{
-			left_to_right = left_to_left;
-			right_to_right = right_to_left;
-		}
-
-		double maxDistance1 = fmax(left_to_left, left_to_right);
-		double maxDistance2 = fmax(right_to_left, right_to_right);
-		double minDistance1 = fmin(left_to_left, left_to_right);
-		double minDistance2 = fmin(right_to_left, right_to_right);
-		
-		radarData.maxDistanceToHome = fmax(maxDistance1, maxDistance2) / 1000.;
-		radarData.minDistanceToHome = fmin(minDistance1, minDistance2) / 1000.;
-
 		
 		if (myRadar.getDistanceFromLeftToRight() < 0.05 
 			&& myRadar.getDistanceFromRightToRight() < 0.05
@@ -567,29 +503,85 @@ int main(int argc, char** argv)
 		{	
 			cout << "all radar data is missing" << endl;
 			radarData.goodData = false;
+			radarData.goodLocation = false;
+			radarData.goodOrientation = false;
+			radar_pub_.publish(radarData);
 		}
-		else radarData.goodData = true;	
-		/*		
-		if (myRadar.getDistanceFromLeftToRight() > 0.05 
-			&& myRadar.getDistanceFromRightToRight() > 0.05
-			&& myRadar.getDistanceFromLeftToRight() > 0.05
-			&& myRadar.getDistanceFromRightToRight() > 0.05 )
-		{		
-			//myRadar.getLocation();
-			*/
-			//cout << "calling 3 radar location" << endl;
-			
-			if (myRadar.getThreeRadarLocation(&threeValDistance, &threeValAngle)) radarData.goodLocation = true;
-			
-			radarData.distanceToHome = threeValDistance; //myRadar.getDistanceToHome(double threeValDistance, double threeValAngle);	// range in meters
-			radarData.angleToHome = threeValAngle; //myRadar.getAngleToHome();			// azimuth in degrees
-			//cout << " finished calling 3 radar location" << endl;
-			//cout << "distance, angle = " << threeValDistance << ", " << threeValAngle << endl;
-			//cout << " publishing distance, angle = " << radarData.distanceToHome << ", " << radarData.angleToHome << endl;
-			radarData.orientation = myRadar.getOrientation();     // bot orientation with respect to the platform (in degrees)
-			radarData.distanceToStagingPoint = myRadar.getDistanceToStagingPoint();	// range in meters
-			radarData.angleToStagingPoint = myRadar.getAngleToStagingPoint();			// azimuth in degrees
+		else
+		{
+   						
+			double left_to_left = myRadar.getDistanceFromLeftToLeft();
+			double left_to_right = myRadar.getDistanceFromLeftToRight();
+		
+			double right_to_left = myRadar.getDistanceFromRightToLeft();
+			double right_to_right = myRadar.getDistanceFromRightToRight();
+		
+		
+			bool left_bot_radar_good = (left_to_left > 0.05 || left_to_right > 0.05);
+			bool right_bot_radar_good = (right_to_left > 0.05 || right_to_right > 0.05);
+			bool left_base_radar_good = (left_to_left > 0.05 || right_to_left > 0.05);
+			bool right_base_radar_good = (left_to_right > 0.05 || right_to_right > 0.05);
+		
+			if (!left_bot_radar_good)
+			{
+				left_to_left = right_to_left;
+				left_to_right = right_to_right;
+			}
+			if (!right_bot_radar_good)
+			{
+				right_to_left = left_to_left;
+				right_to_right = left_to_right;
+			}
+			if (!left_base_radar_good)
+			{
+				left_to_left = left_to_right;
+				right_to_left = right_to_right;
+			}
+			if (!right_base_radar_good)
+			{
+				left_to_right = left_to_left;
+				right_to_right = right_to_left;
+			}
 
+			double maxDistance1 = fmax(left_to_left, left_to_right);
+			double maxDistance2 = fmax(right_to_left, right_to_right);
+			double minDistance1 = fmin(left_to_left, left_to_right);
+			double minDistance2 = fmin(right_to_left, right_to_right);
+		
+			radarData.maxDistanceToHome = fmax(maxDistance1, maxDistance2) / 1000.;
+			radarData.minDistanceToHome = fmin(minDistance1, minDistance2) / 1000.;
+		
+			radarData.distanceToHome = myRadar.getDistanceToHome();	// range in meters
+			
+			if (myRadar.getLocation())
+			{
+				radarData.goodData = true;
+				radarData.goodLocation = true;
+				radarData.goodOrientation = true;
+				radarData.angleToHome = myRadar.getAngleToHome();
+				radarData.orientation = myRadar.getOrientation();     // bot orientation with respect to the platform (in degrees)
+				radarData.distanceToStagingPoint = myRadar.getDistanceToStagingPoint();	// range in meters
+				radarData.angleToStagingPoint = myRadar.getAngleToStagingPoint();			// azimuth in degrees
+				cout << "all radars are reporting data" << endl;
+				cout << "Four radar distance, angle, orientation to home =  " << radarData.distanceToHome << " meters, " << radarData.angleToHome << " degrees, " << radarData.orientation << endl;
+				cout << "Four radar distance, angle to staging point = " << radarData.distanceToStagingPoint << " meters, " << radarData.angleToStagingPoint << " degrees" << endl << endl;	
+			}
+			else if (myRadar.getThreeRadarLocation())
+			{			
+				radarData.goodData = true;
+				radarData.goodLocation = true;
+				radarData.goodOrientation = false;
+				radarData.angleToHome = myRadar.getAngleToHome();
+				cout << "Three radar distance, angle to home =  " << radarData.distanceToHome << " meters, " << radarData.angleToHome << " degrees" << endl << endl;
+			}
+			else
+			{
+				radarData.goodData = true;
+				radarData.goodLocation = false;
+				radarData.goodOrientation = false;;
+				cout << "Two radar distance to home =  " << radarData.distanceToHome << " meters, " << endl << endl;
+			}
+					
 			if (!firstData)
 			{
 				runningAverageDistanceToHome += (radarData.distanceToHome - runningAverageDistanceToHome) * 0.1;
@@ -601,19 +593,13 @@ int main(int argc, char** argv)
 				runningAverageAngleToHome = radarData.angleToHome;
 				firstData = false;
 			}
-			
+		
 			radarData.runningAverageDistanceToHome = runningAverageDistanceToHome;	
 			radarData.runningAverageAngleToHome = runningAverageAngleToHome;
 				
-			//radarData.goodLocation = true;
-		//}
-		//else
-		//{
-			//cout << "got at least one bad radar range, so we won't calculate location" << endl;
-			//radarData.goodLocation = false;
-		//}
 
-		radar_pub_.publish(radarData);
+			radar_pub_.publish(radarData);
+		}
 		
 		/*
 		if (radarData.goodData) cout << "GoodData is true, ";
@@ -627,7 +613,7 @@ int main(int argc, char** argv)
 		*/
 		//cout << "ranges from Bot Left to home left, right = " << myRadar.getDistanceFromLeftToLeft() << ", " << myRadar.getDistanceFromLeftToRight() << std::endl;
 		//cout << "ranges from Bot Right to home left, right = " << myRadar.getDistanceFromRightToLeft() << ", " << myRadar.getDistanceFromRightToRight() << std::endl;
-		cout << "distance to home, angle to home " << threeValDistance << ", " << threeValAngle << endl << endl;
+		
 		
 	   
 	}

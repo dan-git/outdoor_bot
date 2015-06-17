@@ -45,7 +45,7 @@ using namespace std;
 
 #define DIRANT_OFFSET 25
 #define RADAR_ANGLE_OFFSET 25
-#define HOME_CAMERA__THRESHOLD 15
+#define HOME_CAMERA_THRESHOLD 15
 #define PLAT1_X -6.07 //2269.5 pixels x = -6.075176, y = 39.607155, yaw = -0.953306
 #define PLAT1_Y 39.61 //832.5
 #define PLAT1_YAW -0.95 
@@ -65,9 +65,9 @@ using namespace std;
 //#define METERS_PER_PIXEL 0.0943	use this value for resolution: in global and local_costmap_params.yaml and in field_map.yaml
 //#define DISTANCE_TO_FIRST_TARGET_STAGING 2.0
 //#define DISTANCE_TO_FIRST_TARGET 12.0
-#define TARGET_STAGING_DISTANCE 6.
+#define TARGET_STAGING_DISTANCE 0.
 #define INCREMENTAL_MOVE_TO_TARGET 10.0
-#define INCREMENTAL_TURN_TO_FIND_TARGET 60.0
+#define INCREMENTAL_TURN_TO_FIND_TARGET 40.0
 #define SHORT_MOVE_TO_TARGET 2.0
 //#define FIRST_MOVE_REMAINING_DISTANCE 10.0
 #define PARKING_DISTANCE 1.5
@@ -76,7 +76,7 @@ using namespace std;
 #define SWITCH_FROM_DIR_ANT_TO_RADAR_DISTANCE 25.0
 #define DEGREES_PER_PAN_STEP 0.64
 #define PAN_CAMERA_DELTA 20
-#define PAN_CAMERA_SEARCH_MAX 40
+#define PAN_CAMERA_SEARCH_MAX 20
 #define TILT_CAMERA_DELTA 10
 #define TILT_CAMERA_SEARCH_MAX 20
 
@@ -117,13 +117,13 @@ bool targetCenterUpdated_, newNavTargetImageReceived_;
 int retCapToMemory_;
 double distanceToHomeRadar_, angleToHomeRadar_, orientationToHomeRadar_, nearestObstacle_;
 double distanceToRadarStagingPoint_, angleToRadarStagingPoint_;
-bool radarGoodAngle_, radarGoodData_, radarNewData_, usingRadar_, pastStagingPoint_, platforming_, atPlatform_;
+bool radarGoodData_, radarGoodOrientation_, radarGoodLocation_, radarNewData_, usingRadar_, pastStagingPoint_, platforming_, atPlatform_;
 //double velocityToHomeRadar_ = 0., previousdistanceToHomeRadar_ = 0.; 
 int platformXPose_[3], platPoseX_;
 int platformYPose_[3], platPoseY_;
 int platformYawPose_[3], platPoseYaw_;
 int targetXPose_, targetYPose_, firstMoveDistance_, firstTurnAngle_;
-bool phase1_, pauseNewCommand_, pauseCommanded_, previousState_, recoverTurnedAlready_, firstMoveToFirstTarget_, firstMoveToTarget_, finalMoveToTarget_;
+bool phase1_, pauseNewCommand_, pauseCommanded_, previousState_, recoverTurnedAlready_, firstMoveToFirstTarget_, turnedToFaceFirstTarget_, firstMoveToTarget_, finalMoveToTarget_;
 int deltaServoDegrees_ = PAN_CAMERA_DELTA, deltaTilt_ = TILT_CAMERA_DELTA, searchCounter_ = 0, currentServoDegrees_ = 0; 
 int maxSearchPan_ = PAN_CAMERA_SEARCH_MAX, maxSearchTilt_ = TILT_CAMERA_SEARCH_MAX, regularDigCamFOV_, zoomDigcamFOV_;
 int lastCamName_ = WEBCAM, camName_ = WEBCAM;
@@ -995,31 +995,21 @@ bool CallDigcamsService(int camNum, string command, string filename, float zoom,
 */
 void radarCallback(const outdoor_bot::radar_msg::ConstPtr& msg)
 {
-	radarGoodData_ = true;
-	radarGoodAngle_ = true;
+	radarGoodData_ = msg->goodData;
+	radarGoodLocation_ = msg->goodLocation;
+	radarGoodOrientation_ = msg->goodOrientation;
 	radarNewData_ = true;
 	
-	if (!msg->goodData) // none of the radars are reporting
-	{
-		distanceToHomeRadar_ = 0.;
-	   radarGoodData_ = false;
-	   radarGoodAngle_ = false;
-		return;
-	}
-	
-	if (!msg->goodLocation) // at least one radar is reporting and at least one is not
-	{
-		distanceToHomeRadar_ = (msg->minDistanceToHome + msg->maxDistanceToHome) / 2.;
-		radarGoodAngle_ = false;		
-		return;
-	}
-	
-	
+	if (!radarGoodData_) return; // none of the radars are reporting
+
 	distanceToHomeRadar_ = msg->distanceToHome;
+	
+	if (!radarGoodLocation_) return; // only two radars reporting, so we only have distance
+
 	angleToHomeRadar_ = msg->angleToHome;
 	
-	//distanceToHomeRadar_ = msg->runningAverageDistanceToHome;	
-	//angleToHomeRadar_ = msg->runningAverageAngleToHome;	
+	if (!radarGoodOrientation_) return; // three radars reporting, we have distance and angle to home
+	
 	orientationToHomeRadar_ = msg->orientation;
 	distanceToRadarStagingPoint_ = msg->distanceToStagingPoint;
 	angleToRadarStagingPoint_ = msg->angleToStagingPoint;
@@ -1096,6 +1086,7 @@ void on_enter_BootupState()
    homeDigcamFOV_ = HOME_DIGCAM_ZOOM7_FOV;		// these two
    recoverTurnedAlready_ = false;
    firstMoveToFirstTarget_ = true;
+   turnedToFaceFirstTarget_ = false;
    firstMoveToTarget_ = false;
    finalMoveToTarget_ = false;
    verifying_ = false;
@@ -1108,7 +1099,8 @@ void on_enter_BootupState()
    odomDistanceToHome_ = 0.;
    radarGoodData_ = false;
    radarNewData_ = false;
-   radarGoodAngle_ = false;
+   radarGoodLocation_ = false;
+   radarGoodOrientation_ = false;
    pastStagingPoint_ = false;
    platforming_ = false;
    atPlatform_ = false;  
@@ -1362,6 +1354,7 @@ int on_update_PhaseTwoFirstState()
 	movementComplete_ = false;
 	centerX_ = -1;
 	firstMoveToFirstTarget_ = true;
+	turnedToFaceFirstTarget_ = false;
 	cout << "finshed initial move and turn in phase one, moving on to MoveToFirstTarget" << endl;
 	return MoveToFirstTargetState_;
    
@@ -1685,8 +1678,16 @@ int on_update_MoveToFirstTargetState()
 	   	if (firstMoveToFirstTarget_)
 	   	{
 	   		ROS_INFO("move or turn completed in MoveToFirstTargetState");
-	   		cout << "approxRangeToTarget_ = " << approxRangeToTarget_ << endl;
-	   		return MoveToFirstTargetState_;	// keep moving until we get there.
+	   		if (turnedToFaceFirstTarget_)	// we are now at the correct range from home and should be facing the target
+	   		{
+	   			turning_ = false;
+	   			firstMoveToFirstTarget_ = false;
+					alreadyTurned_ = 0;
+					approxRangeToTarget_ = 10.;					
+	   			cout << "finished turn to face target, approxRangeToTarget_ = " << approxRangeToTarget_ << endl;
+	   			return CheckFirstTargetState_;
+	   		}
+	   		return MoveToFirstTargetState_;	// we have not gone far enough out toward the target, keep moving until we get there.
 	   	}
 	   	else if (centerX_ < 0)	// we did not have a target and are not in the first moves, just moved forward with hope
 	   	{
@@ -1715,7 +1716,7 @@ int on_update_MoveToFirstTargetState()
    {
    	double distanceToHome = -1;
  			cout << "we are in first move to first target" << endl;	
-   	if (radarGoodData_ && distanceToHomeRadar_ > 4)
+   	if (radarGoodData_ && distanceToHomeRadar_ > 4. && radarNewData_)
    	{
    		radarNewData_ = false;
    		distanceToHome = distanceToHomeRadar_;
@@ -1748,13 +1749,19 @@ int on_update_MoveToFirstTargetState()
 		cout << "yaw is small enough to skip correction turn" << endl;
 		if (distanceToHome >= distanceToFirstTargetStaging_) 
 		{
-			firstMoveToFirstTarget_ = false; // check this after the final yaw turn
-			ROS_INFO("move completed in MoveToFirstTargetState");
-			cout << "distance to home, distanceToFirstTragetStaging = " << distanceToHome << ", " << distanceToFirstTargetStaging_ << endl;
+			turnedToFaceFirstTarget_ = true;
+			cout << "distance to home, distanceToFirstTargetStaging = " << distanceToHome << ", " << distanceToFirstTargetStaging_ << endl;
 	   	cout << "approxRangeToTarget_ = " << approxRangeToTarget_ << endl;
-	   	turning_ = false;
-			alreadyTurned_ = 0;
-			return CheckFirstTargetState_;
+	   	ROS_INFO("move completed in MoveToFirstTargetState, now doing alignment turn to face the target");
+	   	msg.command = "autoMove";
+			msg.distance = 0.;
+		   msg.speed = 20.; 
+		   msg.angle = (90. + firstTurnAngle_) - yaw_;			
+			cout << "turning to face target = " << msg.angle << " degrees" << endl;
+			turning_ = true;
+			movement_pub_.publish(msg);
+			movementComplete_ = false;
+			return MoveToFirstTargetState_;
 		}
 		
 		turning_ = false;
@@ -1792,9 +1799,9 @@ int on_update_MoveToFirstTargetState()
 		movement_pub_.publish(msg);
 		movementComplete_ = false;
 		return MoveToFirstTargetState_;
-   }
+   }	// ends section of firstMoveToFirstTarget
    
-    if (finalMoveToTarget_ && centerX_ < 0)
+   if (finalMoveToTarget_ && centerX_ < 0)
 	{
 		cout << "we made a final move to target and hoped to get in one more centering turn, but must be too close, going to try picking up" << endl;
 		return PickupTargetState_; // we hoped to get one more centering turn in, but must have overrun
@@ -1802,7 +1809,7 @@ int on_update_MoveToFirstTargetState()
 	     
    if (centerX_ < 0 && (!finalMoveToTarget_)) // we don't have a target in view yet, so we will just turn or move forward a bit
 	{    
-		if (approxRangeToTarget_ > 5)
+		if (approxRangeToTarget_ > 2)
 		{
 			msg.command = "autoMove";
 			msg.angle = 0.;
@@ -1818,7 +1825,7 @@ int on_update_MoveToFirstTargetState()
 		}
 		msg.command = "autoMove";
 		msg.angle = INCREMENTAL_TURN_TO_FIND_TARGET;
-		msg.speed = -20.;
+		msg.speed = 20.;
 		msg.distance = 0.;
 		cout << "starting blind turn, distance = " << msg.angle * sgn(msg.speed) << " degrees" << endl;
 		turning_ = true;
@@ -3093,7 +3100,7 @@ int on_update_RadarApproachState()
 void on_enter_CheckHomeState()
 {
    // start by seeing if we can get a radar range and angle
-  if (radarGoodData_ && radarGoodAngle_ && distanceToHomeRadar_ > HOME_CAMERA__THRESHOLD) return;
+  if (radarGoodLocation_ && distanceToHomeRadar_ > HOME_CAMERA_THRESHOLD) return;
    
    // start by capturing an image using fsm
    currentSection_ = HOME;
@@ -3117,7 +3124,7 @@ void on_enter_CheckHomeState()
 
 int on_update_CheckHomeState()
 {  
-   if (radarGoodData_ && radarGoodAngle_)
+   if (radarGoodLocation_)
    {
    	usingRadar_ = true;
    	homeCameraRange_ = 0;
@@ -3250,27 +3257,15 @@ int on_update_HeadForHomeState()
    else
    {
    	movementComplete_ = false;
-   	
-   	//if (usingRadar_)
-   	{
-   		// we need to let the radars gather data with the robot not moving
-   		// so we wait a while between moves.  it takes 1 second to get brand new radar data
-   		ros::Time last_time = ros::Time::now();
-			ros::Time current_time = ros::Time::now();
-			while ( current_time.toSec() - last_time.toSec() < 1.0) 
-			{
-				ros::spinOnce();
-				current_time = ros::Time::now(); // delay a bit
-			}
-			radarNewData_ = false;
-			last_time = ros::Time::now();
-			current_time = ros::Time::now();
-			while ( current_time.toSec() - last_time.toSec() < 1.0 && (!radarNewData_)) 
-			{
-				ros::spinOnce(); // check messages, wait for new data
-				current_time = ros::Time::now(); // delay a bit
-			}		
-		}
+ 
+		// we need to let the radars gather data with the robot not moving
+		// so we wait a while between moves.  it takes 1 second to get brand new radar data
+		ros::Duration duration(1);
+		duration.sleep();
+		ros::spinOnce();
+		radarNewData_ = false;
+		duration.sleep();
+		ros::spinOnce();
 		
 		/*if (lastPushing_)
 		{
@@ -3305,21 +3300,19 @@ int on_update_HeadForHomeState()
     		return HeadForHomeState_;
     	}
     			
-    /*	
+    	
     	else if (orienting_)
     	{
     		orienting_ = false;
     		cout << "orientation turn finished, ";
-    		if (radarGoodAngle_) cout << "angle to home = " << angleToHomeRadar_ << endl;
-    		else cout << "but not getting radar localizations right now " << endl;
+    		if (radarGoodLocation_) 
+    		{
+    			cout << "angle to home = " << angleToHomeRadar_ << endl;
+    			if (radarGoodOrientation_) cout << "orientation to home = " << orientationToHomeRadar_ << endl;
+    			else cout << "but not getting radar orientations right now" << endl;
+    		}
+    		else cout << "but not getting radar localizations right now " << endl;    		
     	}
-    	*/
-    	
-
-    	
-
-    	
-
 				
    	else if (moving_)
    	{
@@ -3415,29 +3408,35 @@ int on_update_HeadForHomeState()
    	}
 	}
 	
-	if (usingRadar_)  
+	if (radarGoodLocation_)  
    {
-   	if ((!turning_) && (alreadyTurned_ < 1)) // && (!pastStagingPoint_))
+   	if ((!turning_) && (alreadyTurned_ < 1) && (!pastStagingPoint_))
    	{
 		   // send turn command to center the target		
 			// if we are too close to the staging point, we get large angles and don't want to go there.
 			
-			//if (distanceToRadarStagingPoint_ > 2. 
-			//	&& fabs(fabs(angleToRadarStagingPoint_) - fabs(angleToHomeRadar_) ) < 20. ) msg.angle = angleToRadarStagingPoint_;
-			//else 
+			if (distanceToRadarStagingPoint_ > 2. 
+				&& fabs(fabs(angleToRadarStagingPoint_) - fabs(angleToHomeRadar_)) < 20.
+				&& radarGoodOrientation_ ) 
+			{
+				msg.angle = angleToRadarStagingPoint_;
+				cout << "turning to staging point using four radar orientation, angle = " << msg.angle << endl;
+			}
+			else 
 			{
 				msg.angle = angleToHomeRadar_ + RADAR_ANGLE_OFFSET; //* 1.2;	// go a little past, to maintain an approach intercept
-				//cout << "we are too close to the staging point to turn there, we will instead turn for home with an angle of angleToHomeRadar * 1.2 = " << msg.angle << endl;
+				cout << "we are too close to the staging point to turn there or the radars are not all reading, so, we will instead turn for home with an angle of angleToHomeRadar * 1.2 = " 
+					<< msg.angle << endl;
 				cout << "turning for home with an angleToHomeRadar_ + RADAR_ANGLE_OFFSET = " << msg.angle << endl;
 			}
 		
-			if (fabs(msg.angle) < 5.  || (!radarGoodAngle_)) // || distanceToRadarStagingPoint_ < 1.) // no need to turn
+			if (fabs(msg.angle) < 5.  || (!radarGoodLocation_) || distanceToRadarStagingPoint_ < 1.) // no need to turn
 			{
 			   if (fabs(msg.angle) > 90. && fabs(distanceToRadarStagingPoint_) < 8) pastStagingPoint_ = true;
 			   turning_ = true;
 			   alreadyTurned_++;
 			   movementComplete_ = true;
-			   if (radarGoodAngle_) cout << " turn toward home was small enough to skip, it was = " << msg.angle << endl;
+			   if (radarGoodLocation_) cout << " turn toward home was small enough to skip, it was = " << msg.angle << endl;
 			   else cout << "missed a radar data point when about to turn, wait for another one" << endl;
 			   return HeadForHomeState_;
 	      }            			 
@@ -3453,23 +3452,14 @@ int on_update_HeadForHomeState()
 			
    	}	
 	   // send move command to go to staging  point
-   	/*
    	else if ((!moving_) && (!pastStagingPoint_))
    	{
-			alreadyTurned_ = false;
-   		if (!radarGoodData_)
-   		{
-		      moving_ = true;
-		      movementComplete_ = true;
-		      cout << "missed a radar data point when about to move to stage point, wait for another one" << endl;
-		      return HeadForHomeState_;
-		   }
-		   	
+			alreadyTurned_ = false;		   	
   			msg.command = "autoMove";
 			msg.angle = 0;
 			if (distanceToHomeRadar_ > RADAR_STAGING_POINT_DISTANCE + 4)
 			{
-				if (radarGoodAngle_) msg.distance = (distanceToRadarStagingPoint_ * 1000.)/ 2.;
+				if (radarGoodOrientation_) msg.distance = (distanceToRadarStagingPoint_ * 1000.)/ 2.;
 				else msg.distance = ((distanceToHomeRadar_ - RADAR_STAGING_POINT_DISTANCE) * 1000.)/ 2.;
 				if (msg.distance > 15000.) msg.distance = 15000.;	// we dont want to go too far in one move
 				else if (msg.distance < -1000.) msg.distance = -1000.; // and no more than a meter in reverse
@@ -3494,7 +3484,7 @@ int on_update_HeadForHomeState()
 			return HeadForHomeState_;
 		}
 		
-		else if ((!orienting_) && (!alreadyOriented_) && radarGoodAngle_ && !parking_)
+		else if ((!orienting_) && (!alreadyOriented_) && !parking_)
 		// we are now close and have good radar data, so time to orient to the platform
 		{
 			// send turn command to orient the bot to the platform
@@ -3571,11 +3561,9 @@ int on_update_HeadForHomeState()
 			movementComplete_ = false;
 			return HeadForHomeState_;
 			
-		//usingRadar_ = false;
 		pastStagingPoint_ = false;
-		return SearchForHomeState_; // something went wrong, look again for home	
-		*/	
-	} 	
+		return SearchForHomeState_; // something went wrong, look again for home			
+	} 	// end of section if radarGoodData
 	
 	
 	/*	 if (lastPushing_)
@@ -3750,7 +3738,7 @@ int on_update_HeadForHomeState()
 		
 		if (range_ > PLATFORM_DISTANCE && (!atPlatform_))
 		{
-			cout << " using radar to go to the front of the platform  = " << (range_ - PLATFORM_DISTANCE) * 1000. << " mm" << endl;
+			cout << " going to the front of the platform  = " << (range_ - PLATFORM_DISTANCE) * 1000. << " mm" << endl;
 			readSensors();
 			cout << "laser sees the platform barrier at a range = " << nearestObstacle_ << endl;
 			
@@ -3807,25 +3795,6 @@ int on_update_HeadForHomeState()
 		}				
 		return HeadForHomeState_;  
 	} 
-   /*
-   else if (range_ > 2)
-   {
-      //move forward 0.5 m
-   	msg.angle = 0;
-   	msg.speed = 1000;
-   	msg.distance = 500.;		
-		movement_pub_.publish(msg); 
-      ROS_INFO("moving forward 2m");
-      
-   }
-   else if (range_ > 0.01)
-   {
-      // final approach
-      cout << "moving to home spot, range_ = " << range_ << endl;
-      currentSection_ = PLATFORM;
-      return MoveOntoPlatformState_;
-   }
-   */
    return HeadForHomeState_;  
    
 }

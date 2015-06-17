@@ -685,9 +685,9 @@ void movementCommandCallback(const outdoor_bot::movement_msg msg)
    {
    	cout << "all done phase in movement node" << endl;
    	outdoor_bot::pmotor_msg pmotorMsg;
-   	//pmotorMsg.pmotorNumber = MOTOR_BRAKE_SOLENOID;
-   	//pmotorMsg.pmotorSpeed = PD_SPEED_MAX_VALUE + 10; // this is the code for arduino to put the robot in pause mode
-   	//pmotor_pub_.publish(pmotorMsg);
+   	pmotorMsg.pmotorNumber = MOTOR_BRAKES;
+   	pmotorMsg.pmotorSpeed = MOTOR_BRAKES_SPEED + 10; // this is the code for arduino to put the robot in pause mode
+   	pmotor_pub_.publish(pmotorMsg);
    	msgResult.data = "all_done";
       complete_pub_.publish(msgResult);
    	return;

@@ -1,5 +1,6 @@
 bool goodData
 bool goodLocation
+bool goodOrientation
 float32 maxDistanceToHome
 float32 minDistanceToHome
 float32 distanceToHome
