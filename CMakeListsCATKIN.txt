@@ -64,6 +64,7 @@ find_package(catkin REQUIRED COMPONENTS
 	 mainTargets_msg.msg
 	 movement_msg.msg
 	 NavTargets_msg.msg
+	 navTargetsCommand_msg.msg
 	 ObstacleDetectorFeedback_msg.msg
 	 Obstacle_msg.msg
 	 ObstacleParams_msg.msg
@@ -133,6 +134,7 @@ catkin_package(
  sensor_msgs
  geometry_msgs
  actionlib_msgs
+ rosconsole
 
   
  DEPENDS 
@@ -219,6 +221,7 @@ add_dependencies(obstacle_tester_node ${PROJECT_NAME}_gencpp)
 add_dependencies(obstacle_avoider_tester_node ${PROJECT_NAME}_gencpp)
 add_dependencies(republish_scan_node ${PROJECT_NAME}_gencpp)
 
+target_link_libraries(serialComm_node ${catkin_LIBRARIES})
 target_link_libraries(digcams ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
 target_link_libraries(webcams ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
 target_link_libraries(imagecv ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
@@ -232,7 +235,15 @@ target_link_libraries(digcams gphoto2 gphoto2_port ${catkin_LIBRARIES})
 target_link_libraries(robotPose_node rcm ${catkin_LIBRARIES})
 target_link_libraries(movement_node rcm ${catkin_LIBRARIES})
 target_link_libraries(radar_node rcm ${catkin_LIBRARIES})
+target_link_libraries(dirAnt_node ${catkin_LIBRARIES})
+target_link_libraries(baseController_node ${catkin_LIBRARIES})
+target_link_libraries(obstacle_tester_node ${catkin_LIBRARIES})
+target_link_libraries(obstacle_node ${catkin_LIBRARIES})
+target_link_libraries(republish_scan_node ${catkin_LIBRARIES})
+target_link_libraries(dirAnt_node ${catkin_LIBRARIES})
+target_link_libraries(keyboardController_node ${catkin_LIBRARIES})
 target_link_libraries(autonomous_node fbfsm ${catkin_LIBRARIES})
+target_link_libraries(userCommands_node ${catkin_LIBRARIES})
 target_link_libraries(autonomous_node outdoorbot_nav ${catkin_LIBRARIES})
 target_link_libraries(obstacles_service_node outdoorbot_nav ${catkin_LIBRARIES})
 target_link_libraries(obstacles_service_node fbfsm ${catkin_LIBRARIES})
