@@ -123,6 +123,7 @@ catkin_package(
  /home/dbarry/Dropbox/ros/catkin_ws/src/outdoor_bot/include
  ${OpenCV_INCLUDE_DIRS}
  ${catkin_INCLUDE_DIRS}
+ ${Boost_INCLUDE_DIRS}
  
  LIBRARIES
  ${catkin_LIBRARIES}
@@ -154,6 +155,7 @@ catkin_package(
 include_directories(
 	${OpenCV_INCLUDE_DIRS}
 	${catkin_INCLUDE_DIRS}
+	${Boost_INCLUDE_DIRS}
 	/home/dbarry/Dropbox/ros/catkin_ws/devel/include/outdoor_bot
 	/home/dbarry/Dropbox/ros/catkin_ws/src/outdoor_bot/include
 )

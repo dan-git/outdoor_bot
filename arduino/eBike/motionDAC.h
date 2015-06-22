@@ -463,7 +463,7 @@ public:
                 DEBUG_SERIAL_PORT.print(", ");
                 DEBUG_SERIAL_PORT.print(millis() - autoMoveStartTime_);
                 DEBUG_SERIAL_PORT.print(", ");
-                DEBUG_SERIAL_PORT.print((gyro_stabilizer.getYawTotal() - autoInitialYaw_) / (millis() - autoMoveStartTime_));
+                DEBUG_SERIAL_PORT.print(((gyro_stabilizer.getYawTotal() - autoInitialYaw_) * 1000.) / (millis() - autoMoveStartTime_));
                 DEBUG_SERIAL_PORT.print(", ");
                 DEBUG_SERIAL_PORT.println(gyro_stabilizer.getYawTotal() - autoInitialYaw_);
                 
