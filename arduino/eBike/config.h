@@ -203,7 +203,7 @@ unsigned long pauseBlinkTime_;
   #define DAC_LOWER_VALUE 960  // 1000 corresponds to about 1.2V, the working range of the controller seems to be about 1.2 to 2.5V
   #define GOOSE_SPEED 2000
   #define DAC_MAX_VALUE 2000 //2867  // corresponds to 3.5V
-  #define RIGHT_MOTOR_SPEED_BIAS 0
+  #define RIGHT_MOTOR_SPEED_BIAS 40
   #define LEFT_MOTOR_SPEED_BIAS 0
 
   
@@ -243,9 +243,11 @@ unsigned long pauseBlinkTime_;
   #define EXTRA_ENCODER_SELECT_PIN 38 
   #define REVERSE_ENCODER_LEFT_PIN 42
   #define REVERSE_ENCODER_RIGHT_PIN 43  
-  #define MM_PER_TICK_EBIKE 55.
+  #define MM_PER_TICK_EBIKE 50.
   #define MM_PER_TICK US_DIGITAL 1
   // eBike: 10 revs = 396 inches = 10000 mm = 200 ticks (20 ticks per rev), so 50 mm/tick
+  // using radar, the value of 55 mm per tick caused us to only go about 0.9 the correct distance with 45 and 50 meter tests
+  // so we will use 50 mm / tick instead, which also fits the 10000mm test as noted above.
   // with max speed = 6 rev/sec, max ticks/ sec = 144 or 3 per arduino cycle.
   // at 10 rev/sec, max ticks / sec = 240 or about 5 per cycle.
   #define UNSTICK_SCOOPER_ATTEMPTS_ALLOWED 1

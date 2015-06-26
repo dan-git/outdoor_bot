@@ -16,7 +16,7 @@
 #include <sstream>
 
 
-#define OUTDOOR_TICKS_PER_METER 18
+#define OUTDOOR_TICKS_PER_METER 50 // 18
 /*
 #define SMOOTH_POINTS 0 // roger has low resolution encoders and sometimes needs points smoothed
                         // for now we are smoothing on the arduino side to help the pid calcs
@@ -393,7 +393,7 @@ void sendOutNavData()
     x += cos(yaw) * delta_x - sin(yaw) * delta_y; // using the yaw from the previous cycle
     y += sin(yaw) * delta_x + cos(yaw) * delta_y; // assumes 
     
-  
+  /*
 	// since radar gives us an absolute distance from home, we can scale x and y to match this	  
 	//cout << "in robotPose, radar distance to home = " <<  distanceToHomeRadar_ << endl;
 	if (distanceToHomeRadar_ > 4 && radarGoodData_ && radarNewData_) // too close to the platform, radar data is wonky; only update once for each set of radar data
@@ -415,7 +415,7 @@ void sendOutNavData()
 		  }
 		  radarNewData_ = false; // only update once for each radar message, they only happen about every 200 ms
 	 }
-
+*/
 	 yaw += delta_Yaw;
 	 // compare yaw from gyro to yaw from radar
 //	 cout << "yaw from gyro, yaw from radar = " << yaw << ", " << orientationToHomeRadar_ << endl;

@@ -499,7 +499,7 @@ public:
                   DEBUG_SERIAL_PORT.print(", ");
                   DEBUG_SERIAL_PORT.println(scooperEncoder);
                }
-               if (scooperTimeout > SCOOPER_STUCK_TIME && scooperEncoder > SCOOPER_STUCK_ENCODER_THRESHOLD)
+               if (scooperTimeout > SCOOPER_STUCK_TIME && (scooperEncoder > SCOOPER_STUCK_ENCODER_THRESHOLD || scooperEncoder > scooperStartEncoder - 15))
                {
                   if (scooperStuckAlreadyDone < UNSTICK_SCOOPER_ATTEMPTS_ALLOWED)
                    {
@@ -511,13 +511,27 @@ public:
                      DEBUG_SERIAL_PORT.print(", ");
                      DEBUG_SERIAL_PORT.println(scooperEncoder);
                      bool resetBrakes = motion_pd.getBrakesState();
-                     motion_pd.releaseRobotBrakes();
+                     if (resetBrakes)
+                     {
+                       motion_pd.releaseRobotBrakes();
+                       delay(1500);
+                     }
+                     motor_dac[RIGHT].setMotorDirection(-1);
+                     motor_dac[LEFT].setMotorDirection(-1);
+                     delay(100);
+                     motor_dac[RIGHT].setMotorSpeed(-GOOSE_SPEED); 
+                     motor_dac[LEFT].setMotorSpeed(-GOOSE_SPEED); 
+                     delay(10);
                      motor_dac[LEFT].setMotorSpeed(-1200);
                      motor_dac[RIGHT].setMotorSpeed(-1200);
                      delay(800);
                      motor_dac[LEFT].setMotorSpeed(0);
                      motor_dac[RIGHT].setMotorSpeed(0);     
-                     if (resetBrakes) motion_pd.applyRobotBrakes();  
+                     if (resetBrakes) 
+                     {
+                       motion_pd.applyRobotBrakes(); 
+                       delay(1500);
+                     } 
                      scooperStuckAlreadyDone++;
                      motion_pd.setScooperStartTime(millis());
                    }

@@ -68,7 +68,7 @@
 //#define REAR 0
 //#define DIGCAM 0
 
-#define RADAR_STAGING_POINT_DISTANCE 7.0
+#define RADAR_HOME_STAGING_POINT_DISTANCE 7.0
 //#define MAP 0
 #define BOT 1
 //#define FINAL_RANGE 2.0  // now defined in just movement node

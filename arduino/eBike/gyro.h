@@ -23,7 +23,7 @@
 
 namespace rcs {
   
-#define ZERO_ANGV_EXTRA_INTEGRAL_PARAMETER 3.0
+#define ZERO_ANGV_EXTRA_INTEGRAL_PARAMETER 2.0
 #define MAX_ZERO_ANGV_EXTRA_INTEGRAL_PARAMETER 20.
   
 // Abstact base class for motion stabilizers.
@@ -277,7 +277,7 @@ class GyroStabilizer : public MotionStabilizer {
            correction = MAX_ZERO_ANGV_EXTRA_INTEGRAL_PARAMETER * rcs::sign(correction);
            DEBUG_SERIAL_PORT.println(correction);
         }
-        else if (DEBUG)
+        //else if (DEBUG)
         {
            DEBUG_SERIAL_PORT.print("zero angular velocity correction in gyro.h: yawZeroAngV_, yawTotal_, correction = ");
            DEBUG_SERIAL_PORT.print(yawZeroAngV_);

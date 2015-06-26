@@ -2880,10 +2880,10 @@ int on_update_HeadForHomeState()
 		   	
   			msg.command = "autoMove";
 			msg.angle = 0;
-			if (distanceToHomeRadar_ > RADAR_STAGING_POINT_DISTANCE + 4)
+			if (distanceToHomeRadar_ > RADAR_HOME_STAGING_POINT_DISTANCE + 4)
 			{
 				if (radarGoodAngle_) msg.distance = (distanceToRadarStagingPoint_ * 1000.)/ 2.;
-				else msg.distance = ((distanceToHomeRadar_ - RADAR_STAGING_POINT_DISTANCE) * 1000.)/ 2.;
+				else msg.distance = ((distanceToHomeRadar_ - RADAR_HOME_STAGING_POINT_DISTANCE) * 1000.)/ 2.;
 				if (msg.distance > 15000.) msg.distance = 15000.;	// we dont want to go too far in one move
 				else if (msg.distance < -1000.) msg.distance = -1000.; // and no more than a meter in reverse
 				msg.speed = 1000. * sgn(msg.distance);

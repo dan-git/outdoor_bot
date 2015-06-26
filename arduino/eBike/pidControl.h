@@ -54,7 +54,7 @@ class pidControl {
       }
   
       double integralError = ki_ * error * deltaT / 1000.0f; 
-      if (DEBUG)
+      //if (DEBUG)
       {
         DEBUG_SERIAL_PORT.print("pid, ki, error, deltaT, intError = ");
         DEBUG_SERIAL_PORT.print(ki_);
@@ -88,7 +88,12 @@ class pidControl {
       double outputChange = (integralError - (kp_ * dMeasured)) - (kd_ * dDoubleMeasured);
       
       // check boundaries
-      if ( abs(outputChange) > maxChange_) outputChange = maxChange_ * sign(outputChange);
+      if ( abs(outputChange) > maxChange_)
+      {
+        DEBUG_SERIAL_PORT.print("pid output change exceeded max, so set to max.  original output change = ");
+        DEBUG_SERIAL_PORT.println(outputChange);
+        outputChange = maxChange_ * sign(outputChange);
+      }
       double newOutput = outputChange + *output; // add to previous output
       if ( abs(newOutput) > maxOutput_) newOutput = maxOutput_ * sign(newOutput);
       

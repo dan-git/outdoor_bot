@@ -68,50 +68,50 @@ public:
       angPreviousTargetVelocity_ = 0.0;
     }
 
-  void gooseMotors() // ebike motor controllers take a while to set the direction, so we need to give time for that.
+  void gooseMotors(int left_speed, int right_speed) // ebike motor controllers take a while to set the direction, so we need to give time for that.
                      //  Also, goose them to be sure that they move, as sometimes they won't respond to small speed inputs
   {
     
-    /*if  ( ((rightSpeed_ * previousRightDirection_ < 0 ) && abs(rightSpeed_) > DAC_LOWER_VALUE) 
-       ||  ((leftSpeed_ * previousLeftDirection_ < 0 ) && abs(leftSpeed_) > DAC_LOWER_VALUE) )
+    /*if  ( ((right_speed * previousRightDirection_ < 0 ) && abs(right_speed) > DAC_LOWER_VALUE) 
+       ||  ((left_speed * previousLeftDirection_ < 0 ) && abs(left_speed) > DAC_LOWER_VALUE) )
     {
-      int direction = rcs::sign(rightSpeed_); // we need extra variable because setting direction can change the sign of the parameter sent
+      int direction = rcs::sign(right_speed); // we need extra variable because setting direction can change the sign of the parameter sent
       //motor_dac[RIGHT].setMotorDirection(&direction);
-      direction = rcs::sign(leftSpeed_);
+      direction = rcs::sign(left_speed);
       //motor_dac[LEFT].setMotorDirection(&direction);
-      previousRightDirection_ = rcs::sign(rightSpeed_);  // the ebike motor controller remembers the last non-zero direction, so we have to too
-      previousLeftDirection_ = rcs::sign(leftSpeed_); 
+      previousRightDirection_ = rcs::sign(right_speed);  // the ebike motor controller remembers the last non-zero direction, so we have to too
+      previousLeftDirection_ = rcs::sign(left_speed); 
       if (motion_pd.getBrakesState() || motion_pd.getApplyingBrakes()) motion_pd.releaseRobotBrakes();
      // else delay(300);
 
-      motor_dac[RIGHT].setMotorSpeed((GOOSE_SPEED) * rcs::sign(rightSpeed_)); 
-      motor_dac[LEFT].setMotorSpeed((GOOSE_SPEED) * rcs::sign(leftSpeed_)); 
+      motor_dac[RIGHT].setMotorSpeed((GOOSE_SPEED) * rcs::sign(right_speed)); 
+      motor_dac[LEFT].setMotorSpeed((GOOSE_SPEED) * rcs::sign(left_speed)); 
       delay(50);
     }   
   
     if (motion_pd.getBrakesState() || motion_pd.getApplyingBrakes()) motion_pd.releaseRobotBrakes();
-    if (abs(rightSpeed_) > DAC_LOWER_VALUE) motor_dac[RIGHT].setMotorSpeed((GOOSE_SPEED) * rcs::sign(rightSpeed_)); // send eike controllers a large speed to get going
-    if (abs(leftSpeed_) > DAC_LOWER_VALUE) motor_dac[LEFT].setMotorSpeed((GOOSE_SPEED) * rcs::sign(leftSpeed_)); // and then reduce it to the commanded speed
+    if (abs(right_speed) > DAC_LOWER_VALUE) motor_dac[RIGHT].setMotorSpeed((GOOSE_SPEED) * rcs::sign(right_speed)); // send eike controllers a large speed to get going
+    if (abs(left_speed) > DAC_LOWER_VALUE) motor_dac[LEFT].setMotorSpeed((GOOSE_SPEED) * rcs::sign(left_speed)); // and then reduce it to the commanded speed
     delay(100);
     */
     DEBUG_SERIAL_PORT.println("goosing");
     
-    if  ( ((rightSpeed_ * motor_dac[RIGHT].getMotorDirection() < 0 ) && abs(rightSpeed_) > 0) 
-       ||  ((leftSpeed_ * motor_dac[LEFT].getMotorDirection() < 0 ) && abs(leftSpeed_) > 0 ) )
+    if  ( ((right_speed * motor_dac[RIGHT].getMotorDirection() < 0 ) && abs(right_speed) > 0) 
+       ||  ((left_speed * motor_dac[LEFT].getMotorDirection() < 0 ) && abs(left_speed) > 0 ) )
     {
       if (DEBUG)
       {
         DEBUG_SERIAL_PORT.print("changed direction for goosing, now going left, right = ");
-        if (leftSpeed_ > 0) DEBUG_SERIAL_PORT.print("forward");
+        if (left_speed > 0) DEBUG_SERIAL_PORT.print("forward");
         else DEBUG_SERIAL_PORT.print("reverse");
         DEBUG_SERIAL_PORT.print(", ");
-        if (rightSpeed_ > 0) DEBUG_SERIAL_PORT.println("forward");
+        if (right_speed > 0) DEBUG_SERIAL_PORT.println("forward");
         else DEBUG_SERIAL_PORT.println("reverse");
       }
       
-      int newDirection = rcs::sign(rightSpeed_);
+      int newDirection = rcs::sign(right_speed);
       motor_dac[RIGHT].setMotorDirection(newDirection);
-      newDirection = rcs::sign(leftSpeed_);
+      newDirection = rcs::sign(left_speed);
       motor_dac[LEFT].setMotorDirection(newDirection);
       delay(100);
     }
@@ -122,35 +122,36 @@ public:
         DEBUG_SERIAL_PORT.print("did not change direction for goosing, still going previous left, left, previous right, right = ");
         DEBUG_SERIAL_PORT.print(motor_dac[LEFT].getMotorDirection());
         DEBUG_SERIAL_PORT.print(", ");
-        DEBUG_SERIAL_PORT.print(leftSpeed_);
+        DEBUG_SERIAL_PORT.print(left_speed);
         DEBUG_SERIAL_PORT.print(", ");
         DEBUG_SERIAL_PORT.print(motor_dac[RIGHT].getMotorDirection());
         DEBUG_SERIAL_PORT.print(", ");
-        DEBUG_SERIAL_PORT.println(rightSpeed_);
+        DEBUG_SERIAL_PORT.println(right_speed);
       }   
     }   
     /*
-    if  ( ((rightSpeed_ * previousRightDirection_ < 0 ) && abs(rightSpeed_) > DAC_LOWER_VALUE) 
-       ||  ((leftSpeed_ * previousLeftDirection_ < 0 ) && abs(leftSpeed_) > DAC_LOWER_VALUE) )
+    if  ( ((right_speed * previousRightDirection_ < 0 ) && abs(right_speed) > DAC_LOWER_VALUE) 
+       ||  ((left_speed * previousLeftDirection_ < 0 ) && abs(left_speed) > DAC_LOWER_VALUE) )
     {
-      int direction = rcs::sign(rightSpeed_); // we need extra variable because setting direction can change the sign of the paramter sent
+      int direction = rcs::sign(right_speed); // we need extra variable because setting direction can change the sign of the paramter sent
       motor_dac[RIGHT].setMotorDirection(&direction);
-      direction = rcs::sign(leftSpeed_);
+      direction = rcs::sign(left_speed);
       motor_dac[LEFT].setMotorDirection(&direction);
-      previousRightDirection_ = rcs::sign(rightSpeed_);  // the ebike motor controller remembers the last non-zero direction, so we have to too
-      previousLeftDirection_ = rcs::sign(leftSpeed_); 
+      previousRightDirection_ = rcs::sign(right_speed);  // the ebike motor controller remembers the last non-zero direction, so we have to too
+      previousLeftDirection_ = rcs::sign(left_speed); 
       if (motion_pd.getBrakesState() || motion_pd.getApplyingBrakes()) motion_pd.releaseRobotBrakes();
       delay(100);
 
-      motor_dac[RIGHT].setMotorSpeed(GOOSE_SPEED * rcs::sign(rightSpeed_)); 
-      motor_dac[LEFT].setMotorSpeed(GOOSE_SPEED * rcs::sign(leftSpeed_)); 
+      motor_dac[RIGHT].setMotorSpeed(GOOSE_SPEED * rcs::sign(right_speed)); 
+      motor_dac[LEFT].setMotorSpeed(GOOSE_SPEED * rcs::sign(left_speed)); 
       delay(10);
     }   
   */
     if (motion_pd.getBrakesState() || motion_pd.getApplyingBrakes()) motion_pd.releaseRobotBrakes();
-    if (abs(rightSpeed_) > DAC_LOWER_VALUE) motor_dac[RIGHT].setMotorSpeed(GOOSE_SPEED * rcs::sign(rightSpeed_)); // send eike controllers a large speed to get going
-    if (abs(leftSpeed_) > DAC_LOWER_VALUE) motor_dac[LEFT].setMotorSpeed(GOOSE_SPEED * rcs::sign(leftSpeed_)); // and then reduce it to the commanded speed
+    if (abs(right_speed) > DAC_LOWER_VALUE) motor_dac[RIGHT].setMotorSpeed(GOOSE_SPEED * rcs::sign(right_speed)); // send eike controllers a large speed to get going
+    if (abs(left_speed) > DAC_LOWER_VALUE) motor_dac[LEFT].setMotorSpeed(GOOSE_SPEED * rcs::sign(left_speed)); // and then reduce it to the commanded speed
     delay(10);
+    if (linearCommandedVelocity_ == 0) delay(90);  // if we are in a pure turn, we want to be sure that all 4 motors are powered.
     //DEBUG_SERIAL_PORT.println("goosing");    
     
   }   
@@ -197,9 +198,16 @@ public:
       transformVelocityToMotorSpeed(linearCommandedVelocity_, angCommandedVelocity_, &leftSpeed_, &rightSpeed_);
       
       autoMoveStartTime_ = millis();
+      autoDistance_ = distance;
+      autoInitialLeftTicks_ = leftPreviousTicks_;
+      autoInitialRightTicks_ = rightPreviousTicks_;
+      autoDegrees_ = angle;      
+      angPreviousTargetVelocity_ = angCommandedVelocity_;
+      linearPreviousTargetVelocity_ = linearCommandedVelocity_;
+      motionPreviousTime_ = millis(); 
       
       motion_pd.releaseRobotBrakes();
-      gooseMotors();
+      gooseMotors(leftSpeed_, rightSpeed_);
       
       motor_dac[RIGHT].setMotorSpeed(rightSpeed_);
       motor_dac[LEFT].setMotorSpeed(leftSpeed_); 
@@ -213,15 +221,7 @@ public:
         DEBUG_SERIAL_PORT.print(leftSpeed_);
         DEBUG_SERIAL_PORT.print(", ");
         DEBUG_SERIAL_PORT.println(rightSpeed_);     
-      }
-      
-      autoDistance_ = distance;
-      autoInitialLeftTicks_ = leftPreviousTicks_;
-      autoInitialRightTicks_ = rightPreviousTicks_;
-      autoDegrees_ = angle;      
-      angPreviousTargetVelocity_ = angCommandedVelocity_;
-      linearPreviousTargetVelocity_ = linearCommandedVelocity_;
-      motionPreviousTime_ = millis();   
+      }  
     }
     
        
@@ -243,7 +243,7 @@ public:
 
       if (motion_pd.getBrakesState()) motion_pd.releaseRobotBrakes();
 
-      gooseMotors();
+      gooseMotors(leftSpeed_, rightSpeed_);
       
 
       motor_dac[RIGHT].setMotorSpeed(rightSpeed_);
@@ -302,7 +302,7 @@ public:
       transformVelocityToMotorSpeed(linearCommandedVelocity_, angCommandedVelocity_, &leftSpeed_, &rightSpeed_);
       
       //motion_pd.releaseRobotBrakes();  goose does this
-      gooseMotors();
+      gooseMotors(leftSpeed_, rightSpeed_);
       
       motor_dac[RIGHT].setMotorSpeed(rightSpeed_);
       motor_dac[LEFT].setMotorSpeed(leftSpeed_); 
@@ -586,7 +586,7 @@ public:
         // sanity check on controller, need the deadband because edge cases will cross over with pid control, for example, autoC(100,37);
         double angCommandedVelocityMMperSec;
         if ( fabs(linearCommandedVelocity_) < 50) angCommandedVelocityMMperSec = angTargetV * STANDING_MM_PER_SEC_CONVERSION_TO_DEGREES_PER_SECOND_RATIO;
-        else angCommandedVelocityMMperSec = angTargetV * MOVING_MM_PER_SEC_CONVERSION_TO_DEGREES_PER_SECOND_RATIO;
+        else angCommandedVelocityMMperSec = angCommandedVelocity_ * MOVING_MM_PER_SEC_CONVERSION_TO_DEGREES_PER_SECOND_RATIO;
         
         
         if ( ((linearCommandedVelocity_ - angCommandedVelocityMMperSec > 50) && leftSpeed_ < -DAC_LOWER_VALUE )
