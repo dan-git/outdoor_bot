@@ -73,6 +73,7 @@ using namespace std;
 //#define FIRST_MOVE_REMAINING_DISTANCE 10.0
 #define PARKING_DISTANCE 1.5
 #define PLATFORM_DISTANCE 3.0
+#define STARTING_PLATFORM_LINEUP_OFFSET 90
 #define SERVO_WAIT_SECONDS 2.0  // time from servo command until we are sure servo is in position *****************untested change*************
 #define SWITCH_FROM_DIR_ANT_TO_RADAR_DISTANCE 20.0
 #define DEGREES_PER_PAN_STEP 0.64
@@ -112,7 +113,7 @@ int home_image_height_, home_image_width_;
 bool homeCenterUpdated_, movementComplete_, triedWebcamAlready_, triedZoomDigcamAlready_, triedRegularDigcamAlready_, bigTurnDone_, lastTurn_;
 int lastMove_, bigMoveDone_;
 double range_, approxRangeToTarget_, targetRange_, homeCameraRange_, offsetX_, webcamTilt_, regularDigcamZoom_, zoomDigcamZoom_, regularDigcamFOV_, homeDigcamZoom_, homeDigcamFOV_;
-double accelX_, accelY_, accelZ_, x_, y_, yaw_, odomDistanceToHome_;
+double accelX_, accelY_, accelZ_, x_, y_, yaw_, odomDistanceToHome_, odomAngleToLineup_, startingPlatformPosition_;
 bool zoomResult_, writeFileResult_, newMainTargetDigcamImageReceived_, newMainTargetWebcamImageReceived_, rangeUnknown_;
 bool targetCenterUpdated_, newNavTargetImageReceived_;
 int retCapToMemory_;
@@ -472,9 +473,11 @@ bool callAccelerometersService()
 		x_ = resp.x; // meters
 		y_ = resp.y;	
 		odomDistanceToHome_ = sqrt((x_ * x_) + (y_ * y_));	
+		odomAngleToLineup_ = STARTING_PLATFORM_LINEUP_OFFSET - (yaw_ - startingPlatformPosition_);
 	}
 	cout << "accels, x, y, z = " << accelX_ << ", " << accelY_ << ", " << accelZ_ << endl;
-	cout << "x, y, yaw (radians), yaw (degrees), odomDistanceToHome_ (meters)  = " << x_ << ", " << y_ << ", " << yaw_ / 57.3 << ", " << yaw_ << ", " << odomDistanceToHome_ << endl;
+	cout << "x, y, yaw (radians), yaw (degrees), odomDistanceToHome_ (meters), odomAngleToLineup_  = "
+		 << x_ << ", " << y_ << ", " << yaw_ / 57.3 << ", " << yaw_ << ", " << odomDistanceToHome_ << ", " << odomAngleToLineup_ << endl;
 	//if (fabs(accelZ_) > 3.) return true;
 	return true;
 }
@@ -1100,6 +1103,8 @@ void on_enter_BootupState()
    distanceToRadarStagingPoint_ = 0.;
    angleToRadarStagingPoint_ = 0.;
    odomDistanceToHome_ = 0.;
+   odomAngleToLineup_ = 90.;
+   startingPlatformPosition_ = 0.;
    radarGoodData_ = false;
    radarNewData_ = false;
    radarGoodLocation_ = false;
@@ -1333,6 +1338,9 @@ int on_update_CheckLinedUpState()
 void on_enter_PhaseTwoFirstState()
 {
 	// start by just moving off the platform 5 meters
+	callAccelerometersService();
+	startingPlatformPosition_ = yaw_;
+	cout << "starting position yaw = " << startingPlatformPosition_ << endl;
 	currentSection_ = FIRST_TARGET_MOVE;
 	outdoor_bot::movement_msg msg;
 	msg.command = "autoMove";
@@ -1678,25 +1686,38 @@ int on_update_MoveToFirstTargetState()
 		movementComplete_ = false;		
 	   if (movementResult_.find("done") != string::npos)
 	   {
-	   	if (firstMoveToFirstTarget_)
+   		if (turnedToFaceFirstTarget_)	// we are now at the correct range from home and should be facing the target
+   		{
+   			turning_ = false;
+   			firstMoveToFirstTarget_ = false;
+				alreadyTurned_ = 0;
+				approxRangeToTarget_ = 10.;
+				distanceToFirstTargetStaging_ = 0;					
+   			cout << "finished turn to face target, approxRangeToTarget_ = " << approxRangeToTarget_ << endl;
+   			return CheckFirstTargetState_;
+   		}
+	   	else	if (firstMoveToFirstTarget_)
 	   	{
 	   		ROS_INFO("move or turn completed in MoveToFirstTargetState");
-	   		if (turnedToFaceFirstTarget_)	// we are now at the correct range from home and should be facing the target
-	   		{
-	   			turning_ = false;
-	   			firstMoveToFirstTarget_ = false;
-					alreadyTurned_ = 0;
-					approxRangeToTarget_ = 10.;					
-	   			cout << "finished turn to face target, approxRangeToTarget_ = " << approxRangeToTarget_ << endl;
-	   			return CheckFirstTargetState_;
-	   		}
+	   		double distanceToHome = -1;
+	   		
+				callAccelerometersService();	
+				if (radarGoodData_ && distanceToHomeRadar_ > 4.)
+				{
+					distanceToHome = distanceToHomeRadar_;
+				}
+				else distanceToHome = odomDistanceToHome_;
+				
+				distanceToFirstTargetStaging_ -= distanceToHome;
+				approxRangeToTarget_ -= distanceToHome;
+				
 	   		return MoveToFirstTargetState_;	// we have not gone far enough out toward the target, keep moving until we get there.
 	   	}
 	   	else if (centerX_ < 0)	// we did not have a target and are not in the first moves, just moved forward with hope
 	   	{
-	   		cout << "blind move completed in MoveToFirstTargetState, approxRangeToTarget =  " << approxRangeToTarget_ << endl;
+	   		cout << "blind move completed in MoveToFirstTargetState, approxRangeToTarget =  " << approxRangeToTarget_ << endl << endl;
 	   	}
-	   	else cout << "move or turn toward the target image completed, now let's check if we can see it from here" << endl;
+	   	else cout << "move or turn toward the target image completed, now let's check if we can see it from here" << endl << endl;
 	   	
 	   	return CheckFirstTargetState_; // move succeeded, see if we can image the target
 	   }
@@ -1718,7 +1739,8 @@ int on_update_MoveToFirstTargetState()
    if (firstMoveToFirstTarget_)
    {
    	double distanceToHome = -1;
- 			cout << "we are in first move to first target" << endl;	
+   	callAccelerometersService();
+ 		cout << "we are in first move to first target" << endl;	
    	if (radarGoodData_ && distanceToHomeRadar_ > 4. && radarNewData_)
    	{
    		radarNewData_ = false;
@@ -1727,7 +1749,7 @@ int on_update_MoveToFirstTargetState()
    	}
    	else distanceToHome = odomDistanceToHome_;
    	
-   	callAccelerometersService();
+   	
 		
 		// turn to zero the yaw
 		if (yaw_ > 180) yaw_ -= 360.;
@@ -1749,7 +1771,8 @@ int on_update_MoveToFirstTargetState()
 			alreadyTurned_++;
 			return MoveToFirstTargetState_;
 		}
-		else cout << "yaw is small enough to skip correction turn or we already did a correction turn" << endl;
+		else if (alreadyTurned_ >= 1 ) cout << "we already did a correction turn, so we will not turn now" << endl;
+		else cout << "yaw is small enough to skip correction turn" << endl;
 		if (distanceToHome >= distanceToFirstTargetStaging_) 
 		{
 			turnedToFaceFirstTarget_ = true;
@@ -1776,16 +1799,17 @@ int on_update_MoveToFirstTargetState()
    		if (!bigMoveDone_)
    		{
    			bigMoveDone_ = true;
-   			msg.distance = distanceToFirstTargetStaging_;
+   			msg.distance = distanceToFirstTargetStaging_ * 1000.;
    			approxRangeToTarget_ = (distanceToFirstTargetStaging_ + 10.); // the staging point is where we do a radial turn and should be 10m away
-   			cout << "making the big move to target staging. distanceToFirstTargetStaging = " << distanceToFirstTargetStaging_ << endl;
+   			ROS_INFO("making the big move to target staging");
+   			cout << "distanceToFirstTargetStaging = " << distanceToFirstTargetStaging_ << endl;
    			cout << "odom and radar distances to home = " << odomDistanceToHome_ << ", " << distanceToHomeRadar_ << endl;
    			cout << " we are using " << distanceToHome << " as our distance to home" << endl;
    			cout << " with a distance to FirstTarget = " << distanceToFirstTarget_ << endl;
    		}
    			
    		
-   		if (distanceToHome < distanceToFirstTargetStaging_ - INCREMENTAL_MOVE_TO_TARGET)
+   		else if (distanceToHome < distanceToFirstTargetStaging_ - INCREMENTAL_MOVE_TO_TARGET)
    		{
    			msg.distance = INCREMENTAL_MOVE_TO_TARGET * 1000.;
    			approxRangeToTarget_ = (distanceToFirstTargetStaging_ + 10.) - (distanceToHome + INCREMENTAL_MOVE_TO_TARGET);  // the staging point is where we do a radial turn and should be 10m away from target
@@ -3432,23 +3456,35 @@ int on_update_HeadForHomeState()
 		   // send turn command to center the target		
 			// if we are too close to the staging point, we get large angles and don't want to go there.
 			alreadyTurned_++;
-			if (distanceToRadarStagingPoint_ > 2. 
-				&& fabs(fabs(angleToRadarStagingPoint_) - fabs(angleToHomeRadar_)) < 20.
-				&& radarGoodOrientation_ ) 
+			if (distanceToRadarStagingPoint_ > 2. && radarGoodOrientation_ ) 
+				//&& fabs(fabs(angleToRadarStagingPoint_) - fabs(angleToHomeRadar_)) < 20.
+				
 			{
 				msg.angle = angleToRadarStagingPoint_;
 				cout << "turning to staging point using four radar orientation, angle = " << msg.angle << endl;
 			}
 			else 
 			{
+				cout << "we are less than 2m from the staging point" << endl;
 				msg.angle = angleToHomeRadar_ + RADAR_ANGLE_OFFSET; //* 1.2;	// go a little past, to maintain an approach intercept
-				cout << "we are too close to the staging point to turn there or the radars are not all reading, so, we will instead turn for home with an angle of angleToHomeRadar * 1.2 = " 
-					<< msg.angle << endl;
+				if (distanceToRadarStagingPoint_ <= 2. )
+				{
+					cout << "we are too close to the staging point to turn, distanceToStagingPoint_ = " <<  distanceToRadarStagingPoint_ << endl;
+				}
+				if (fabs(fabs(angleToRadarStagingPoint_) - fabs(angleToHomeRadar_)) >= 20.)
+				{
+					cout << "the angle difference between angle to staging point and angle to home was too large for us to turn to the staging point, angleToRadarStagingPoint_, angleToHomeRadar_ = "<< angleToRadarStagingPoint_ << ", " << angleToHomeRadar_ << endl;
+				}
+				
+				if (!radarGoodOrientation_)
+				{
+					cout << "we did not have all four radars, so we are turning to home instead of the staging point" << endl;
+				}
 				cout << "turning for home with an angleToHomeRadar_ + RADAR_ANGLE_OFFSET = " << msg.angle << endl;
 			}
-			cout << "for info, distanceToRadarStagingPoint_, angleToRadarStagingPoint_ =  " << distanceToRadarStagingPoint_ << " meters, " << angleToRadarStagingPoint_ << " degrees" << endl;
+			cout << "for info, distanceToRadarStagingPoint_, angleToRadarStagingPoint_, angleToHomeRadar_ =  " << distanceToRadarStagingPoint_ << " meters, " << angleToRadarStagingPoint_ << ", " << angleToHomeRadar_ << endl;
 			
-			if (fabs(msg.angle) < 5.  || (!radarGoodLocation_) || distanceToRadarStagingPoint_ < 1.) // no need to turn
+			if (fabs(msg.angle) < 5.  || (!radarGoodLocation_) || distanceToRadarStagingPoint_ < 2.) // no need to turn
 			{
 			   if (fabs(msg.angle) > 90. && fabs(distanceToRadarStagingPoint_) < 8) pastStagingPoint_ = true;
 			   turning_ = true;
@@ -3497,6 +3533,9 @@ int on_update_HeadForHomeState()
 			movementComplete_ = false;
 			cout << "using radar to move toward staging point, moving " << msg.distance << " mm" << endl;
 			cout << "distance to home radar, staging point = " << distanceToHomeRadar_ << ", " << distanceToRadarStagingPoint_ << endl;
+			cout << "angle to home radar, staging point = " << angleToHomeRadar_ << ", " << angleToRadarStagingPoint_ << endl;
+			callAccelerometersService();
+			cout << "odomDistanceToHome_, odomAngleToHome_ = " << odomDistanceToHome_ << ", " << odomAngleToLineup_ << endl;
 			if (pastStagingPoint_) cout << "this is the last move to the staging point" << endl;
 			return HeadForHomeState_;
 		}
@@ -3505,7 +3544,9 @@ int on_update_HeadForHomeState()
 		// we are now close and have good radar data, so time to orient to the platform
 		{
 			// send turn command to orient the bot to the platform
-			cout << "orienting now, distanceToHomeRadar_ = " << distanceToHomeRadar_ << endl;
+			callAccelerometersService();
+			
+			cout << "orienting now, distanceToHomeRadar_, angleToHomeRadar_, odomAngleToLineup_ = " << distanceToHomeRadar_ << ", " << angleToHomeRadar_ << ", " << odomAngleToLineup_ << endl;
    		msg.angle = (int) angleToHomeRadar_; 
    		if (fabs(msg.angle) < 3. || distanceToHomeRadar_ < PARKING_DISTANCE + 1.) // don't turn
    		{

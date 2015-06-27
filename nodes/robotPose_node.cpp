@@ -16,7 +16,7 @@
 #include <sstream>
 
 
-#define OUTDOOR_TICKS_PER_METER 50 // 18
+#define OUTDOOR_TICKS_PER_METER 20
 /*
 #define SMOOTH_POINTS 0 // roger has low resolution encoders and sometimes needs points smoothed
                         // for now we are smoothing on the arduino side to help the pid calcs

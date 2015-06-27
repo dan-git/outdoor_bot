@@ -44,11 +44,64 @@ public:
 	{
 	}
 	
+bool getFourRadarLocation()
+{
+	if (!(distanceFromLeftToLeft_ > 0.1 && distanceFromRightToLeft_ > 0.1 && distanceFromLeftToRight_ > 0.1 && distanceFromRightToRight_ > 0.1)) return false;
+	double leftAngleToHome, rightAngleToHome, leftDistanceToHome, rightDistanceToHome, orientationToHome;
+	
+	distanceToHome_ = (distanceFromLeftToLeft_ + distanceFromRightToLeft_ + distanceFromLeftToRight_ + distanceFromRightToRight_) / 4000.;
+	
+	leftDistanceToHome = (distanceFromLeftToLeft_ + distanceFromRightToLeft_) / 2.;
+	rightDistanceToHome = (distanceFromLeftToRight_ + distanceFromRightToRight_) / 2.;
+	
+	if ( (distanceFromLeftToLeft_ - distanceFromRightToLeft_) / BOT_RADAR_SEPARATION > 1.) leftAngleToHome = -90.;
+	else if ( (distanceFromLeftToLeft_ - distanceFromRightToLeft_) / BOT_RADAR_SEPARATION < -1.) leftAngleToHome = 90.;
+	else leftAngleToHome =  -(asin( (distanceFromLeftToLeft_ - distanceFromRightToLeft_) / BOT_RADAR_SEPARATION)) * 57.3;
+	
+	if ( (distanceFromLeftToRight_ - distanceFromRightToRight_) / BOT_RADAR_SEPARATION > 1.) rightAngleToHome = -90.;
+	else if ( (distanceFromLeftToRight_ - distanceFromRightToRight_) / BOT_RADAR_SEPARATION < -1.) rightAngleToHome = 90.;
+	else rightAngleToHome =  -(asin( (distanceFromLeftToRight_ - distanceFromRightToRight_) / BOT_RADAR_SEPARATION)) * 57.3;
+	
+	angleToHome_ = (leftAngleToHome + rightAngleToHome) / 2.;
+
+	
+	cout << "from FourRadarLocation: " << endl;
+	
+	double orientationX = leftDistanceToHome * cos(leftAngleToHome) - rightDistanceToHome * cos(rightAngleToHome);
+	double orientationY = leftDistanceToHome * sin(leftAngleToHome) - rightDistanceToHome * sin(rightAngleToHome);
+	
+	
+	if ( fabs(orientationX) < 0.01)
+	{
+		if (orientationY > 0) orientationToHome = 90;
+		else orientationToHome = -90;
+	}
+	else orientationToHome = atan(orientationY/orientationX) * 57.3;
+	botOrientation_ = orientationToHome / 57.3;
+	
+	
+	cout << "Left, right angles to home (mm)  = " << leftAngleToHome << ", " << rightAngleToHome << endl;
+	cout << "Left, right distances to home (mm)  = " << leftDistanceToHome << ", " << rightDistanceToHome << endl;
+	cout << "OrientationX, OrientationY (mm) = " << orientationX << ", " << orientationY << endl;
+	cout << "distance to home,  angle to home, orientation to home = " << distanceToHome_ << " meters," << angleToHome_ << " degrees, " << orientationToHome << " degrees" << endl;
+	cout << "angle-based orientation to home = " << orientationToHome << " degrees" << endl;
+	
+	if ( (leftDistanceToHome - rightDistanceToHome) / HOME_RADAR_SEPARATION > 1.) orientationToHome = 90.;
+	if ( (leftDistanceToHome - rightDistanceToHome) / HOME_RADAR_SEPARATION < -1.) orientationToHome = -90.;
+	else orientationToHome =  asin( (leftDistanceToHome - rightDistanceToHome) / HOME_RADAR_SEPARATION) * 57.3;
+	
+	cout << "we are using distance-based orientation to home = " << orientationToHome << " degrees" << endl;
+	
+	botOrientation_ = orientationToHome / 57.3;
+	
+	return true;
+}
+	
 bool getThreeRadarLocation()
 {
-	if ( ((distanceFromLeftToRight_ < 0.1 && distanceFromRightToRight_ < 0.1)
-		|| (distanceFromLeftToLeft_ > 0.1 && distanceFromRightToLeft_ > 0.1))
-		&& ( distanceFromLeftToLeft_ > 0.1 || distanceFromRightToLeft_ > 0.1) )
+	if ( ((distanceFromLeftToRight_ < 0.1 && distanceFromRightToRight_ < 0.1)	// right beacon radar is out
+		|| (distanceFromLeftToLeft_ > 0.1 && distanceFromRightToLeft_ > 0.1))	//  or left beacon radar is good
+		&& ( distanceFromLeftToLeft_ > 0.1 || distanceFromRightToLeft_ > 0.1) )	// the above and at least one left beacon radar is good
 	{
 	
 		if (distanceFromLeftToLeft_ < 0.1 && distanceFromRightToLeft_ > 0.1)
@@ -624,6 +677,15 @@ int main(int argc, char** argv)
 			else if (minDistance1 < 0.05 && minDistance2 > 0.05 ) radarData.minDistanceToHome = minDistance2 / 1000.;
 			else if (minDistance2 < 0.05 && minDistance1 > 0.05 ) radarData.minDistanceToHome = minDistance1 / 1000.;
 			else radarData.minDistanceToHome = fmin(minDistance1, minDistance2) / 1000.;
+			
+			if (myRadar.getFourRadarLocation())
+			{
+				cout << "four radar location returned true" << endl;
+			}
+			else
+			{
+				cout << "four radar location returned false" << endl;
+			}
 			
 			if (myRadar.getLocation())
 			{
