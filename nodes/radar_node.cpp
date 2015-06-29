@@ -275,7 +275,7 @@ bool getLocation()
 	distanceToHome_ /= 1000.; // convert to meters
 	distanceToStagingPoint_ /= 1000.;
 	
-	/*
+	cout << "y = " << distanceFromLeftToLeft_ << " w = " << distanceFromRightToRight_ << " z = " << distanceFromLeftToRight_ << " X = " << HOME_RADAR_SEPARATION << " Q = " << BOT_RADAR_SEPARATION << "\n";
 	cout << "cosLeftHomeToLeftBot (angle a) = " << cosLeftHomeToLeftBot << ", an angle of " << acos(cosLeftHomeToLeftBot) * 57.3 << " degrees" << endl;
 	cout << "cosAngleB = " << cosAngleB << ", an angle of " << acos(cosAngleB) * 57.3 << " degrees" << endl;
 	cout << "cosAngleD = " << cosAngleD << ", an angle of " << acos(cosAngleD) * 57.3 << " degrees" << endl;
@@ -301,7 +301,7 @@ bool getLocation()
 	cout << "Bot's orientation (angle c) with respect to the platform = " << botOrientation_ * 57.3 << " degrees " << endl;
 	cout << "Staging point is " << distanceToStagingPoint_ << " meters away at an angle = " <<
 		 angleToStagingPoint_  << " degrees" << endl << endl << endl;
-	*/
+	
 	return true;
 }
 	
@@ -586,10 +586,10 @@ void testDataRadarRanges()
 	
 	// from about 55 meters, with the left and right home radars reversed
 	
-	distanceFromLeftToRight_ = 56058.;	// node 100 to 103
-	distanceFromRightToLeft_ = 58493.;		// node 102 to 101
-	distanceFromRightToRight_ = 57227.;	// node 102 to 103
-	distanceFromLeftToLeft_ = 57327.;	// node 100 to 101
+	distanceFromLeftToRight_ = 4650.;//4681.; //56058.;	// node 100 to 103
+	distanceFromRightToLeft_ = 3588.; //3730.; //58493.;		// node 102 to 101
+	distanceFromRightToRight_ = 3588.; //3800.; //57227.;	// node 102 to 103
+	distanceFromLeftToLeft_ = 4650.; //4631.; //57327.;	// node 100 to 101
 	
 	
 	last_time = ros::Time::now();
@@ -616,7 +616,7 @@ int main(int argc, char** argv)
       
 	while(nh.ok())
 	{
-		myRadar.getRadarRanges();  
+	   myRadar.getRadarRanges();  
 		//myRadar.testDataRadarRanges();
 		
 		if (myRadar.getDistanceFromLeftToRight() < 0.05 
@@ -752,7 +752,7 @@ int main(int argc, char** argv)
 		//cout << "ranges from Bot Right to home left, right = " << myRadar.getDistanceFromRightToLeft() << ", " << myRadar.getDistanceFromRightToRight() << std::endl;
 		
 		
-	   
+		break;
 	}
 	return EXIT_SUCCESS;
 }

@@ -44,7 +44,7 @@ using namespace std;
 #define PHASE_ONE_TIME_LIMIT 1800 // 1800 seconds in 30 min-- phase one challenge
 
 #define DIRANT_OFFSET 25
-#define RADAR_ANGLE_OFFSET 25
+//#define RADAR_ANGLE_OFFSET 25
 #define HOME_CAMERA_THRESHOLD 15
 #define PLAT1_X -6.07 //2269.5 pixels x = -6.075176, y = 39.607155, yaw = -0.953306
 #define PLAT1_Y 39.61 //832.5
@@ -64,7 +64,7 @@ using namespace std;
 //#define PIXELS_PER_METER 10.6
 //#define METERS_PER_PIXEL 0.0943	use this value for resolution: in global and local_costmap_params.yaml and in field_map.yaml
 //#define DISTANCE_TO_FIRST_TARGET_STAGING 2.0
-//#define DISTANCE_TO_FIRST_TARGET 12.0
+#define DISTANCE_TO_FIRST_TARGET 64.0
 #define TARGET_STAGING_DISTANCE 0.
 #define INCREMENTAL_MOVE_TO_TARGET 10.0
 #define INCREMENTAL_TURN_TO_FIND_TARGET 40.0
@@ -113,7 +113,7 @@ int home_image_height_, home_image_width_;
 bool homeCenterUpdated_, movementComplete_, triedWebcamAlready_, triedZoomDigcamAlready_, triedRegularDigcamAlready_, bigTurnDone_, lastTurn_;
 int lastMove_, bigMoveDone_;
 double range_, approxRangeToTarget_, targetRange_, homeCameraRange_, offsetX_, webcamTilt_, regularDigcamZoom_, zoomDigcamZoom_, regularDigcamFOV_, homeDigcamZoom_, homeDigcamFOV_;
-double accelX_, accelY_, accelZ_, x_, y_, yaw_, odomDistanceToHome_, odomAngleToLineup_, startingPlatformPosition_;
+double accelX_, accelY_, accelZ_, x_, y_, yaw_, odomDistanceToHome_, odomAngleToHome_, odomAngleToLineup_, startingPlatformPosition_;
 bool zoomResult_, writeFileResult_, newMainTargetDigcamImageReceived_, newMainTargetWebcamImageReceived_, rangeUnknown_;
 bool targetCenterUpdated_, newNavTargetImageReceived_;
 int retCapToMemory_;
@@ -470,15 +470,18 @@ bool callAccelerometersService()
 		accelY_ = resp.accelY;
 		accelZ_ = resp.accelZ;	
 		yaw_ = resp.yaw * 57.3; // degrees
+		if (yaw_ > 180) yaw_ -= 360.;
+		else if (yaw_ < -180) yaw_ += 360.;
 		x_ = resp.x; // meters
 		y_ = resp.y;	
 		odomDistanceToHome_ = sqrt((x_ * x_) + (y_ * y_));	
+		odomAngleToHome_ = 180. - (atan2(y_, x_) * 57.3);
 		odomAngleToLineup_ = STARTING_PLATFORM_LINEUP_OFFSET - (yaw_ - startingPlatformPosition_);
 	}
 	cout << "accels, x, y, z = " << accelX_ << ", " << accelY_ << ", " << accelZ_ << endl;
-	cout << "x, y, yaw (radians), yaw (degrees), odomDistanceToHome_ (meters), odomAngleToLineup_  = "
-		 << x_ << ", " << y_ << ", " << yaw_ / 57.3 << ", " << yaw_ << ", " << odomDistanceToHome_ << ", " << odomAngleToLineup_ << endl;
-	//if (fabs(accelZ_) > 3.) return true;
+	cout << "x, y, yaw (radians), yaw (degrees) = " << x_ << ", " << y_ << ", " << yaw_ / 57.3 << ", " << yaw_ << endl;
+	cout << "odomDistanceToHome_ (meters), odomAngleToHome_ (degrees), odomAngleToLineup_  = " 
+		<< ", " << odomDistanceToHome_ << ", " << odomAngleToHome_ << ", " << odomAngleToLineup_ << endl;
 	return true;
 }
 
@@ -1046,11 +1049,11 @@ void on_enter_BootupState()
 {
 	currentSection_ = BOOTUP;
 	numTargets_ = 0;
-	distanceToFirstTarget_ = 65;
-	approxRangeToTarget_ = 65; 
-   targetRange_ = 65;
+	distanceToFirstTarget_ = DISTANCE_TO_FIRST_TARGET;
+	approxRangeToTarget_ = DISTANCE_TO_FIRST_TARGET;
+   targetRange_ = DISTANCE_TO_FIRST_TARGET;
    homeCameraRange_ = 20.;
-   range_ = 65;
+   range_ = DISTANCE_TO_FIRST_TARGET;
    radialMovesToTarget_ = 0;
    x_ = 0.;
    y_ = 0.;
@@ -1103,6 +1106,7 @@ void on_enter_BootupState()
    distanceToRadarStagingPoint_ = 0.;
    angleToRadarStagingPoint_ = 0.;
    odomDistanceToHome_ = 0.;
+   odomAngleToHome_ = 0.;
    odomAngleToLineup_ = 90.;
    startingPlatformPosition_ = 0.;
    radarGoodData_ = false;
@@ -1708,8 +1712,8 @@ int on_update_MoveToFirstTargetState()
 				}
 				else distanceToHome = odomDistanceToHome_;
 				
-				distanceToFirstTargetStaging_ -= distanceToHome;
-				approxRangeToTarget_ -= distanceToHome;
+				distanceToFirstTargetStaging_ = distanceToHome - (DISTANCE_TO_FIRST_TARGET - TARGET_STAGING_DISTANCE);
+				approxRangeToTarget_ = distanceToHome - (DISTANCE_TO_FIRST_TARGET - TARGET_STAGING_DISTANCE);
 				
 	   		return MoveToFirstTargetState_;	// we have not gone far enough out toward the target, keep moving until we get there.
 	   	}
@@ -1752,9 +1756,6 @@ int on_update_MoveToFirstTargetState()
    	
 		
 		// turn to zero the yaw
-		if (yaw_ > 180) yaw_ -= 360.;
-		else if (yaw_ < -180) yaw_ += 360.;
-		cout << "yaw_ = " << yaw_ << endl;
 		if (fabs(yaw_ - firstTurnAngle_) > 3.0 && alreadyTurned_ < 1)
 		{
 			msg.command = "autoMove";
@@ -2838,9 +2839,9 @@ int on_update_PickupTargetState()
    		movementComplete_ = false;
    		triedZoomDigcamAlready_ = true;	
          //triedRegularDigcamAlready_ = false;
-	      cout << "driving backwards 2m to check that we got the target" << endl;
+	      cout << "driving backwards 1m to check that we got the target" << endl;
 		   msg.command = "autoMove";
-		   msg.distance = 2000;	// mm
+		   msg.distance = 1000;	// mm
 		   msg.angle = 0;			// degrees
 		   msg.speed = -800;   	// mm/sec or deg/sec 
 		   timeIn = ros::Time::now() + ros::Duration(5);
@@ -3463,24 +3464,23 @@ int on_update_HeadForHomeState()
 				msg.angle = angleToRadarStagingPoint_;
 				cout << "turning to staging point using four radar orientation, angle = " << msg.angle << endl;
 			}
-			else 
+			else
 			{
-				cout << "we are less than 2m from the staging point" << endl;
-				msg.angle = angleToHomeRadar_ + RADAR_ANGLE_OFFSET; //* 1.2;	// go a little past, to maintain an approach intercept
-				if (distanceToRadarStagingPoint_ <= 2. )
+				msg.angle = angleToHomeRadar_; //* 1.2;	// go a little past, to maintain an approach intercept
+				cout << "turning for home with an angleToHomeRadar_ " << msg.angle << endl;
+				if (distanceToRadarStagingPoint_ <= 2.)
 				{
-					cout << "we are too close to the staging point to turn, distanceToStagingPoint_ = " <<  distanceToRadarStagingPoint_ << endl;
+					cout << "we are a distance of " << distanceToRadarStagingPoint_ << " <= 2m from the staging point" << endl;
+					pastStagingPoint_ = true;
+				}
+				if (!radarGoodOrientation_)
+				{
+					cout << "we did not have all four radars, so we are turning to home instead of the staging point" << endl;
 				}
 				if (fabs(fabs(angleToRadarStagingPoint_) - fabs(angleToHomeRadar_)) >= 20.)
 				{
 					cout << "the angle difference between angle to staging point and angle to home was too large for us to turn to the staging point, angleToRadarStagingPoint_, angleToHomeRadar_ = "<< angleToRadarStagingPoint_ << ", " << angleToHomeRadar_ << endl;
 				}
-				
-				if (!radarGoodOrientation_)
-				{
-					cout << "we did not have all four radars, so we are turning to home instead of the staging point" << endl;
-				}
-				cout << "turning for home with an angleToHomeRadar_ + RADAR_ANGLE_OFFSET = " << msg.angle << endl;
 			}
 			cout << "for info, distanceToRadarStagingPoint_, angleToRadarStagingPoint_, angleToHomeRadar_ =  " << distanceToRadarStagingPoint_ << " meters, " << angleToRadarStagingPoint_ << ", " << angleToHomeRadar_ << endl;
 			
@@ -3519,7 +3519,7 @@ int on_update_HeadForHomeState()
 			}
 			else
 			{
-				if (distanceToRadarStagingPoint_ < 1.5)
+				if (distanceToRadarStagingPoint_ < 2.)
 				{
 					pastStagingPoint_ = true;
 					msg.distance = distanceToRadarStagingPoint_ * 1000.;
@@ -3535,7 +3535,8 @@ int on_update_HeadForHomeState()
 			cout << "distance to home radar, staging point = " << distanceToHomeRadar_ << ", " << distanceToRadarStagingPoint_ << endl;
 			cout << "angle to home radar, staging point = " << angleToHomeRadar_ << ", " << angleToRadarStagingPoint_ << endl;
 			callAccelerometersService();
-			cout << "odomDistanceToHome_, odomAngleToHome_ = " << odomDistanceToHome_ << ", " << odomAngleToLineup_ << endl;
+			cout << "odomDistanceToHome_, odomAngleToHome_, odomAngleToLineup = " 
+				<< odomDistanceToHome_ << ", " << odomAngleToHome_ << ", " << odomAngleToLineup_ << endl;
 			if (pastStagingPoint_) cout << "this is the last move to the staging point" << endl;
 			return HeadForHomeState_;
 		}
