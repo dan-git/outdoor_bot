@@ -76,7 +76,7 @@ bool getFourRadarLocation()
 		if (orientationY > 0) orientationToHome = 90;
 		else orientationToHome = -90;
 	}
-	else orientationToHome = atan(orientationY/orientationX) * 57.3;
+	else orientationToHome = atan2(orientationY, orientationX) * 57.3;
 	botOrientation_ = orientationToHome / 57.3;
 	
 	
@@ -678,6 +678,16 @@ int main(int argc, char** argv)
 			else if (minDistance2 < 0.05 && minDistance1 > 0.05 ) radarData.minDistanceToHome = minDistance1 / 1000.;
 			else radarData.minDistanceToHome = fmin(minDistance1, minDistance2) / 1000.;
 			
+			if (myRadar.getThreeRadarLocation())
+			{			
+				radarData.goodData = true;
+				radarData.goodLocation = true;
+				radarData.goodOrientation = false;
+				radarData.distanceToHome = myRadar.getDistanceToHome();	// range in meters
+				radarData.angleToHome = myRadar.getAngleToHome();
+				cout << "Three radar distance, angle to home =  " << radarData.distanceToHome << " meters, " << radarData.angleToHome << " degrees" << endl << endl;
+			}
+			
 			if (myRadar.getFourRadarLocation())
 			{
 				cout << "four radar location returned true" << endl;
@@ -701,15 +711,7 @@ int main(int argc, char** argv)
 				cout << "Four radar distance, angle, orientation to home =  " << radarData.distanceToHome << " meters, " << radarData.angleToHome << " degrees, " << radarData.orientation << endl;
 				cout << "Four radar distance, angle to staging point = " << radarData.distanceToStagingPoint << " meters, " << radarData.angleToStagingPoint << " degrees" << endl << endl;	
 			}
-			else if (myRadar.getThreeRadarLocation())
-			{			
-				radarData.goodData = true;
-				radarData.goodLocation = true;
-				radarData.goodOrientation = false;
-				radarData.distanceToHome = myRadar.getDistanceToHome();	// range in meters
-				radarData.angleToHome = myRadar.getAngleToHome();
-				cout << "Three radar distance, angle to home =  " << radarData.distanceToHome << " meters, " << radarData.angleToHome << " degrees" << endl << endl;
-			}
+
 			else
 			{
 				radarData.goodData = true;
@@ -751,8 +753,6 @@ int main(int argc, char** argv)
 		//cout << "ranges from Bot Left to home left, right = " << myRadar.getDistanceFromLeftToLeft() << ", " << myRadar.getDistanceFromLeftToRight() << std::endl;
 		//cout << "ranges from Bot Right to home left, right = " << myRadar.getDistanceFromRightToLeft() << ", " << myRadar.getDistanceFromRightToRight() << std::endl;
 		
-		
-		break;
 	}
 	return EXIT_SUCCESS;
 }

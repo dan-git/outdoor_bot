@@ -476,12 +476,16 @@ bool callAccelerometersService()
 		y_ = resp.y;	
 		odomDistanceToHome_ = sqrt((x_ * x_) + (y_ * y_));	
 		odomAngleToHome_ = 180. - (atan2(y_, x_) * 57.3);
+		if (odomAngleToHome_ > 180) odomAngleToHome_ -= 360.;
+		else if (odomAngleToHome_ < -180) odomAngleToHome_ += 360.;
 		odomAngleToLineup_ = STARTING_PLATFORM_LINEUP_OFFSET - (yaw_ - startingPlatformPosition_);
+		if (odomAngleToLineup_ > 180) odomAngleToLineup_ -= 360.;
+		else if (odomAngleToLineup_ < -180) odomAngleToLineup_ += 360.;
 	}
 	cout << "accels, x, y, z = " << accelX_ << ", " << accelY_ << ", " << accelZ_ << endl;
 	cout << "x, y, yaw (radians), yaw (degrees) = " << x_ << ", " << y_ << ", " << yaw_ / 57.3 << ", " << yaw_ << endl;
 	cout << "odomDistanceToHome_ (meters), odomAngleToHome_ (degrees), odomAngleToLineup_  = " 
-		<< ", " << odomDistanceToHome_ << ", " << odomAngleToHome_ << ", " << odomAngleToLineup_ << endl;
+		<< odomDistanceToHome_ << ", " << odomAngleToHome_ << ", " << odomAngleToLineup_ << endl;
 	return true;
 }
 
@@ -1396,11 +1400,11 @@ int on_update_PhaseTwoFirstState()
 		if (callAccelerometersService())
 		{
 			double downhillDirection;
-			if (accelX_ > 0.01) downhillDirection = atan(accelY_ / accelX_) * 57.3;
+			if (accelX_ > 0.01) downhillDirection = atan2(accelY_, accelX_) * 57.3;
 			else if (accelX_ < -0.01)
 			{
-				if (accelY_ >= 0) downhillDirection = 180 - (atan(accelY_ / -accelX_) * 57.3);
-				else downhillDirection = -180 + (atan(accelY_ / -accelX_) * 57.3);
+				if (accelY_ >= 0) downhillDirection = 180 - (atan2(accelY_, -accelX_) * 57.3);
+				else downhillDirection = -180 + (atan2(accelY_, -accelX_) * 57.3);
 			}
 			else downhillDirection = 90. * sgn(accelY_);
 			cout << "downhill direction = " << downhillDirection << endl;
@@ -1690,19 +1694,19 @@ int on_update_MoveToFirstTargetState()
 		movementComplete_ = false;		
 	   if (movementResult_.find("done") != string::npos)
 	   {
-   		if (turnedToFaceFirstTarget_)	// we are now at the correct range from home and should be facing the target
-   		{
-   			turning_ = false;
-   			firstMoveToFirstTarget_ = false;
-				alreadyTurned_ = 0;
-				approxRangeToTarget_ = 10.;
-				distanceToFirstTargetStaging_ = 0;					
-   			cout << "finished turn to face target, approxRangeToTarget_ = " << approxRangeToTarget_ << endl;
-   			return CheckFirstTargetState_;
-   		}
-	   	else	if (firstMoveToFirstTarget_)
+	   	if (firstMoveToFirstTarget_)
 	   	{
-	   		ROS_INFO("move or turn completed in MoveToFirstTargetState");
+				if (turnedToFaceFirstTarget_)	// we are now at the correct range from home and should be facing the target
+				{
+					turning_ = false;
+					firstMoveToFirstTarget_ = false;
+					alreadyTurned_ = 0;
+					approxRangeToTarget_ = 10.;
+					distanceToFirstTargetStaging_ = 0;					
+					cout << "finished turn to face target, approxRangeToTarget_ = " << approxRangeToTarget_ << endl;
+					return CheckFirstTargetState_;
+				}
+   			ROS_INFO("move or turn completed in MoveToFirstTargetState");
 	   		double distanceToHome = -1;
 	   		
 				callAccelerometersService();	
@@ -1712,8 +1716,8 @@ int on_update_MoveToFirstTargetState()
 				}
 				else distanceToHome = odomDistanceToHome_;
 				
-				distanceToFirstTargetStaging_ = distanceToHome - (DISTANCE_TO_FIRST_TARGET - TARGET_STAGING_DISTANCE);
-				approxRangeToTarget_ = distanceToHome - (DISTANCE_TO_FIRST_TARGET - TARGET_STAGING_DISTANCE);
+				distanceToFirstTargetStaging_ = (DISTANCE_TO_FIRST_TARGET - TARGET_STAGING_DISTANCE) - distanceToHome;
+				approxRangeToTarget_ = (DISTANCE_TO_FIRST_TARGET - TARGET_STAGING_DISTANCE) - distanceToHome;
 				
 	   		return MoveToFirstTargetState_;	// we have not gone far enough out toward the target, keep moving until we get there.
 	   	}
@@ -2174,11 +2178,11 @@ void on_enter_NewTargetState()
 	if (callAccelerometersService())
 	{
 		double downhillDirection;
-		if (accelX_ > 0.01) downhillDirection = atan(accelY_ / accelX_) * 57.3;
+		if (accelX_ > 0.01) downhillDirection = atan2(accelY_, accelX_) * 57.3;
 		else if (accelX_ < -0.01)
 		{
-			if (accelY_ >= 0) downhillDirection = 180 - (atan(accelY_ / -accelX_) * 57.3);
-			else downhillDirection = -180 + (atan(accelY_ / -accelX_) * 57.3);
+			if (accelY_ >= 0) downhillDirection = 180 - (atan2(accelY_, -accelX_) * 57.3);
+			else downhillDirection = -180 + (atan2(accelY_, -accelX_) * 57.3);
 		}
 		else downhillDirection = 90. * sgn(accelY_);
 		cout << "downhill direction = " << downhillDirection << endl;
@@ -2952,13 +2956,7 @@ void on_enter_PhaseOneHomeState()
 	alreadyTurned_ = 0;
 	
 	if (callAccelerometersService())
-	{
-		// make sure yaw is in the range -180 to 180
-		while (yaw_ > 360.) yaw_ -= 360.;
-		if (yaw_ > 180.) yaw_ -= 180.;
-		while (yaw_ < - 360.) yaw_ += 360.;
-		if (yaw_ < -180.) yaw_ += 180.;
-		
+	{		
 		if (yaw_ > 0)		
 		{
 			msg.angle = 180 - yaw_;
@@ -3142,7 +3140,7 @@ int on_update_RadarApproachState()
 void on_enter_CheckHomeState()
 {
    // start by seeing if we can get a radar range and angle
-  if (radarGoodLocation_ && distanceToHomeRadar_ > HOME_CAMERA_THRESHOLD) return;
+  if (radarGoodLocation_ && (distanceToHomeRadar_ > HOME_CAMERA_THRESHOLD)) return;
    
    // start by capturing an image using fsm
    currentSection_ = HOME;
@@ -3166,7 +3164,7 @@ void on_enter_CheckHomeState()
 
 int on_update_CheckHomeState()
 {  
-   if (radarGoodLocation_)
+   if (radarGoodLocation_  && (distanceToHomeRadar_ > HOME_CAMERA_THRESHOLD))
    {
    	usingRadar_ = true;
    	homeCameraRange_ = 0;
@@ -3678,7 +3676,7 @@ int on_update_HeadForHomeState()
 	
 	readSensors();
 	
-	cout << "range estimates: radar, optical, laser = " << distanceToHomeRadar_ << ", " << homeCameraRange_ << ", " << nearestObstacle_ << endl;
+	cout << "range estimates: radar, odom, optical, laser = " << distanceToHomeRadar_ << ", " << odomDistanceToHome_ << homeCameraRange_ << ", " << nearestObstacle_ << endl;
 
 	if (radarGoodData_ && distanceToHomeRadar_ > 0.01)	range_ = distanceToHomeRadar_;
 	else if (centerX_ > 0 && homeCameraRange_ > 1.0)
